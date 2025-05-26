@@ -63,5 +63,5 @@ django-environ==0.10.0
 webpush==0.5.2
 pytz==2025.2
 pywebpush==2.0.3
-webpush==0.5.2
-cryptography==41.0.2
+webpush==1.0.5
+cryptography==45.0.3
