@@ -410,27 +410,29 @@ def get_all_staff(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # Mock staff data
-        staff = [
-            {
-                "id": 1,
-                "name": "Dr. Sarah Johnson",
-                "email": "sarah.johnson@hospital.com",
-                "role": "Doctor",
-                "department": "Cardiology",
-                "status": "active"
-            },
-            {
-                "id": 2,
-                "name": "Nurse Mary Wilson",
-                "email": "mary.wilson@hospital.com",
-                "role": "Nurse",
-                "department": "Emergency",
-                "status": "active"
-            }
-        ]
+        # Get all active staff members from database
+        staff_query = EnhancedStaffProfile.objects.select_related('user', 'specialization').filter(
+            is_active=True,
+            employment_status__in=['full_time', 'part_time', 'contract', 'per_diem', 'locum_tenens']
+        ).order_by('user__full_name')
         
-        return JsonResponse({"staff": staff, "total": len(staff)})
+        # Serialize staff data
+        staff_data = []
+        for staff_member in staff_query:
+            staff_data.append({
+                "id": str(staff_member.id),
+                "name": staff_member.user.full_name,
+                "email": staff_member.user.email,
+                "role": staff_member.job_title,
+                "department": staff_member.department,
+                "specialization": staff_member.specialization.name if staff_member.specialization else None,
+                "employment_status": staff_member.get_employment_status_display(),
+                "status": "active" if staff_member.is_active else "inactive",
+                "created_at": staff_member.created_at.isoformat(),
+                "updated_at": staff_member.updated_at.isoformat()
+            })
+        
+        return JsonResponse({"staff": staff_data, "total": len(staff_data)})
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

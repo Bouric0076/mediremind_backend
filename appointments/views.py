@@ -59,16 +59,32 @@ def create_appointment(request):
     try:
         data = json.loads(request.body)
         
-        # Required fields
-        required_fields = ["doctor_id", "patient_id", "date", "time", "type"]
+        # Required fields - handle both old and new field names
+        required_fields = ["date", "time"]
+        
+        # Handle provider_id or doctor_id
+        if "provider_id" not in data and "doctor_id" not in data:
+            return JsonResponse({"error": "Missing required field: provider_id or doctor_id"}, status=400)
+        
+        # Handle patient_id
+        if "patient_id" not in data:
+            return JsonResponse({"error": "Missing required field: patient_id"}, status=400)
+            
+        # Handle appointment_type or type
+        if "appointment_type" not in data and "type" not in data:
+            return JsonResponse({"error": "Missing required field: appointment_type or type"}, status=400)
+        
         for field in required_fields:
             if field not in data:
                 return JsonResponse({
                     "error": f"Missing required field: {field}"
                 }, status=400)
 
+        # Get appointment type from either field name
+        appointment_type_name = data.get("appointment_type") or data.get("type")
+        
         # Validate appointment type
-        valid, error_msg = validate_appointment_type(data["type"])
+        valid, error_msg = validate_appointment_type(appointment_type_name)
         if not valid:
             return JsonResponse({"error": error_msg}, status=400)
 
@@ -77,9 +93,12 @@ def create_appointment(request):
         if not valid:
             return JsonResponse({"error": error_msg}, status=400)
 
+        # Get provider/doctor ID from either field name
+        provider_id = data.get("provider_id") or data.get("doctor_id")
+        
         # Validate doctor exists
         try:
-            doctor = EnhancedStaffProfile.objects.get(id=data["doctor_id"])
+            doctor = EnhancedStaffProfile.objects.get(id=provider_id)
         except EnhancedStaffProfile.DoesNotExist:
             return JsonResponse({"error": "Doctor not found"}, status=404)
 
@@ -91,7 +110,7 @@ def create_appointment(request):
 
         # Validate appointment type
         try:
-            appointment_type = AppointmentType.objects.get(name__iexact=data["type"])
+            appointment_type = AppointmentType.objects.get(name__iexact=appointment_type_name)
         except AppointmentType.DoesNotExist:
             return JsonResponse({"error": "Invalid appointment type"}, status=400)
 
@@ -315,14 +334,24 @@ def cancel_appointment(request, appointment_id):
         return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
 
 
-@csrf_exempt
+@api_csrf_exempt
 @require_http_methods(["GET"])
 def get_all_appointments(request):
     """Get all appointments with filtering and pagination"""
-    # Verify authentication
+    # Verify authentication with multiple fallback methods
     user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
+        # Additional fallback: try direct token authentication
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith(('Bearer ', 'Token ')):
+            token = auth_header.split(' ')[1]
+            user = get_authenticated_user(token)
+            if user:
+                request.authenticated_user = user
+                request.user = user
+        
+        if not user:
+            return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         # Get the actual Django User model from AuthenticatedUser
@@ -401,17 +430,19 @@ def get_all_appointments(request):
         for appointment in appointments_page:
             appointments_data.append({
                 "id": str(appointment.id),
-                "patient_id": str(appointment.patient.id),
-                "patient_name": f"{appointment.patient.user.first_name} {appointment.patient.user.last_name}",
-                "provider_id": str(appointment.provider.id),
-                "provider_name": f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",
-                "appointment_type": appointment.appointment_type.name,
-                "scheduled_date": appointment.scheduled_date.strftime("%Y-%m-%d"),
-                "scheduled_time": appointment.scheduled_time.strftime("%H:%M"),
+                "patientId": str(appointment.patient.id),
+                "patientName": f"{appointment.patient.user.first_name} {appointment.patient.user.last_name}",
+                "providerId": str(appointment.provider.id),
+                "provider": f"Dr. {appointment.provider.user.last_name}",
+                "type": appointment.appointment_type.name.lower(),
+                "date": appointment.appointment_date.strftime("%Y-%m-%d"),
+                "time": appointment.start_time.strftime("%H:%M"),
+                "duration": appointment.duration,
                 "status": appointment.status,
                 "priority": appointment.priority,
-                "location": appointment.location_text,
+                "room": getattr(appointment.room, 'name', None) if hasattr(appointment, 'room') and appointment.room else None,
                 "notes": appointment.notes,
+                "reason": appointment.reason,
                 "created_at": appointment.created_at.isoformat(),
                 "updated_at": appointment.updated_at.isoformat()
             })

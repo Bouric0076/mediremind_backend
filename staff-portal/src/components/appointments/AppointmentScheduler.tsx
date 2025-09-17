@@ -20,7 +20,7 @@ import {
   FormHelperText,
   Card,
   CardContent,
-  Divider,
+
   List,
   ListItem,
   ListItemText,
@@ -43,7 +43,7 @@ import {
   Warning as WarningIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { format, addMinutes, isAfter, isBefore, parseISO } from 'date-fns';
+import { format, isAfter, isBefore, parseISO, isSameDay } from 'date-fns';
 
 interface Patient {
   id: string;
@@ -100,6 +100,7 @@ interface AppointmentSchedulerProps {
   patients: Patient[];
   providers: Provider[];
   appointmentTypes: AppointmentType[];
+  loading?: boolean;
 }
 
 const defaultFormData: AppointmentFormData = {
@@ -127,6 +128,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   patients,
   providers,
   appointmentTypes,
+  loading: externalLoading = false,
 }) => {
   const [formData, setFormData] = useState<AppointmentFormData>(defaultFormData);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
@@ -165,10 +167,57 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   // Check availability when provider, date, or duration changes
   useEffect(() => {
-    if (formData.providerId && formData.date && formData.duration) {
+    if (formData.providerId && formData.date) {
+      // Generate default slots immediately for better UX
+      const defaultSlots = generateDefaultTimeSlots(formData.date, formData.providerId);
+      setAvailableSlots(defaultSlots);
+      
+      // Then check with backend for real availability
       checkProviderAvailability();
+    } else {
+      setAvailableSlots([]);
     }
   }, [formData.providerId, formData.date, formData.duration]);
+
+  // Generate default time slots (30-minute intervals from 8 AM to 6 PM)
+  const generateDefaultTimeSlots = (selectedDate: Date, providerId: string): TimeSlot[] => {
+    const slots: TimeSlot[] = [];
+    const provider = providers.find(p => p.id === providerId);
+    
+    // Default working hours: 8 AM to 6 PM
+    let startHour = 8;
+    let endHour = 18;
+    
+    // Use provider's availability if available
+    if (provider?.availability && provider.availability.length > 0) {
+      const availability = provider.availability[0]; // Use first availability slot
+      const [start, end] = availability.split('-');
+      if (start && end) {
+        startHour = parseInt(start.split(':')[0]);
+        endHour = parseInt(end.split(':')[0]);
+      }
+    }
+
+    // Generate 30-minute slots
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        
+        // Check if this time is in the past for today
+        const slotDateTime = new Date(selectedDate);
+        slotDateTime.setHours(hour, minute, 0, 0);
+        const isInPast = isBefore(slotDateTime, new Date());
+        
+        slots.push({
+          time: timeString,
+          available: !isInPast,
+          reason: isInPast ? 'Time has passed' : undefined
+        });
+      }
+    }
+    
+    return slots;
+  };
 
   const checkProviderAvailability = async () => {
     if (!formData.providerId || !formData.date) return;
@@ -190,11 +239,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         setAvailableSlots(data.available_slots || []);
       } else {
         console.error('Failed to check availability');
-        setAvailableSlots([]);
+        // Fallback to generated slots if API fails
+        const defaultSlots = generateDefaultTimeSlots(formData.date, formData.providerId);
+        setAvailableSlots(defaultSlots);
       }
     } catch (error) {
       console.error('Error checking availability:', error);
-      setAvailableSlots([]);
+      // Fallback to generated slots if API fails
+      const defaultSlots = generateDefaultTimeSlots(formData.date, formData.providerId);
+      setAvailableSlots(defaultSlots);
     } finally {
       setCheckingAvailability(false);
     }
@@ -203,34 +256,102 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Patient validation
     if (!formData.patientId) {
       newErrors.patientId = 'Patient is required';
+    } else {
+      const selectedPatient = patients.find(p => p.id === formData.patientId);
+      if (!selectedPatient) {
+        newErrors.patientId = 'Selected patient is not valid';
+      }
     }
 
+    // Provider validation
     if (!formData.providerId) {
       newErrors.providerId = 'Provider is required';
+    } else {
+      const selectedProvider = providers.find(p => p.id === formData.providerId);
+      if (!selectedProvider) {
+        newErrors.providerId = 'Selected provider is not valid';
+      }
     }
 
+    // Appointment type validation
     if (!formData.appointmentTypeId) {
       newErrors.appointmentTypeId = 'Appointment type is required';
+    } else {
+      const selectedType = appointmentTypes.find(t => t.id === formData.appointmentTypeId);
+      if (!selectedType) {
+        newErrors.appointmentTypeId = 'Selected appointment type is not valid';
+      }
     }
 
+    // Date validation
     if (!formData.date) {
       newErrors.date = 'Date is required';
-    } else if (isBefore(formData.date, new Date())) {
-      newErrors.date = 'Date cannot be in the past';
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (isBefore(formData.date, today)) {
+        newErrors.date = 'Date cannot be in the past';
+      }
+      
+      // Check if date is too far in the future (e.g., more than 1 year)
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      if (isAfter(formData.date, oneYearFromNow)) {
+        newErrors.date = 'Date cannot be more than 1 year in the future';
+      }
     }
 
+    // Time validation
     if (!formData.time) {
       newErrors.time = 'Time is required';
+    } else if (formData.date && formData.providerId) {
+      // Check if selected time is available
+      const timeString = format(formData.time, 'HH:mm');
+      const selectedSlot = availableSlots.find(slot => slot.time === timeString);
+      
+      if (!selectedSlot) {
+        newErrors.time = 'Selected time is not available';
+      } else if (!selectedSlot.available) {
+        newErrors.time = selectedSlot.reason || 'Selected time is not available';
+      }
+      
+      // Check if appointment is in the past for today
+      if (formData.date && isSameDay(formData.date, new Date())) {
+        const appointmentDateTime = new Date(formData.date);
+        appointmentDateTime.setHours(formData.time.getHours(), formData.time.getMinutes());
+        
+        if (isBefore(appointmentDateTime, new Date())) {
+          newErrors.time = 'Appointment time cannot be in the past';
+        }
+      }
     }
 
+    // Location validation
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required';
+    } else if (formData.location.trim().length < 3) {
+      newErrors.location = 'Location must be at least 3 characters';
     }
 
-    if (formData.duration < 15 || formData.duration > 240) {
+    // Duration validation
+    if (!formData.duration || formData.duration < 15 || formData.duration > 240) {
       newErrors.duration = 'Duration must be between 15 and 240 minutes';
+    } else if (formData.duration % 15 !== 0) {
+      newErrors.duration = 'Duration must be in 15-minute increments';
+    }
+
+    // Priority validation
+    if (!formData.priority) {
+      newErrors.priority = 'Priority is required';
+    }
+
+    // Notes validation (optional but with length limit)
+    if (formData.notes && formData.notes.length > 500) {
+      newErrors.notes = 'Notes cannot exceed 500 characters';
     }
 
     setErrors(newErrors);
@@ -280,17 +401,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   const getSelectedPatient = () => patients.find(p => p.id === formData.patientId);
   const getSelectedProvider = () => providers.find(p => p.id === formData.providerId);
-  const getSelectedAppointmentType = () => appointmentTypes.find(t => t.id === formData.appointmentTypeId);
 
-  const isTimeSlotAvailable = (timeString: string): boolean => {
-    const slot = availableSlots.find(s => s.time === timeString);
-    return slot ? slot.available : false;
-  };
-
-  const getTimeSlotReason = (timeString: string): string | undefined => {
-    const slot = availableSlots.find(s => s.time === timeString);
-    return slot?.reason;
-  };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -449,6 +560,22 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               />
             </Grid>
 
+            {/* Time Selection */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TimePicker
+                label="Appointment Time"
+                value={formData.time}
+                onChange={(time) => handleInputChange('time', time)}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    error: !!errors.time,
+                    helperText: errors.time,
+                  },
+                }}
+              />
+            </Grid>
+
             {/* Duration */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
@@ -482,38 +609,61 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     </Box>
 
                     {availableSlots.length > 0 ? (
-                      <Grid container spacing={1}>
-                        {availableSlots.map((slot) => (
-                          <Grid item key={slot.time}>
-                            <Tooltip
-                              title={slot.available ? 'Available' : slot.reason || 'Not available'}
-                              arrow
-                            >
-                              <Chip
-                                label={slot.time}
-                                onClick={() => {
-                                  if (slot.available) {
-                                    const timeDate = new Date(`2000-01-01T${slot.time}`);
-                                    handleInputChange('time', timeDate);
-                                  }
-                                }}
-                                color={slot.available ? 'primary' : 'default'}
-                                variant={
-                                  formData.time && format(formData.time, 'HH:mm') === slot.time
-                                    ? 'filled'
-                                    : 'outlined'
-                                }
-                                disabled={!slot.available}
-                                icon={slot.available ? <CheckIcon /> : <WarningIcon />}
-                                sx={{
-                                  cursor: slot.available ? 'pointer' : 'not-allowed',
-                                  opacity: slot.available ? 1 : 0.5,
-                                }}
-                              />
-                            </Tooltip>
-                          </Grid>
-                        ))}
-                      </Grid>
+                      <Box>
+                        {/* Group slots by time periods */}
+                        {[
+                          { label: 'Morning', start: 6, end: 12 },
+                          { label: 'Afternoon', start: 12, end: 17 },
+                          { label: 'Evening', start: 17, end: 22 }
+                        ].map(period => {
+                          const periodSlots = availableSlots.filter(slot => {
+                            const hour = parseInt(slot.time.split(':')[0]);
+                            return hour >= period.start && hour < period.end;
+                          });
+
+                          if (periodSlots.length === 0) return null;
+
+                          return (
+                            <Box key={period.label} sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                                {period.label}
+                              </Typography>
+                              <Grid container spacing={1}>
+                                {periodSlots.map((slot) => (
+                                  <Grid key={slot.time}>
+                                    <Tooltip
+                                      title={slot.available ? 'Available' : slot.reason || 'Not available'}
+                                      arrow
+                                    >
+                                      <Chip
+                                        label={format(new Date(`2000-01-01T${slot.time}`), 'h:mm a')}
+                                        onClick={() => {
+                                          if (slot.available) {
+                                            const timeDate = new Date(`2000-01-01T${slot.time}`);
+                                            handleInputChange('time', timeDate);
+                                          }
+                                        }}
+                                        color={slot.available ? 'primary' : 'default'}
+                                        variant={
+                                          formData.time && format(formData.time, 'HH:mm') === slot.time
+                                            ? 'filled'
+                                            : 'outlined'
+                                        }
+                                        disabled={!slot.available}
+                                        icon={slot.available ? <CheckIcon /> : <WarningIcon />}
+                                        sx={{
+                                          cursor: slot.available ? 'pointer' : 'not-allowed',
+                                          opacity: slot.available ? 1 : 0.5,
+                                        }}
+                                      />
+                                    </Tooltip>
+                                  </Grid>
+                                ))}
+                              </Grid>
+                            </Box>
+                          );
+                        })}
+                      </Box>
                     ) : (
                       <Typography color="text.secondary">
                         {checkingAvailability ? 'Checking availability...' : 'No available slots found'}
@@ -664,16 +814,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         </DialogContent>
 
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={onClose} disabled={loading}>
+          <Button onClick={onClose} disabled={externalLoading || loading}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={loading || checkingAvailability}
-            startIcon={loading ? <CircularProgress size={20} /> : null}
+            disabled={externalLoading || loading || checkingAvailability}
+            startIcon={externalLoading || loading ? <CircularProgress size={20} /> : null}
           >
-            {loading ? 'Scheduling...' : editingAppointment ? 'Update Appointment' : 'Schedule Appointment'}
+            {externalLoading || loading ? 'Scheduling...' : editingAppointment ? 'Update Appointment' : 'Schedule Appointment'}
           </Button>
         </DialogActions>
       </Dialog>

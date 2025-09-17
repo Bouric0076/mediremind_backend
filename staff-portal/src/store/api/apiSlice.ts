@@ -193,7 +193,18 @@ export const apiSlice = createApi({
       providesTags: (_, __, id) => [{ type: 'Appointment', id }],
     }),
     
-    createAppointment: builder.mutation<any, Partial<any>>({
+    createAppointment: builder.mutation<any, {
+      patient_id: string;
+      provider_id: string;
+      appointment_type: string;
+      date: string;
+      time: string;
+      duration: number;
+      location: string;
+      priority: 'low' | 'medium' | 'high' | 'urgent';
+      notes?: string;
+      status?: 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
+    }>({
       query: (appointment) => ({
         url: '/appointments',
         method: 'POST',

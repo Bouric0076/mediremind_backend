@@ -311,6 +311,10 @@ flower==2.0.1
 # Web server monitoring
 gunicorn==23.0.0
 
+# Render deployment packages
+dj-database-url==2.1.0
+whitenoise==6.6.0
+
 # SSL/TLS
 pyopenssl==23.3.0
 

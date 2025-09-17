@@ -34,8 +34,12 @@ class AuthenticationMiddleware(MiddlewareMixin):
         
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
+        elif auth_header.startswith('Token '):
+            token = auth_header.split(' ')[1]
         elif 'session_token' in request.session:
             token = request.session['session_token']
+        elif hasattr(request, 'COOKIES') and 'session_token' in request.COOKIES:
+            token = request.COOKIES['session_token']
         
         if token:
             user = get_authenticated_user(token)
@@ -43,7 +47,7 @@ class AuthenticationMiddleware(MiddlewareMixin):
                 request.user = user
                 request.authenticated_user = user
                 # Update session activity if it's a session token
-                if not auth_header.startswith('Bearer '):
+                if not auth_header.startswith(('Bearer ', 'Token ')):
                     try:
                         session = UserSession.objects.get(session_key=token, is_active=True)
                         session.last_activity = timezone.now()
@@ -237,7 +241,33 @@ def get_request_user(request):
     Get the authenticated user from request
     Returns the authenticated user object or None
     """
-    return getattr(request, 'authenticated_user', None)
+    # First try to get from middleware-set authenticated_user
+    user = getattr(request, 'authenticated_user', None)
+    if user:
+        return user
+    
+    # Fallback: try to authenticate from headers/session directly
+    auth_header = request.headers.get('Authorization', '')
+    token = None
+    
+    if auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+    elif auth_header.startswith('Token '):
+        token = auth_header.split(' ')[1]
+    elif 'session_token' in request.session:
+        token = request.session['session_token']
+    elif hasattr(request, 'COOKIES') and 'session_token' in request.COOKIES:
+        token = request.COOKIES['session_token']
+    
+    if token:
+        user = get_authenticated_user(token)
+        if user:
+            # Cache the user on the request for subsequent calls
+            request.authenticated_user = user
+            request.user = user
+            return user
+    
+    return None
 
 
 def require_role(allowed_roles):

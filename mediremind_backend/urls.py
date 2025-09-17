@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from notifications.scheduler_api import scheduler_api_urls
+from .health import health_check
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,4 +27,5 @@ urlpatterns = [
     path('notifications/', include('notifications.urls')),
     path('analytics/', include('analytics.urls')),
     path('api/', include(scheduler_api_urls)),
+    path('health/', health_check, name='health_check'),
 ]

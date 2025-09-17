@@ -1,0 +1,48 @@
+databases:
+  - name: mediremind-db
+    databaseName: mediremind
+    user: mediremind
+    region: oregon
+
+services:
+  # Backend Django Service
+  - type: web
+    name: mediremind-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn mediremind_backend.wsgi:application"
+    plan: starter
+    region: oregon
+    branch: main
+    healthCheckPath: /health/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mediremind-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: false
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        value: redis://default:oE1Gh8TkVwGkuihbKt43XrQeZVTLbl4p@redis-12735.crce204.eu-west-2-3.ec2.redns.redis-cloud.com:12735/0
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: mediremind-frontend
+          property: host
+
+  # Frontend React Service
+  - type: web
+    name: mediremind-frontend
+    runtime: static
+    buildCommand: cd staff-portal && npm ci && npx vite build
+    staticPublishPath: staff-portal/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: mediremind-backend
+          property: host
