@@ -10,7 +10,7 @@ services:
   - type: web
     name: mediremind-backend
     runtime: python
-    buildCommand: "./build.sh"
+    buildCommand: "bash build.sh"
     startCommand: "gunicorn mediremind_backend.wsgi:application --bind 0.0.0.0:$PORT"
     plan: free
     region: oregon
@@ -33,7 +33,7 @@ services:
         fromService:
           type: web
           name: mediremind-frontend
-          property: host
+          property: url
 
   # Frontend React Service (Free Static Site)
   - type: web
@@ -51,9 +51,9 @@ services:
         fromService:
           type: web
           name: mediremind-backend
-          property: host
+          property: url
       - key: REACT_APP_API_BASE_URL
         fromService:
           type: web
           name: mediremind-backend
-          property: host
+          property: url
