@@ -8,9 +8,9 @@ const baseQuery = fetchBaseQuery({
   credentials: 'include', // Include cookies for session authentication
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token;
-    // Only add Bearer token if it's not session-based auth
+    // Only add Token if it's not session-based auth
     if (token && token !== 'session_based_auth') {
-      headers.set('authorization', `Bearer ${token}`);
+      headers.set('authorization', `Token ${token}`);
     }
     headers.set('content-type', 'application/json');
     return headers;

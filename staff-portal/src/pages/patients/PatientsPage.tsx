@@ -26,9 +26,10 @@ import {
   FormControl,
   InputLabel,
   Select,
-
   Fab,
   Tooltip,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import Grid  from '@mui/material/Grid';
 import {
@@ -56,54 +57,17 @@ import { useGetPatientsQuery } from '../../store/api/apiSlice';
 
 interface Patient {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   email: string;
   phone: string;
-  dateOfBirth: string;
-  gender: 'male' | 'female' | 'other';
+  date_of_birth: string;
+  age: number;
+  gender: string;
   status: 'active' | 'inactive' | 'archived';
-  lastVisit: string;
-  nextAppointment?: string;
-  avatar?: string;
+  primary_care_physician: string;
+  created_at: string;
+  updated_at: string;
 }
-
-const mockPatients: Patient[] = [
-  {
-    id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@email.com',
-    phone: '+1 (555) 123-4567',
-    dateOfBirth: '1985-03-15',
-    gender: 'male',
-    status: 'active',
-    lastVisit: '2024-01-15',
-    nextAppointment: '2024-02-01',
-  },
-  {
-    id: '2',
-    firstName: 'Jane',
-    lastName: 'Smith',
-    email: 'jane.smith@email.com',
-    phone: '+1 (555) 987-6543',
-    dateOfBirth: '1990-07-22',
-    gender: 'female',
-    status: 'active',
-    lastVisit: '2024-01-10',
-  },
-  {
-    id: '3',
-    firstName: 'Mike',
-    lastName: 'Johnson',
-    email: 'mike.johnson@email.com',
-    phone: '+1 (555) 456-7890',
-    dateOfBirth: '1978-11-08',
-    gender: 'male',
-    status: 'inactive',
-    lastVisit: '2023-12-20',
-  },
-];
 
 export const PatientsPage: React.FC = () => {
   const dispatch = useDispatch();
@@ -117,17 +81,14 @@ export const PatientsPage: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [tempFilters, setTempFilters] = useState(filters);
-  const [searchTerm] = useState('');
-  const [currentPage] = useState(0);
-  const [pageSize] = useState(10);
   
-  // Mock query - replace with actual API call
-  // const { data: patientsData, isLoading } = useGetPatientsQuery({
-  //   page: pagination.page,
-  //   limit: pagination.limit,
-  //   search: searchQuery,
-  //   ...filters,
-  // });
+  // Real API query
+  const { data: patientsData, isLoading, error } = useGetPatientsQuery({
+    page: pagination.page + 1, // Backend uses 1-based pagination
+    limit: pagination.limit,
+    search: searchQuery,
+    ...filters,
+  });
 
   useEffect(() => {
     dispatch(setCurrentPage('patients'));
@@ -144,6 +105,13 @@ export const PatientsPage: React.FC = () => {
     dispatch(setPagination({ page: newPage }));
   };
 
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch(setPagination({ 
+      page: 0, 
+      limit: parseInt(event.target.value, 10) 
+    }));
+  };
+
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, patient: Patient) => {
     setAnchorEl(event.currentTarget);
     setSelectedPatient(patient);
@@ -156,14 +124,14 @@ export const PatientsPage: React.FC = () => {
 
   const handleViewPatient = () => {
     if (selectedPatient) {
-      navigate(`/patients/${selectedPatient.id}`);
+      navigate(`/app/patients/${selectedPatient.id}`);
     }
     handleMenuClose();
   };
 
   const handleEditPatient = () => {
     if (selectedPatient) {
-      navigate(`/patients/${selectedPatient.id}/edit`);
+      navigate(`/app/patients/${selectedPatient.id}/edit`);
     }
     handleMenuClose();
   };
@@ -216,28 +184,45 @@ export const PatientsPage: React.FC = () => {
     }
   };
 
-  const calculateAge = (dateOfBirth: string) => {
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+  const formatPhoneNumber = (phone: string) => {
+    // Handle encrypted phone numbers - show placeholder if encrypted
+    if (phone && phone.includes('gAAAAA')) {
+      return '+1 (***) ***-****';
     }
-    return age;
+    return phone || 'N/A';
   };
 
-  const filteredPatients = mockPatients.filter(patient => {
-    const matchesSearch = !searchQuery || 
-      `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.phone.includes(searchQuery);
-    
-    const matchesStatus = !filters.status || patient.status === filters.status;
-    const matchesGender = !filters.gender || patient.gender === filters.gender;
-    
-    return matchesSearch && matchesStatus && matchesGender;
-  });
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          Failed to load patients. Please try again later.
+        </Alert>
+      </Box>
+    );
+  }
+
+  const patients = patientsData?.patients || [];
+  const totalPatients = patientsData?.total || 0;
 
   return (
     <Box>
@@ -262,11 +247,11 @@ export const PatientsPage: React.FC = () => {
             <TextField
               fullWidth
               placeholder="Search patients by name, email, or phone..."
-              value={searchTerm}
+              value={searchQuery}
               onChange={handleSearchChange}
               InputProps={{
                 startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                endAdornment: searchTerm && (
+                endAdornment: searchQuery && (
                   <IconButton onClick={() => dispatch(setSearchQuery(''))} size="small">
                     <ClearIcon />
                   </IconButton>
@@ -314,78 +299,85 @@ export const PatientsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPatients.map((patient) => (
-                <TableRow key={patient.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        {patient.avatar ? (
-                          <img src={patient.avatar} alt={`${patient.firstName} ${patient.lastName}`} />
-                        ) : (
-                          <PersonIcon />
-                        )}
-                      </Avatar>
+              {patients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No patients found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                patients.map((patient) => (
+                  <TableRow key={patient.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          {getInitials(patient.name)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight="medium">
+                            {patient.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            ID: {patient.id.slice(0, 8)}...
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
                       <Box>
-                        <Typography variant="subtitle2" fontWeight="medium">
-                          {patient.firstName} {patient.lastName}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          ID: {patient.id}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <EmailIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          <Typography variant="body2">{patient.email}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          <Typography variant="body2">{formatPhoneNumber(patient.phone)}</Typography>
+                        </Box>
                       </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <EmailIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                        <Typography variant="body2">{patient.email}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <PhoneIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                        <Typography variant="body2">{patient.phone}</Typography>
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
-                  <TableCell sx={{ textTransform: 'capitalize' }}>{patient.gender}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={patient.status}
-                      size="small"
-                      color={getStatusColor(patient.status) as any}
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>{new Date(patient.lastVisit).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    {patient.nextAppointment ? (
-                      new Date(patient.nextAppointment).toLocaleDateString()
-                    ) : (
+                    </TableCell>
+                    <TableCell>{patient.age}</TableCell>
+                    <TableCell sx={{ textTransform: 'capitalize' }}>{patient.gender.toLowerCase()}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={patient.status}
+                        size="small"
+                        color={getStatusColor(patient.status) as any}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        No data
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Typography variant="body2" color="text.secondary">
                         No appointment
                       </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      onClick={(e) => handleMenuClick(e, patient)}
-                      size="small"
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        onClick={(e) => handleMenuClick(e, patient)}
+                        size="small"
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
         <TablePagination
           component="div"
-          count={filteredPatients.length}
-          page={currentPage}
+          count={totalPatients}
+          page={pagination.page}
           onPageChange={handlePageChange}
-          rowsPerPage={pageSize}
+          rowsPerPage={pagination.limit}
+          onRowsPerPageChange={handleRowsPerPageChange}
           rowsPerPageOptions={[10, 25, 50]}
         />
       </Paper>

@@ -36,27 +36,54 @@ export interface LoginResponse {
   refreshToken: string;
 }
 
+// Gender Type
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+
 // Patient Types
 export interface Patient {
   id: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone: string;
-  dateOfBirth: string;
+  name: string;
+  date_of_birth: string;
   gender: Gender;
-  address: Address;
-  emergencyContact: EmergencyContact;
-  medicalHistory: MedicalHistory[];
-  allergies: string[];
-  medications: string[];
-  insuranceInfo?: InsuranceInfo;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  contact: {
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
+  emergency_contact?: {
+    name?: string;
+    relationship?: string;
+    phone?: string;
+    email?: string;
+  };
+  medical_history?: {
+    conditions?: string;
+    allergies?: string;
+    medications?: string;
+    surgical_history?: string;
+    family_medical_history?: string;
+  };
+  lifestyle?: {
+    smoking_status?: string;
+    alcohol_use?: string;
+    exercise_frequency?: string;
+  };
+  insurance?: {
+    provider?: string;
+    type?: string;
+    policy_number?: string;
+    group_number?: string;
+  };
+  preferences?: {
+    language?: string;
+    communication?: string;
+  };
+  primary_care_physician?: string;
+  status: string;
+  registration_completed: boolean;
+  created_at: string;
+  updated_at: string;
 }
-
-export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export interface Address {
   street: string;

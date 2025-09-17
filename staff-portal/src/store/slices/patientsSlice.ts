@@ -1,40 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import * as Types from '../../types';
 
-export interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  gender: 'male' | 'female' | 'other';
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  emergencyContact: {
-    name: string;
-    relationship: string;
-    phone: string;
-  };
-  medicalHistory: {
-    allergies: string[];
-    medications: string[];
-    conditions: string[];
-    surgeries: string[];
-  };
-  insurance: {
-    provider: string;
-    policyNumber: string;
-    groupNumber: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-  isActive: boolean;
+type Patient = Types.Patient;
+
+interface PatientInsurance {
+  provider: string;
+  policyNumber: string;
+  groupNumber: string;
 }
 
 interface PatientsState {
@@ -66,7 +39,7 @@ const initialState: PatientsState = {
   filters: {},
   pagination: {
     page: 1,
-    limit: 20,
+    limit: 25,
     total: 0,
     totalPages: 0,
   },

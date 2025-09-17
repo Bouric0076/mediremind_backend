@@ -1,7 +1,8 @@
 import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 import type { RootState, AppDispatch } from './index';
-import type { Patient } from './slices/patientsSlice';
+import type { Appointment } from './slices/appointmentsSlice';
+import type { Notification } from './slices/notificationsSlice';
 
 // Use throughout your app instead of plain `useDispatch` and `useSelector`
 export const useAppDispatch = () => useDispatch<AppDispatch>();
@@ -80,12 +81,11 @@ export const useFilteredPatients = () => {
 
     return patients.filter((patient) => {
       const matchesSearch = !searchQuery || 
-        patient.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        patient.email.toLowerCase().includes(searchQuery.toLowerCase());
+        patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        patient.contact.email?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesGender = !filters.gender || patient.gender === filters.gender;
-      const matchesActive = filters.isActive === undefined || patient.isActive === filters.isActive;
+      const matchesActive = filters.isActive === undefined || patient.status === 'active';
       
       return matchesSearch && matchesGender && matchesActive;
     });
@@ -94,31 +94,26 @@ export const useFilteredPatients = () => {
 
 export const useFilteredAppointments = () => {
   return useAppSelector((state) => {
-    const { appointments, filters } = state.appointments;
-    if (!filters.search && !filters.status?.length && !filters.dateRange) {
-      return appointments;
+    const { calendar, filters } = state.appointments;
+    if (!filters.status && !filters.dateRange) {
+      return calendar;
     }
     
-    return appointments.filter((appointment) => {
-      const matchesSearch = !filters.search || 
-        appointment.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        `${appointment.patient.firstName} ${appointment.patient.lastName}`.toLowerCase().includes(filters.search.toLowerCase());
-      
-      const matchesStatus = !filters.status?.length || 
-        filters.status.includes(appointment.status);
+    return calendar.filter((appointment: Appointment) => {
+      const matchesStatus = !filters.status || appointment.status === filters.status;
       
       const matchesDateRange = !filters.dateRange || 
         (new Date(appointment.startTime) >= new Date(filters.dateRange.start) &&
          new Date(appointment.startTime) <= new Date(filters.dateRange.end));
       
-      return matchesSearch && matchesStatus && matchesDateRange;
+      return matchesStatus && matchesDateRange;
     });
   });
 };
 
 export const useUnreadNotifications = () => {
   return useAppSelector((state) => 
-    state.notifications.notifications.filter(notification => !notification.readAt)
+    state.notifications.unread.filter((notification: Notification) => notification.status === 'unread')
   );
 };
 

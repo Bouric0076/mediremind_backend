@@ -81,6 +81,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           onClose={() => dispatch(setSidebarMobile(false))}
           ModalProps={{
             keepMounted: true, // Better open performance on mobile
+            disableAutoFocus: true,
+            disableEnforceFocus: true,
+            disableRestoreFocus: true,
           }}
           sx={{
             '& .MuiDrawer-paper': {

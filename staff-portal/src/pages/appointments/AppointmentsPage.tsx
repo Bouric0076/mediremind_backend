@@ -17,15 +17,7 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Fab,
   Tooltip,
   Badge,
@@ -45,6 +37,8 @@ import {
 
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 import { useGetAppointmentsQuery } from '../../store/api/apiSlice';
+import AppointmentScheduler from '../../components/appointments/AppointmentScheduler';
+import AppointmentCalendar from '../../components/appointments/AppointmentCalendar';
 
 interface Appointment {
   id: string;
@@ -63,6 +57,7 @@ interface Appointment {
     | 'cancelled'
     | 'no-show';
   provider: string;
+  providerId: string; // Added missing providerId property
   notes?: string;
   room?: string;
 }
@@ -103,6 +98,7 @@ const mockAppointments: Appointment[] = [
     type: 'consultation',
     status: 'confirmed',
     provider: 'Dr. Smith',
+    providerId: '1',
     room: 'Room 101',
     notes: 'Regular checkup',
   },
@@ -116,6 +112,7 @@ const mockAppointments: Appointment[] = [
     type: 'follow-up',
     status: 'scheduled',
     provider: 'Dr. Johnson',
+    providerId: '2',
     room: 'Room 102',
   },
   {
@@ -128,6 +125,7 @@ const mockAppointments: Appointment[] = [
     type: 'check-up',
     status: 'in-progress',
     provider: 'Dr. Brown',
+    providerId: '3',
     room: 'Room 103',
   },
   {
@@ -140,6 +138,7 @@ const mockAppointments: Appointment[] = [
     type: 'consultation',
     status: 'scheduled',
     provider: 'Dr. Smith',
+    providerId: '1',
     room: 'Room 101',
   },
 ];
@@ -167,6 +166,27 @@ const timeSlots = [
   '17:30',
 ];
 
+// Mock data for the new components
+const mockPatients = [
+  { id: '1', name: 'John Doe', email: 'john.doe@email.com', phone: '(555) 123-4567', dateOfBirth: '1985-06-15' },
+  { id: '2', name: 'Jane Smith', email: 'jane.smith@email.com', phone: '(555) 234-5678', dateOfBirth: '1990-03-22' },
+  { id: '3', name: 'Mike Johnson', email: 'mike.johnson@email.com', phone: '(555) 345-6789', dateOfBirth: '1978-11-08' },
+  { id: '4', name: 'Sarah Wilson', email: 'sarah.wilson@email.com', phone: '(555) 456-7890', dateOfBirth: '1992-09-14' },
+];
+
+const mockProviders = [
+  { id: '1', name: 'Smith', specialization: 'Cardiology', email: 'dr.smith@hospital.com', color: '#2196F3', availability: ['09:00-17:00'] },
+  { id: '2', name: 'Johnson', specialization: 'Neurology', email: 'dr.johnson@hospital.com', color: '#4CAF50', availability: ['08:00-16:00'] },
+  { id: '3', name: 'Brown', specialization: 'Orthopedics', email: 'dr.brown@hospital.com', color: '#FF9800', availability: ['10:00-18:00'] },
+];
+
+const mockAppointmentTypes = [
+  { id: '1', name: 'Consultation', duration: 30, description: 'Initial consultation', color: '#2196F3' },
+  { id: '2', name: 'Follow-up', duration: 20, description: 'Follow-up appointment', color: '#4CAF50' },
+  { id: '3', name: 'Check-up', duration: 45, description: 'Regular check-up', color: '#FF9800' },
+  { id: '4', name: 'Emergency', duration: 60, description: 'Emergency consultation', color: '#F44336' },
+];
+
 export const AppointmentsPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -176,7 +196,10 @@ export const AppointmentsPage: React.FC = () => {
     new Date().toISOString().split('T')[0],
   );
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
+  const [schedulerOpen, setSchedulerOpen] = useState(false);
+  const [newAppointmentOpen, setNewAppointmentOpen] = useState(false); // Added missing state
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   const { refetch } = useGetAppointmentsQuery({
     date: selectedDate,
@@ -239,6 +262,57 @@ export const AppointmentsPage: React.FC = () => {
   const getUpcomingAppointments = () => {
     const today = new Date();
     return mockAppointments.filter((apt) => new Date(apt.date) > today);
+  };
+
+  // Handlers for the new components
+  const handleNewAppointment = (date?: Date, providerId?: string) => {
+    setEditingAppointment(null);
+    setSchedulerOpen(true);
+  };
+
+  const handleAppointmentClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    // Could open a details dialog here
+    console.log('Appointment clicked:', appointment);
+  };
+
+  const handleAppointmentEdit = (appointment: Appointment) => {
+    setEditingAppointment(appointment);
+    setSchedulerOpen(true);
+  };
+
+  const handleAppointmentDelete = async (appointmentId: string) => {
+    try {
+      // Here you would call the API to delete the appointment
+      console.log('Deleting appointment:', appointmentId);
+      // For now, just log it
+      // await deleteAppointment(appointmentId);
+      refetch();
+    } catch (error) {
+      console.error('Failed to delete appointment:', error);
+    }
+  };
+
+  const handleAppointmentSubmit = async (appointmentData: any) => {
+    try {
+      // Here you would call the API to create/update the appointment
+      console.log('Submitting appointment:', appointmentData);
+      // For now, just log it
+      // if (editingAppointment) {
+      //   await updateAppointment(editingAppointment.id, appointmentData);
+      // } else {
+      //   await createAppointment(appointmentData);
+      // }
+      refetch();
+    } catch (error) {
+      console.error('Failed to submit appointment:', error);
+      throw error;
+    }
+  };
+
+  const handleDateRangeChange = (start: Date, end: Date) => {
+    // Here you could update the date range for fetching appointments
+    console.log('Date range changed:', start, end);
   };
 
   const renderCalendarView = () => {
@@ -595,7 +669,29 @@ export const AppointmentsPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        {renderCalendarView()}
+        <AppointmentCalendar
+          appointments={mockAppointments.map(apt => ({
+            id: apt.id,
+            patientName: apt.patientName,
+            patientId: apt.patientId,
+            providerName: apt.provider,
+            providerId: apt.providerId,
+            appointmentType: apt.type,
+            date: apt.date,
+            time: apt.time,
+            duration: apt.duration,
+            status: apt.status,
+            priority: 'medium' as const,
+            location: apt.room || 'Main Hospital',
+            notes: apt.notes,
+          }))}
+          providers={mockProviders}
+          onAppointmentClick={handleAppointmentClick}
+          onAppointmentEdit={handleAppointmentEdit}
+          onAppointmentDelete={handleAppointmentDelete}
+          onNewAppointment={handleNewAppointment}
+          onDateRangeChange={handleDateRangeChange}
+        />
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
@@ -607,99 +703,26 @@ export const AppointmentsPage: React.FC = () => {
         </Paper>
       </TabPanel>
 
-      {/* New Appointment Dialog */}
-      <Dialog
-        open={newAppointmentOpen}
-        onClose={() => setNewAppointmentOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Schedule New Appointment</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Patient Name"
-                placeholder="Search or enter patient name"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Appointment Type</InputLabel>
-                <Select label="Appointment Type">
-                  <MenuItem value="consultation">Consultation</MenuItem>
-                  <MenuItem value="follow-up">Follow-up</MenuItem>
-                  <MenuItem value="check-up">Check-up</MenuItem>
-                  <MenuItem value="emergency">Emergency</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Date"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                type="time"
-                label="Time"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Duration (minutes)"
-                defaultValue={30}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Provider</InputLabel>
-                <Select label="Provider">
-                  <MenuItem value="Dr. Smith">Dr. Smith</MenuItem>
-                  <MenuItem value="Dr. Johnson">Dr. Johnson</MenuItem>
-                  <MenuItem value="Dr. Brown">Dr. Brown</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Notes"
-                placeholder="Additional notes or instructions"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setNewAppointmentOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => setNewAppointmentOpen(false)}
-          >
-            Save Appointment
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Appointment Scheduler */}
+      <AppointmentScheduler
+        open={schedulerOpen}
+        onClose={() => {
+          setSchedulerOpen(false);
+          setEditingAppointment(null);
+        }}
+        onSubmit={handleAppointmentSubmit}
+        editingAppointment={editingAppointment}
+        patients={mockPatients}
+        providers={mockProviders}
+        appointmentTypes={mockAppointmentTypes}
+      />
 
       {/* Floating Action Button */}
       <Tooltip title="New Appointment" placement="left">
         <Fab
           color="primary"
           sx={{ position: 'fixed', bottom: 24, right: 24 }}
-          onClick={() => setNewAppointmentOpen(true)}
+          onClick={handleNewAppointment}
         >
           <AddIcon />
         </Fab>

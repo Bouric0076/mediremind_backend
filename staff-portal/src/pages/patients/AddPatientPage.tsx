@@ -274,9 +274,9 @@ export const AddPatientPage: React.FC = () => {
         'Content-Type': 'application/json',
       };
       
-      // Only add Bearer token if it's not session-based auth
+      // Only add Token if it's not session-based auth
       if (token && token !== 'session_based_auth') {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers['Authorization'] = `Token ${token}`;
       }
 
       const response = await fetch('http://localhost:8000/accounts/create/', {
