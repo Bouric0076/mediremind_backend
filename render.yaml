@@ -33,7 +33,7 @@ services:
         fromService:
           type: web
           name: mediremind-frontend
-          property: url
+          property: host
 
   # Frontend React Service (Free Static Site)
   - type: web
@@ -51,9 +51,9 @@ services:
         fromService:
           type: web
           name: mediremind-backend
-          property: url
+          property: host
       - key: REACT_APP_API_BASE_URL
         fromService:
           type: web
           name: mediremind-backend
-          property: url
+          property: host
