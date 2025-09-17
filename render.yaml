@@ -2,16 +2,17 @@ databases:
   - name: mediremind-db
     databaseName: mediremind
     user: mediremind
+    plan: free
     region: oregon
 
 services:
-  # Backend Django Service
+  # Backend Django Service (Free Tier)
   - type: web
     name: mediremind-backend
     runtime: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn mediremind_backend.wsgi:application"
-    plan: starter
+    startCommand: "gunicorn mediremind_backend.wsgi:application --bind 0.0.0.0:$PORT"
+    plan: free
     region: oregon
     branch: main
     healthCheckPath: /health/
@@ -23,25 +24,35 @@ services:
       - key: DJANGO_SECRET_KEY
         generateValue: true
       - key: DEBUG
-        value: false
+        value: "false"
       - key: ENVIRONMENT
-        value: production
+        value: "production"
       - key: REDIS_URL
-        value: redis://default:oE1Gh8TkVwGkuihbKt43XrQeZVTLbl4p@redis-12735.crce204.eu-west-2-3.ec2.redns.redis-cloud.com:12735/0
+        value: "redis://default:oE1Gh8TkVwGkuihbKt43XrQeZVTLbl4p@redis-12735.crce204.eu-west-2-3.ec2.redns.redis-cloud.com:12735/0"
       - key: FRONTEND_URL
         fromService:
           type: web
           name: mediremind-frontend
           property: host
 
-  # Frontend React Service
+  # Frontend React Service (Free Static Site)
   - type: web
     name: mediremind-frontend
     runtime: static
     buildCommand: cd staff-portal && npm ci && npx vite build
     staticPublishPath: staff-portal/dist
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
+        fromService:
+          type: web
+          name: mediremind-backend
+          property: host
+      - key: REACT_APP_API_BASE_URL
         fromService:
           type: web
           name: mediremind-backend

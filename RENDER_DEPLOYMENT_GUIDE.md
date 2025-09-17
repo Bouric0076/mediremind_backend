@@ -8,6 +8,31 @@ This guide provides step-by-step instructions for deploying the MediRemind syste
 2. **GitHub Repository**: Your code should be in a GitHub repository
 3. **Environment Variables**: Prepare your production environment variables
 
+## 🆓 Render Free Tier Configuration
+
+This deployment is optimized for Render's **free tier**, which includes:
+
+### Free Tier Limitations:
+- **Web Services**: 750 hours/month (sleeps after 15 minutes of inactivity)
+- **PostgreSQL**: 1GB storage, 1 month retention
+- **Static Sites**: Unlimited bandwidth
+- **Build Time**: 20 minutes maximum
+- **Memory**: 512MB RAM
+- **Cold Starts**: Services may take 30+ seconds to wake up
+
+### Free Tier Optimizations Applied:
+- ✅ Database plan set to `free`
+- ✅ Web service plan set to `free`
+- ✅ Frontend deployed as static site (unlimited)
+- ✅ Optimized build process for 20-minute limit
+- ✅ Health checks configured for wake-up monitoring
+
+### Important Free Tier Considerations:
+1. **Service Sleep**: Your backend will sleep after 15 minutes of inactivity
+2. **Wake-up Time**: First request after sleep may take 30+ seconds
+3. **Database Limits**: 1GB storage limit - monitor usage
+4. **Monthly Hours**: 750 hours shared across all web services
+
 ## Deployment Options
 
 You have two deployment options:
@@ -208,12 +233,40 @@ Render provides easy scaling options:
 - **Vertical Scaling**: Upgrade to higher-tier plans
 - **Database Scaling**: Upgrade database plan as needed
 
+## Free Tier Management
+
+### Keeping Services Awake (Optional)
+To prevent your service from sleeping, you can:
+
+1. **External Monitoring**: Use services like UptimeRobot (free) to ping your health endpoint every 5 minutes
+2. **Cron Jobs**: Set up a simple cron job to make requests to your API
+3. **Frontend Polling**: Add a background timer in your frontend to ping the backend
+
+**Example UptimeRobot Setup:**
+- Monitor URL: `https://your-backend-service.onrender.com/health/`
+- Check interval: 5 minutes
+- Monitor type: HTTP(s)
+
+### Monitoring Free Tier Usage
+
+1. **Dashboard**: Check Render dashboard for usage metrics
+2. **Database Size**: Monitor PostgreSQL storage usage
+3. **Monthly Hours**: Track web service hours consumption
+4. **Performance**: Monitor cold start times and response speeds
+
+### Upgrading from Free Tier
+
+When you're ready to upgrade:
+- **Starter Plan**: $7/month per service, no sleep
+- **Standard Plan**: $25/month per service, better performance
+- **Pro Plan**: $85/month per service, advanced features
+
 ## Cost Optimization
 
-1. Start with Starter plans for testing
-2. Monitor usage and scale as needed
-3. Use static sites for frontend (cheaper than web services)
-4. Consider shared databases for development
+1. **Free Tier**: Perfect for development and low-traffic applications
+2. **Static Frontend**: Always free, unlimited bandwidth
+3. **Database**: Monitor 1GB limit, upgrade when needed
+4. **Selective Upgrades**: Upgrade only backend or database as needed
 
 ---
 
