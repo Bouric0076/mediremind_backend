@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urgent Appointment Request</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+        .header::before {
+            content: '🚨';
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .urgent-alert {
+            background-color: #f8d7da;
+            border: 3px solid #dc3545;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+        }
+        .urgent-alert::before {
+            content: 'URGENT';
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 5px;
+        }
+        .priority-critical {
+            background-color: #dc3545;
+            color: white;
+        }
+        .priority-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .priority-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .patient-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .info-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            font-size: 16px;
+            color: #495057;
+            font-weight: 600;
+        }
+        .symptoms-section {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .action-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .primary-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            font-size: 16px;
+            padding: 15px 30px;
+        }
+        .secondary-button {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        .timeline {
+            margin: 20px 0;
+        }
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        .timeline-time {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: center;
+        }
+        .timeline-event {
+            margin-left: 15px;
+            flex: 1;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .info-grid, .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Urgent Appointment Request</h1>
+            <p>Immediate attention required</p>
+            <span class="priority-badge priority-{{ priority_level }}">{{ priority_level }} Priority</span>
+        </div>
+        
+        <div class="content">
+            <div class="urgent-alert">
+                <h3>⚠️ Patient Requesting Urgent Care</h3>
+                <p><strong>{{ patient_name }}</strong> has submitted an urgent appointment request.</p>
+                <p><strong>Request Time:</strong> {{ request_time }}</p>
+                <p><strong>Preferred Timeframe:</strong> {{ preferred_timeframe }}</p>
+            </div>
+            
+            <div class="patient-info">
+                <h3>👤 Patient Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Patient Name</div>
+                        <div class="info-value">{{ patient_name }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Patient ID</div>
+                        <div class="info-value">{{ patient_id }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Phone Number</div>
+                        <div class="info-value">{{ patient_phone }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Email</div>
+                        <div class="info-value">{{ patient_email }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Date of Birth</div>
+                        <div class="info-value">{{ patient_dob }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Last Visit</div>
+                        <div class="info-value">{{ last_visit_date }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="symptoms-section">
+                <h4>🩺 Chief Complaint & Symptoms</h4>
+                <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Primary Concern:</strong> {{ chief_complaint }}
+                </div>
+                
+                {% if symptoms %}
+                <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Symptoms:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        {% for symptom in symptoms %}
+                        <li>{{ symptom }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                {% if pain_level %}
+                <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Pain Level:</strong> {{ pain_level }}/10
+                    <div style="background-color: #e9ecef; height: 10px; border-radius: 5px; margin: 5px 0;">
+                        <div style="background-color: {% if pain_level >= 7 %}#dc3545{% elif pain_level >= 4 %}#ffc107{% else %}#28a745{% endif %}; height: 100%; width: {{ pain_level }}0%; border-radius: 5px;"></div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if duration %}
+                <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Duration:</strong> {{ duration }}
+                </div>
+                {% endif %}
+                
+                {% if additional_notes %}
+                <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Additional Notes:</strong> {{ additional_notes }}
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if medical_history %}
+            <div style="background-color: #e8f4fd; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📋 Relevant Medical History</h4>
+                <ul>
+                    {% for condition in medical_history %}
+                    <li>{{ condition }}</li>
+                    {% endfor %}
+                </ul>
+                
+                {% if current_medications %}
+                <div style="margin-top: 15px;">
+                    <strong>Current Medications:</strong>
+                    <ul>
+                        {% for medication in current_medications %}
+                        <li>{{ medication }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <h3>📅 Available Time Slots</h3>
+            {% if available_slots %}
+            <div style="background-color: #e8f5e8; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>✅ Urgent Slots Available</h4>
+                <ul>
+                    {% for slot in available_slots %}
+                    <li><strong>{{ slot.date }}</strong> at {{ slot.time }} ({{ slot.duration }} min) - {{ slot.type }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>⚠️ No Immediate Slots Available</h4>
+                <p>Consider emergency protocols or referral options.</p>
+            </div>
+            {% endif %}
+            
+            <div class="action-buttons">
+                <div class="action-card">
+                    <h4>📞 Call Patient</h4>
+                    <p>Immediate phone consultation</p>
+                    <a href="tel:{{ patient_phone }}" class="cta-button primary-button">Call Now</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>📅 Schedule Urgent</h4>
+                    <p>Book emergency appointment</p>
+                    <a href="{{ schedule_urgent_url }}" class="cta-button primary-button">Schedule</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>🏥 Refer to ER</h4>
+                    <p>Emergency room referral</p>
+                    <a href="{{ er_referral_url }}" class="cta-button">Refer to ER</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>📧 Send Instructions</h4>
+                    <p>Provide immediate care guidance</p>
+                    <a href="{{ send_instructions_url }}" class="cta-button secondary-button">Send Instructions</a>
+                </div>
+            </div>
+            
+            {% if triage_recommendations %}
+            <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🎯 Triage Recommendations</h4>
+                <ul>
+                    {% for recommendation in triage_recommendations %}
+                    <li>{{ recommendation }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <h3>📞 Contact Timeline</h3>
+            <div class="timeline">
+                {% for contact in contact_timeline %}
+                <div class="timeline-item">
+                    <div class="timeline-time">{{ contact.time }}</div>
+                    <div class="timeline-event">
+                        <strong>{{ contact.method }}:</strong> {{ contact.result }}
+                        {% if contact.notes %}
+                        <br><em>{{ contact.notes }}</em>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="timeline-item">
+                    <div class="timeline-time">{{ request_time }}</div>
+                    <div class="timeline-event">Initial urgent request submitted</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🔧 Quick Actions</h4>
+                <div style="text-align: center;">
+                    <a href="{{ patient_chart_url }}" class="cta-button secondary-button">📋 View Chart</a>
+                    <a href="{{ schedule_url }}" class="cta-button secondary-button">📅 View Schedule</a>
+                    <a href="{{ add_notes_url }}" class="cta-button secondary-button">📝 Add Notes</a>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>Response Required Within:</strong> <span style="color: #dc3545; font-weight: 700;">{{ response_deadline }}</span></p>
+                <a href="{{ acknowledge_url }}" class="cta-button primary-button">✅ Acknowledge Request</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - Urgent Care Management<br>
+            Request ID: {{ request_id }} | Generated at {{ generation_time }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ preferences_url }}">Alert Preferences</a></p>
+        </div>
+    </div>
+</body>
+</html>

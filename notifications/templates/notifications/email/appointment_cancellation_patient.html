@@ -1,69 +1,384 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Appointment Cancelled - MediRemind</title>
     <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1d4ed8;
+            --error-color: #dc2626;
+            --error-light: #fef2f2;
+            --error-border: #fecaca;
+            --warning-color: #d97706;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --border-color: #e5e7eb;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text-primary: #f9fafb;
+                --text-secondary: #d1d5db;
+                --bg-primary: #1f2937;
+                --bg-secondary: #374151;
+                --border-color: #4b5563;
+                --error-light: #7f1d1d;
+                --error-border: #991b1b;
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: var(--text-primary);
+            background-color: var(--bg-secondary);
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        
+        .email-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            background-color: var(--bg-primary);
+            box-shadow: var(--shadow);
         }
+        
         .header {
-            background-color: #F44336;
+            background: linear-gradient(135deg, var(--error-color) 0%, #b91c1c 100%);
             color: white;
-            padding: 20px;
+            padding: 32px 24px;
             text-align: center;
-            border-radius: 5px 5px 0 0;
         }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+        
+        .header h2 {
+            font-size: 18px;
+            font-weight: 400;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .header h2::before {
+            content: "❌";
+        }
+        
         .content {
+            padding: 32px 24px;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        
+        .intro-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        
+        .cancellation-notice {
+            background-color: var(--error-light);
+            border: 1px solid var(--error-border);
+            border-radius: 8px;
             padding: 20px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 0 0 5px 5px;
-        }
-        .appointment-details {
-            background-color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-        }
-        .footer {
+            margin: 24px 0;
             text-align: center;
-            margin-top: 20px;
+        }
+        
+        .cancellation-notice h3 {
+            color: var(--error-color);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .cancellation-notice p {
+            color: #991b1b;
+            font-size: 14px;
+        }
+        
+        .appointment-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            box-shadow: var(--shadow);
+            opacity: 0.8;
+        }
+        
+        .appointment-card h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            text-decoration: line-through;
+        }
+        
+        .appointment-card h3::before {
+            content: "🚫";
+            margin-right: 8px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-align: right;
+            max-width: 60%;
+            text-decoration: line-through;
+        }
+        
+        .action-section {
+            background-color: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        
+        .action-section h4 {
+            color: var(--primary-color);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .action-section p {
+            color: #0369a1;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 8px;
+            transition: background-color 0.2s;
+        }
+        
+        .cta-button:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .cta-button.secondary {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+        
+        .cta-button.secondary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .apology-section {
+            background-color: #fffbeb;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        
+        .apology-section h4 {
+            color: var(--warning-color);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .apology-section p {
+            color: #92400e;
+            font-size: 14px;
+        }
+        
+        .footer {
+            background-color: var(--bg-secondary);
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .footer-links {
+            margin-bottom: 16px;
+        }
+        
+        .footer-links a {
+            color: var(--primary-color);
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 14px;
+        }
+        
+        .footer-text {
+            color: var(--text-secondary);
             font-size: 12px;
-            color: #666;
+            line-height: 1.4;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .header, .content, .footer {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+            
+            .appointment-card {
+                padding: 16px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            
+            .detail-value {
+                text-align: left;
+                max-width: 100%;
+            }
+            
+            .cta-button {
+                display: block;
+                margin: 8px 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Appointment Cancelled</h1>
-    </div>
-    <div class="content">
-        <p>Dear {{ recipient_name }},</p>
-        
-        <p>Your appointment has been cancelled. Here are the details of the cancelled appointment:</p>
-        
-        <div class="appointment-details">
-            <p><strong>Doctor:</strong> {{ appointment.doctor_name }}</p>
-            <p><strong>Date:</strong> {{ appointment.date }}</p>
-            <p><strong>Time:</strong> {{ appointment.time }}</p>
-            <p><strong>Location:</strong> {{ appointment.location }}</p>
-            {% if appointment.notes %}
-            <p><strong>Notes:</strong> {{ appointment.notes }}</p>
-            {% endif %}
+    <div class="email-container">
+        <div class="header">
+            <h1>MediRemind</h1>
+            <h2>Appointment Cancelled</h2>
         </div>
-
-        <p>If you would like to schedule a new appointment, please visit our website or contact us directly.</p>
         
-        <p>Best regards,<br>The MediRemind Team</p>
-    </div>
-    <div class="footer">
-        <p>This is an automated message, please do not reply to this email.</p>
-        <p>&copy; 2024 MediRemind. All rights reserved.</p>
+        <div class="content">
+            <div class="greeting">Dear {{ recipient_name }},</div>
+            
+            <div class="cancellation-notice">
+                <h3>Appointment Cancellation Notice</h3>
+                <p>We regret to inform you that your upcoming appointment has been cancelled.</p>
+            </div>
+            
+            <div class="appointment-card">
+                <h3>Cancelled Appointment Details</h3>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Doctor</span>
+                    <span class="detail-value">{{ appointment.doctor_name }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value">{{ appointment.date }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Time</span>
+                    <span class="detail-value">{{ appointment.time }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Location</span>
+                    <span class="detail-value">{{ appointment.location }}</span>
+                </div>
+                
+                {% if appointment.notes %}
+                <div class="detail-row">
+                    <span class="detail-label">Notes</span>
+                    <span class="detail-value">{{ appointment.notes }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="action-section">
+                <h4>📅 Need to Reschedule?</h4>
+                <p>We're here to help you find a new appointment time that works for you.</p>
+                <a href="#" class="cta-button">Book New Appointment</a>
+                <a href="#" class="cta-button secondary">Contact Support</a>
+            </div>
+            
+            <div class="apology-section">
+                <h4>We Apologize</h4>
+                <p>We sincerely apologize for any inconvenience this cancellation may have caused. Your health and time are important to us.</p>
+            </div>
+            
+            <p style="margin-top: 24px; color: var(--text-secondary); font-size: 14px;">
+                Best regards,<br>
+                <strong>The MediRemind Team</strong>
+            </p>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-links">
+                <a href="#">Book Appointment</a>
+                <a href="#">Support</a>
+                <a href="#">Settings</a>
+            </div>
+            <div class="footer-text">
+                &copy; 2024 MediRemind. All rights reserved.<br>
+                This is an automated message. Please do not reply to this email.
+            </div>
+        </div>
     </div>
 </body>
-</html> 
+</html>

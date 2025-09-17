@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Schedule Digest</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .summary-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .summary-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0d6efd;
+            margin-bottom: 5px;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .appointment-list {
+            margin: 30px 0;
+        }
+        .appointment-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: box-shadow 0.2s;
+        }
+        .appointment-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .appointment-time {
+            background-color: #e8f4fd;
+            color: #0d6efd;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: center;
+        }
+        .appointment-details {
+            flex: 1;
+            margin: 0 15px;
+        }
+        .patient-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .appointment-type {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .appointment-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-confirmed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-new {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .urgent-section {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .alert-section {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .info-section {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .time-block {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .time-block-header {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 5px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .appointment-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .summary-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Daily Schedule Digest</h1>
+            <p>{{ current_date }} - {{ day_of_week }}</p>
+            <p>Good {{ time_of_day }}, Dr. {{ doctor_name }}!</p>
+        </div>
+        
+        <div class="content">
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="summary-number">{{ total_appointments }}</div>
+                    <div class="summary-label">Total Appointments</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number">{{ new_patients }}</div>
+                    <div class="summary-label">New Patients</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number">{{ follow_ups }}</div>
+                    <div class="summary-label">Follow-ups</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number">{{ estimated_duration }}</div>
+                    <div class="summary-label">Est. Duration</div>
+                </div>
+            </div>
+            
+            {% if urgent_items %}
+            <div class="urgent-section">
+                <h3>🚨 Urgent Items</h3>
+                <ul>
+                    {% for item in urgent_items %}
+                    <li><strong>{{ item.time }}:</strong> {{ item.description }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            {% if schedule_changes %}
+            <div class="alert-section">
+                <h4>⚠️ Schedule Changes</h4>
+                <ul>
+                    {% for change in schedule_changes %}
+                    <li>{{ change.description }} - <em>{{ change.time }}</em></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <h3>📋 Today's Schedule</h3>
+            
+            {% for time_block in schedule_blocks %}
+            <div class="time-block">
+                <div class="time-block-header">{{ time_block.period }} ({{ time_block.start_time }} - {{ time_block.end_time }})</div>
+                
+                {% for appointment in time_block.appointments %}
+                <div class="appointment-item">
+                    <div class="appointment-time">{{ appointment.time }}</div>
+                    <div class="appointment-details">
+                        <div class="patient-name">{{ appointment.patient_name }}</div>
+                        <div class="appointment-type">{{ appointment.type }} - {{ appointment.duration }} min</div>
+                        {% if appointment.notes %}
+                        <div style="font-size: 12px; color: #6c757d; margin-top: 5px;">{{ appointment.notes }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="appointment-status status-{{ appointment.status }}">{{ appointment.status }}</div>
+                </div>
+                {% empty %}
+                <div style="color: #6c757d; font-style: italic; padding: 10px;">No appointments scheduled</div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            
+            {% if patient_prep_notes %}
+            <div class="info-section">
+                <h4>📝 Patient Preparation Notes</h4>
+                {% for note in patient_prep_notes %}
+                <div style="margin: 10px 0; padding: 10px; background-color: white; border-radius: 6px;">
+                    <strong>{{ note.patient_name }} ({{ note.time }}):</strong> {{ note.preparation_note }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if lab_results_ready %}
+            <div class="info-section">
+                <h4>🧪 Lab Results Ready for Review</h4>
+                <ul>
+                    {% for result in lab_results_ready %}
+                    <li><strong>{{ result.patient_name }}:</strong> {{ result.test_type }} - <em>{{ result.received_time }}</em></li>
+                    {% endfor %}
+                </ul>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{{ lab_results_url }}" class="cta-button">Review Lab Results</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if messages_pending %}
+            <div class="info-section">
+                <h4>💬 Pending Patient Messages</h4>
+                <p>You have {{ messages_pending }} unread patient messages requiring attention.</p>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{{ messages_url }}" class="cta-button">Review Messages</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🔧 Quick Actions</h4>
+                <div style="text-align: center;">
+                    <a href="{{ schedule_url }}" class="cta-button">📅 View Full Schedule</a>
+                    <a href="{{ patient_list_url }}" class="cta-button">👥 Patient List</a>
+                    <a href="{{ add_appointment_url }}" class="cta-button">➕ Add Appointment</a>
+                    <a href="{{ clinical_notes_url }}" class="cta-button">📝 Clinical Notes</a>
+                </div>
+            </div>
+            
+            {% if weather_info %}
+            <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <h4>🌤️ Today's Weather</h4>
+                <p>{{ weather_info.condition }} - {{ weather_info.temperature }}°F</p>
+                <p style="font-size: 14px; color: #6c757d;">{{ weather_info.note }}</p>
+            </div>
+            {% endif %}
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>Need to make changes to your schedule?</strong></p>
+                <a href="{{ schedule_management_url }}" style="color: #0d6efd; text-decoration: none;">⚙️ Manage Schedule Settings</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - Provider Portal<br>
+            Generated at {{ generation_time }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ preferences_url }}">Email Preferences</a></p>
+        </div>
+    </div>
+</body>
+</html>

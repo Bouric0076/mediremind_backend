@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from supabase_client import admin_client
-from .twilio_client import twilio_client
 from .push_notifications import push_notifications
 from .models import PushSubscription
 import pytz
@@ -75,8 +74,8 @@ def get_appointment_data(appointment_id):
             "users!inner(full_name)"
         ).eq("user_id", appointment["doctor_id"]).single().execute()
         
-        # Get patient details from users table via patients
-        patient_result = admin_client.table("patients").select(
+        # Get patient details from users table via enhanced_patients
+        patient_result = admin_client.table("enhanced_patients").select(
             "user_id",
             "users!inner(full_name, phone)"
         ).eq("user_id", appointment["patient_id"]).single().execute()
@@ -132,6 +131,71 @@ def send_push_to_user(user_id, title, message, url=None, data=None):
         return success, "Push notification sent successfully" if success else "Failed to send to all subscriptions"
     except Exception as e:
         return False, str(e)
+
+def get_patient_data(patient_id):
+    """Get patient data by ID"""
+    try:
+        result = admin_client.table("enhanced_patients").select("*").eq("id", patient_id).single().execute()
+        
+        if not result.data:
+            return None
+            
+        patient = result.data
+        return {
+            "id": patient["id"],
+            "full_name": patient.get("full_name"),
+            "email": patient.get("email"),
+            "phone": patient.get("phone"),
+            "date_of_birth": patient.get("date_of_birth"),
+            "gender": patient.get("gender"),
+            "address": patient.get("address"),
+            "emergency_contact": patient.get("emergency_contact"),
+            "medical_history": patient.get("medical_history"),
+            "allergies": patient.get("allergies"),
+            "medications": patient.get("medications"),
+            "insurance_info": patient.get("insurance_info"),
+            "preferences": patient.get("preferences", {}),
+            "created_at": patient.get("created_at"),
+            "updated_at": patient.get("updated_at")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting patient data for ID {patient_id}: {e}")
+        return None
+
+def get_doctor_data(doctor_id):
+    """Get doctor data by ID"""
+    try:
+        result = admin_client.table("doctors").select("*").eq("id", doctor_id).single().execute()
+        
+        if not result.data:
+            return None
+            
+        doctor = result.data
+        return {
+            "id": doctor["id"],
+            "full_name": doctor.get("full_name"),
+            "email": doctor.get("email"),
+            "phone": doctor.get("phone"),
+            "specialization": doctor.get("specialization"),
+            "department": doctor.get("department"),
+            "license_number": doctor.get("license_number"),
+            "years_of_experience": doctor.get("years_of_experience"),
+            "education": doctor.get("education"),
+            "certifications": doctor.get("certifications"),
+            "languages": doctor.get("languages", []),
+            "office_location": doctor.get("office_location"),
+            "schedule": doctor.get("schedule", {}),
+            "bio": doctor.get("bio"),
+            "profile_image": doctor.get("profile_image"),
+            "availability": doctor.get("availability", {}),
+            "created_at": doctor.get("created_at"),
+            "updated_at": doctor.get("updated_at")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting doctor data for ID {doctor_id}: {e}")
+        return None
 
 def send_appointment_reminder(appointment_id):
     """Send appointment reminder notification"""
@@ -189,15 +253,6 @@ def send_appointment_confirmation(appointment_id, patient_email, doctor_email):
             if not success:
                 logger.error(f"Failed to send confirmation SMS to patient: {message}")
 
-        # Send WhatsApp message to patient if phone number is available
-        if appointment_data.get('patient_phone'):
-            success, message = twilio_client.send_whatsapp(
-                recipient=appointment_data['patient_phone'],
-                message=f"Your appointment with Dr. {appointment_data['doctor_name']} has been confirmed for {appointment_data['appointment_time']}."
-            )
-            if not success:
-                logger.error(f"Failed to send confirmation WhatsApp to patient: {message}")
-
         # Send push notification to patient if device token is available
         if appointment_data.get('patient_id'):
             success, message = push_notifications.send_appointment_update_push(
@@ -246,16 +301,6 @@ def send_appointment_update(appointment_data, update_type, patient_email, doctor
             )
             if not success:
                 logger.error(f"Failed to send update SMS to patient: {msg}")
-
-        # Send WhatsApp message to patient if phone number is available
-        if appointment_data.get('patient_phone'):
-            message = f"Your appointment with Dr. {appointment_data['doctor_name']} has been {update_type}ed for {appointment_data['date']} at {appointment_data['time']}."
-            success, msg = twilio_client.send_whatsapp(
-                to=appointment_data['patient_phone'],
-                message=message
-            )
-            if not success:
-                logger.error(f"Failed to send update WhatsApp to patient: {msg}")
 
         # Send push notification to patient if device token is available
         if appointment_data.get('patient_device_token'):
@@ -345,4 +390,4 @@ def send_upcoming_appointment_reminders():
         
     except Exception as e:
         print(f"Error sending upcoming reminders: {str(e)}")
-        return False, str(e) 
+        return False, str(e)

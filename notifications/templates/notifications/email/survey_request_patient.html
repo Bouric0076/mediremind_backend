@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Feedback Matters</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #6f42c1 0%, #6610f2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .survey-intro {
+            background-color: #f8f9fa;
+            border: 2px solid #6f42c1;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .rating-preview {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            gap: 10px;
+        }
+        .star {
+            font-size: 24px;
+            color: #ffc107;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .star:hover {
+            transform: scale(1.2);
+        }
+        .visit-summary {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .summary-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .summary-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+        }
+        .survey-sections {
+            margin: 25px 0;
+        }
+        .section-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .section-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .section-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #6f42c1 0%, #6610f2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .section-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .section-description {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+        .quick-questions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .quick-question {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .question-text {
+            font-weight: 500;
+            color: #495057;
+        }
+        .quick-rating {
+            display: flex;
+            gap: 5px;
+        }
+        .rating-btn {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #dee2e6;
+            border-radius: 50%;
+            background-color: white;
+            color: #6c757d;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .rating-btn:hover {
+            border-color: #6f42c1;
+            background-color: #6f42c1;
+            color: white;
+        }
+        .cta-section {
+            background: linear-gradient(135deg, #6f42c1 0%, #6610f2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 25px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: white;
+            color: #6f42c1;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 15px 10px;
+            transition: transform 0.2s;
+            font-size: 16px;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .secondary-button {
+            background-color: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        .incentive-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .progress-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            gap: 10px;
+        }
+        .progress-step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #dee2e6;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .progress-step.active {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .progress-line {
+            width: 40px;
+            height: 2px;
+            background-color: #dee2e6;
+        }
+        .testimonials {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .testimonial-item {
+            background-color: white;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #6f42c1;
+        }
+        .testimonial-text {
+            font-style: italic;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .testimonial-author {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 600;
+        }
+        .contact-section {
+            background-color: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .social-proof {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .proof-item {
+            text-align: center;
+        }
+        .proof-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #6f42c1;
+        }
+        .proof-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+            .quick-question {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            .social-proof {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .rating-preview {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⭐ Your Feedback Matters</h1>
+            <p>Help us improve your healthcare experience</p>
+            <p>{{ survey_date }}</p>
+        </div>
+        
+        <div class="content">
+            <div class="survey-intro">
+                <h3>📝 Share Your Experience</h3>
+                <p>We value your opinion and want to ensure you receive the best possible care. Your feedback helps us improve our services for you and other patients.</p>
+                
+                <div class="rating-preview">
+                    <span>How was your overall experience?</span>
+                    <div class="star">⭐</div>
+                    <div class="star">⭐</div>
+                    <div class="star">⭐</div>
+                    <div class="star">⭐</div>
+                    <div class="star">⭐</div>
+                </div>
+            </div>
+            
+            <div class="visit-summary">
+                <h4>📋 Visit Summary</h4>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-label">Patient</div>
+                        <div class="summary-value">{{ patient_name }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Visit Date</div>
+                        <div class="summary-value">{{ visit_date }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Provider</div>
+                        <div class="summary-value">{{ provider_name }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Visit Type</div>
+                        <div class="summary-value">{{ visit_type }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Duration</div>
+                        <div class="summary-value">{{ visit_duration }}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Location</div>
+                        <div class="summary-value">{{ clinic_location }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="progress-indicator">
+                <div class="progress-step active">1</div>
+                <div class="progress-line"></div>
+                <div class="progress-step">2</div>
+                <div class="progress-line"></div>
+                <div class="progress-step">3</div>
+                <div class="progress-line"></div>
+                <div class="progress-step">4</div>
+            </div>
+            <p style="text-align: center; color: #6c757d; font-size: 14px;">Survey takes only {{ estimated_time }} minutes to complete</p>
+            
+            <div class="survey-sections">
+                <div class="section-card">
+                    <div class="section-icon">👩‍⚕️</div>
+                    <div class="section-title">Provider Care Quality</div>
+                    <div class="section-description">Rate your provider's communication, expertise, and bedside manner</div>
+                    
+                    <div class="quick-questions">
+                        <div class="quick-question">
+                            <span class="question-text">Provider listened to my concerns</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                        <div class="quick-question">
+                            <span class="question-text">Explanations were clear and helpful</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <div class="section-icon">🏥</div>
+                    <div class="section-title">Facility & Staff</div>
+                    <div class="section-description">Evaluate our facilities, cleanliness, and support staff</div>
+                    
+                    <div class="quick-questions">
+                        <div class="quick-question">
+                            <span class="question-text">Facility was clean and comfortable</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                        <div class="quick-question">
+                            <span class="question-text">Staff was friendly and helpful</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <div class="section-icon">⏰</div>
+                    <div class="section-title">Appointment Experience</div>
+                    <div class="section-description">Rate scheduling, wait times, and overall convenience</div>
+                    
+                    <div class="quick-questions">
+                        <div class="quick-question">
+                            <span class="question-text">Appointment was on time</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                        <div class="quick-question">
+                            <span class="question-text">Scheduling was easy and convenient</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section-card">
+                    <div class="section-icon">💬</div>
+                    <div class="section-title">Communication & Follow-up</div>
+                    <div class="section-description">Assess our communication and post-visit care</div>
+                    
+                    <div class="quick-questions">
+                        <div class="quick-question">
+                            <span class="question-text">Instructions were clear</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                        <div class="quick-question">
+                            <span class="question-text">Would recommend to others</span>
+                            <div class="quick-rating">
+                                <div class="rating-btn">1</div>
+                                <div class="rating-btn">2</div>
+                                <div class="rating-btn">3</div>
+                                <div class="rating-btn">4</div>
+                                <div class="rating-btn">5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cta-section">
+                <h3>🎯 Ready to Share Your Feedback?</h3>
+                <p>Your responses are confidential and help us provide better care for everyone.</p>
+                <a href="{{ survey_url }}" class="cta-button">Start Survey ({{ estimated_time }} min)</a>
+                <a href="{{ quick_survey_url }}" class="cta-button secondary-button">Quick Survey (1 min)</a>
+            </div>
+            
+            {% if survey_incentive %}
+            <div class="incentive-section">
+                <h4>🎁 Thank You Reward</h4>
+                <p><strong>{{ survey_incentive.title }}</strong></p>
+                <p>{{ survey_incentive.description }}</p>
+                {% if survey_incentive.code %}
+                <p style="font-weight: 600; color: #6f42c1;">Use code: {{ survey_incentive.code }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div class="social-proof">
+                <div class="proof-item">
+                    <div class="proof-number">{{ total_responses }}</div>
+                    <div class="proof-label">Responses This Month</div>
+                </div>
+                <div class="proof-item">
+                    <div class="proof-number">{{ average_rating }}</div>
+                    <div class="proof-label">Average Rating</div>
+                </div>
+                <div class="proof-item">
+                    <div class="proof-number">{{ response_rate }}%</div>
+                    <div class="proof-label">Response Rate</div>
+                </div>
+                <div class="proof-item">
+                    <div class="proof-number">{{ improvements_made }}</div>
+                    <div class="proof-label">Improvements Made</div>
+                </div>
+            </div>
+            
+            {% if recent_improvements %}
+            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>✅ Recent Improvements Based on Your Feedback</h4>
+                <ul>
+                    {% for improvement in recent_improvements %}
+                    <li><strong>{{ improvement.area }}:</strong> {{ improvement.description }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            {% if testimonials %}
+            <div class="testimonials">
+                <h4>💭 What Other Patients Are Saying</h4>
+                {% for testimonial in testimonials %}
+                <div class="testimonial-item">
+                    <div class="testimonial-text">"{{ testimonial.text }}"</div>
+                    <div class="testimonial-author">- {{ testimonial.author }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📊 Survey Options</h4>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-label">Full Survey</div>
+                        <div class="summary-value">{{ estimated_time }} minutes</div>
+                        <a href="{{ survey_url }}" style="color: #6f42c1; text-decoration: none; font-weight: 600;">Start Full Survey</a>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Quick Survey</div>
+                        <div class="summary-value">1 minute</div>
+                        <a href="{{ quick_survey_url }}" style="color: #6f42c1; text-decoration: none; font-weight: 600;">Quick Survey</a>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Phone Survey</div>
+                        <div class="summary-value">Call back</div>
+                        <a href="{{ phone_survey_url }}" style="color: #6f42c1; text-decoration: none; font-weight: 600;">Request Call</a>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Skip This Time</div>
+                        <div class="summary-value">No survey</div>
+                        <a href="{{ skip_survey_url }}" style="color: #6c757d; text-decoration: none;">Skip Survey</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="contact-section">
+                <h4>❓ Questions About This Survey?</h4>
+                <p><strong>Patient Experience Team:</strong> <a href="tel:{{ experience_phone }}">{{ experience_phone }}</a><br>
+                <strong>Email:</strong> <a href="mailto:{{ experience_email }}">{{ experience_email }}</a><br>
+                <strong>Hours:</strong> {{ experience_hours }}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+                <h4>🔒 Your Privacy is Protected</h4>
+                <p>All survey responses are confidential and used only to improve our services.</p>
+                <a href="{{ privacy_policy_url }}" style="color: #6c757d; text-decoration: none;">Privacy Policy</a> | 
+                <a href="{{ survey_terms_url }}" style="color: #6c757d; text-decoration: none;">Survey Terms</a>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>Prefer not to receive survey requests?</strong></p>
+                <a href="{{ opt_out_url }}" style="color: #6c757d; text-decoration: none;">📧 Update Survey Preferences</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - Patient Experience Team<br>
+            Survey ID: {{ survey_id }} | Expires: {{ survey_expiry }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ preferences_url }}">Notification Preferences</a></p>
+        </div>
+    </div>
+</body>
+</html>

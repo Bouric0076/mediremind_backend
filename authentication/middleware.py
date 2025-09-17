@@ -1,0 +1,159 @@
+"""
+Unified Authentication Middleware for MediRemind Backend
+Provides consistent token-based authentication across all apps
+"""
+from django.http import JsonResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from functools import wraps
+import json
+import logging
+from .utils import get_authenticated_user
+
+logger = logging.getLogger(__name__)
+
+
+def token_required(view_func):
+    """
+    Decorator for function-based views that require token authentication
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Extract token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({"error": "Authorization header required"}, status=401)
+
+        # Parse token from header (supports both Bearer and Token formats)
+        token = None
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        elif auth_header.startswith('Token '):
+            token = auth_header.split(' ')[1]
+        else:
+            return JsonResponse({"error": "Invalid authorization format. Use 'Bearer <token>' or 'Token <token>'"}, status=401)
+
+        # Validate token and get user
+        user = get_authenticated_user(token)
+        if not user:
+            return JsonResponse({"error": "Invalid or expired token"}, status=401)
+
+        # Add authenticated user to request
+        request.authenticated_user = user
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+class TokenAuthenticationMixin:
+    """
+    Mixin for class-based views that require token authentication
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Extract token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({"error": "Authorization header required"}, status=401)
+
+        # Parse token from header (supports both Bearer and Token formats)
+        token = None
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        elif auth_header.startswith('Token '):
+            token = auth_header.split(' ')[1]
+        else:
+            return JsonResponse({"error": "Invalid authorization format. Use 'Bearer <token>' or 'Token <token>'"}, status=401)
+
+        # Validate token and get user
+        user = get_authenticated_user(token)
+        if not user:
+            return JsonResponse({"error": "Invalid or expired token"}, status=401)
+
+        # Add authenticated user to request
+        request.authenticated_user = user
+        
+        return super().dispatch(request, *args, **kwargs)
+
+
+def api_csrf_exempt(view_func):
+    """
+    Decorator that combines CSRF exemption with token authentication
+    Use this for API endpoints that need token auth
+    """
+    @csrf_exempt
+    @token_required
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+class APIView:
+    """
+    Base class for API views with built-in token authentication
+    """
+    
+    @method_decorator(csrf_exempt, name='dispatch')
+    def dispatch(self, request, *args, **kwargs):
+        # Extract token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return JsonResponse({"error": "Authorization header required"}, status=401)
+
+        # Parse token from header (supports both Bearer and Token formats)
+        token = None
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        elif auth_header.startswith('Token '):
+            token = auth_header.split(' ')[1]
+        else:
+            return JsonResponse({"error": "Invalid authorization format. Use 'Bearer <token>' or 'Token <token>'"}, status=401)
+
+        # Validate token and get user
+        user = get_authenticated_user(token)
+        if not user:
+            return JsonResponse({"error": "Invalid or expired token"}, status=401)
+
+        # Add authenticated user to request
+        request.authenticated_user = user
+        
+        return super().dispatch(request, *args, **kwargs)
+
+
+# Utility functions for common authentication patterns
+
+def get_request_user(request):
+    """
+    Get the authenticated user from request
+    Returns the authenticated user object or None
+    """
+    return getattr(request, 'authenticated_user', None)
+
+
+def require_role(allowed_roles):
+    """
+    Decorator that checks if the authenticated user has one of the allowed roles
+    Usage: @require_role(['admin', 'doctor'])
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            user = get_request_user(request)
+            if not user:
+                return JsonResponse({"error": "Authentication required"}, status=401)
+            
+            # Check user role
+            user_role = getattr(user, 'role', None)
+            if hasattr(user, 'profile') and hasattr(user.profile, 'role'):
+                user_role = user.profile.role
+            
+            if user_role not in allowed_roles:
+                return JsonResponse({"error": f"Access denied. Required roles: {allowed_roles}"}, status=403)
+            
+            return view_func(request, *args, **kwargs)
+        
+        return wrapper
+    return decorator

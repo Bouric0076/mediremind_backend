@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medication Reminder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .reminder-alert {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .medication-card {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .medication-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .medication-name {
+            font-weight: 600;
+            color: #495057;
+            font-size: 18px;
+        }
+        .dosage-badge {
+            background-color: #e8f4fd;
+            color: #6f42c1;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .medication-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .detail-item {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .detail-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .detail-value {
+            font-size: 14px;
+            color: #495057;
+            font-weight: 500;
+        }
+        .refill-alert {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .adherence-tracker {
+            background-color: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            height: 12px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .action-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .medication-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .medication-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💊 Medication Reminder</h1>
+            <p>Stay on track with your health</p>
+        </div>
+        
+        <div class="content">
+            {% if reminder_type == 'dose' %}
+            <div class="reminder-alert">
+                <h3>⏰ Time for Your Medication!</h3>
+                <p>It's time to take your {{ medication_name }} dose.</p>
+                <p><strong>Scheduled Time:</strong> {{ scheduled_time }}</p>
+            </div>
+            {% elif reminder_type == 'refill' %}
+            <div class="reminder-alert">
+                <h3>🏪 Refill Reminder</h3>
+                <p>Your {{ medication_name }} prescription needs to be refilled soon.</p>
+                <p><strong>Days Remaining:</strong> {{ days_remaining }}</p>
+            </div>
+            {% endif %}
+            
+            <div class="medication-card">
+                <div class="medication-header">
+                    <span class="medication-name">{{ medication_name }}</span>
+                    <span class="dosage-badge">{{ dosage }}</span>
+                </div>
+                
+                <div class="medication-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Frequency</div>
+                        <div class="detail-value">{{ frequency }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Time</div>
+                        <div class="detail-value">{{ scheduled_times }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">With Food</div>
+                        <div class="detail-value">{{ with_food|yesno:"Yes,No" }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Prescribed By</div>
+                        <div class="detail-value">{{ prescribing_doctor }}</div>
+                    </div>
+                </div>
+                
+                {% if special_instructions %}
+                <div style="background-color: #e8f4fd; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>Special Instructions:</strong> {{ special_instructions }}
+                </div>
+                {% endif %}
+                
+                {% if side_effects_warning %}
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>⚠️ Watch for:</strong> {{ side_effects_warning }}
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if reminder_type == 'refill' %}
+            <div class="refill-alert">
+                <h4>📋 Refill Information</h4>
+                <p><strong>Prescription Number:</strong> {{ prescription_number }}<br>
+                <strong>Refills Remaining:</strong> {{ refills_remaining }}<br>
+                <strong>Pharmacy:</strong> {{ pharmacy_name }}<br>
+                <strong>Pharmacy Phone:</strong> <a href="tel:{{ pharmacy_phone }}">{{ pharmacy_phone }}</a></p>
+            </div>
+            {% endif %}
+            
+            {% if adherence_rate %}
+            <div class="adherence-tracker">
+                <h4>📊 Medication Adherence</h4>
+                <p>Your adherence rate for the past 30 days:</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ adherence_rate }}%;"></div>
+                </div>
+                <p style="text-align: center; margin: 10px 0;"><strong>{{ adherence_rate }}%</strong></p>
+                
+                {% if adherence_rate >= 90 %}
+                <p style="color: #28a745;">🎉 Excellent! Keep up the great work!</p>
+                {% elif adherence_rate >= 80 %}
+                <p style="color: #ffc107;">👍 Good job! Try to maintain consistency.</p>
+                {% else %}
+                <p style="color: #dc3545;">📞 Consider speaking with your healthcare provider about any challenges you're facing.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div class="quick-actions">
+                <div class="action-card">
+                    <h4>✅ Mark as Taken</h4>
+                    <p>Confirm you've taken this dose</p>
+                    <a href="{{ mark_taken_url }}" class="cta-button">Mark Taken</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>⏰ Snooze Reminder</h4>
+                    <p>Remind me again in 15 minutes</p>
+                    <a href="{{ snooze_url }}" class="cta-button">Snooze</a>
+                </div>
+                
+                {% if reminder_type == 'refill' %}
+                <div class="action-card">
+                    <h4>🏪 Order Refill</h4>
+                    <p>Request refill from pharmacy</p>
+                    <a href="{{ refill_url }}" class="cta-button">Order Refill</a>
+                </div>
+                {% endif %}
+                
+                <div class="action-card">
+                    <h4>📱 Set Phone Reminder</h4>
+                    <p>Add to your phone's reminders</p>
+                    <a href="{{ phone_reminder_url }}" class="cta-button">Set Reminder</a>
+                </div>
+            </div>
+            
+            {% if missed_doses > 0 %}
+            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>⚠️ Missed Doses Alert</h4>
+                <p>You have {{ missed_doses }} missed dose{{ missed_doses|pluralize }} in the past week. Consistent medication adherence is important for your health.</p>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{{ adherence_tips_url }}" class="cta-button">Get Adherence Tips</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>💬 Need Help?</h4>
+                <p>Questions about your medication or experiencing side effects?</p>
+                <div style="text-align: center;">
+                    <a href="{{ portal_url }}/messages" class="cta-button">Message Provider</a>
+                    <a href="tel:{{ clinic_phone }}" class="cta-button">Call Clinic</a>
+                </div>
+                <p style="font-size: 14px; color: #6c757d; text-align: center; margin-top: 15px;">
+                    <strong>Emergency:</strong> If experiencing severe side effects, call 911 or go to the nearest emergency room.
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>Reminder Preferences</strong></p>
+                <a href="{{ preferences_url }}" style="color: #6f42c1; text-decoration: none;">⚙️ Manage Reminder Settings</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - Medication Management<br>
+            {{ clinic_address }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ privacy_url }}">Privacy Policy</a></p>
+        </div>
+    </div>
+</body>
+</html>

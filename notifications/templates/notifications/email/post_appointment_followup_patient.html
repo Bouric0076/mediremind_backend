@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post-Appointment Care Instructions</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .visit-summary {
+            background-color: #e8f4fd;
+            border: 1px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .care-section {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+        }
+        .medication-card {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .medication-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .medication-name {
+            font-weight: 600;
+            color: #495057;
+            font-size: 16px;
+        }
+        .dosage {
+            background-color: #e8f4fd;
+            color: #17a2b8;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .next-steps {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .alert {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .rating-section {
+            text-align: center;
+            padding: 20px;
+            background-color: #e8f5e8;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .star-rating {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .medication-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Post-Appointment Summary</h1>
+            <p>Your care instructions and next steps</p>
+        </div>
+        
+        <div class="content">
+            <div class="visit-summary">
+                <h3>📋 Visit Summary</h3>
+                <p><strong>Date:</strong> {{ appointment_date }}<br>
+                <strong>Provider:</strong> {{ doctor_name }}<br>
+                <strong>Visit Type:</strong> {{ appointment_type }}<br>
+                <strong>Duration:</strong> {{ visit_duration }}</p>
+                
+                {% if diagnosis %}
+                <p><strong>Diagnosis:</strong> {{ diagnosis }}</p>
+                {% endif %}
+            </div>
+            
+            {% if medications %}
+            <div class="care-section">
+                <h3>💊 Medications</h3>
+                <p>Please follow these medication instructions carefully:</p>
+                
+                {% for medication in medications %}
+                <div class="medication-card">
+                    <div class="medication-header">
+                        <span class="medication-name">{{ medication.name }}</span>
+                        <span class="dosage">{{ medication.dosage }}</span>
+                    </div>
+                    <p><strong>Instructions:</strong> {{ medication.instructions }}</p>
+                    <p><strong>Duration:</strong> {{ medication.duration }}</p>
+                    {% if medication.side_effects %}
+                    <p><strong>Possible Side Effects:</strong> {{ medication.side_effects }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="{{ pharmacy_url }}" class="cta-button">🏪 Find Pharmacy</a>
+                    <a href="{{ medication_reminders_url }}" class="cta-button">⏰ Set Reminders</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if care_instructions %}
+            <div class="care-section">
+                <h3>🩺 Care Instructions</h3>
+                {{ care_instructions|safe }}
+            </div>
+            {% endif %}
+            
+            {% if follow_up_required %}
+            <div class="next-steps">
+                <h4>📅 Next Steps</h4>
+                <ul>
+                    {% for step in next_steps %}
+                    <li>{{ step }}</li>
+                    {% endfor %}
+                </ul>
+                
+                {% if follow_up_date %}
+                <p><strong>Follow-up Appointment:</strong> {{ follow_up_date }}</p>
+                <div style="text-align: center; margin: 20px 0;">
+                    <a href="{{ schedule_followup_url }}" class="cta-button">📅 Schedule Follow-up</a>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if warning_signs %}
+            <div class="alert">
+                <h4>⚠️ When to Contact Us</h4>
+                <p>Please contact us immediately if you experience any of the following:</p>
+                <ul>
+                    {% for sign in warning_signs %}
+                    <li>{{ sign }}</li>
+                    {% endfor %}
+                </ul>
+                <p><strong>Emergency Contact:</strong> <a href="tel:{{ emergency_phone }}">{{ emergency_phone }}</a></p>
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📞 Questions or Concerns?</h4>
+                <p>Our care team is here to help:<br>
+                <strong>Phone:</strong> <a href="tel:{{ clinic_phone }}">{{ clinic_phone }}</a><br>
+                <strong>Patient Portal:</strong> <a href="{{ portal_url }}">Send a message</a><br>
+                <strong>Hours:</strong> Monday-Friday, 8 AM - 6 PM</p>
+            </div>
+            
+            {% if test_results_pending %}
+            <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🧪 Test Results</h4>
+                <p>Your test results will be available in {{ results_timeframe }}. You'll receive a notification when they're ready to view in your patient portal.</p>
+                <div style="text-align: center; margin: 15px 0;">
+                    <a href="{{ portal_url }}/results" class="cta-button">View Results Portal</a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="rating-section">
+                <h4>💝 How was your visit?</h4>
+                <p>Your feedback helps us improve our care</p>
+                <div class="star-rating">⭐⭐⭐⭐⭐</div>
+                <a href="{{ feedback_url }}" class="cta-button">Leave Feedback</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }}<br>
+            {{ clinic_address }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ privacy_url }}">Privacy Policy</a></p>
+        </div>
+    </div>
+</body>
+</html>

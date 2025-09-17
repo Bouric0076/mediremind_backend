@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient No-Show Alert</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .alert-box {
+            background-color: #f8d7da;
+            border: 2px solid #dc3545;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .patient-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .info-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            font-size: 16px;
+            color: #495057;
+            font-weight: 600;
+        }
+        .history-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .action-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .secondary-button {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        .timeline {
+            margin: 20px 0;
+        }
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        .timeline-time {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: center;
+        }
+        .timeline-event {
+            margin-left: 15px;
+            flex: 1;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .info-grid, .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Patient No-Show Alert</h1>
+            <p>Immediate attention required</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert-box">
+                <h3>⚠️ Patient Did Not Arrive</h3>
+                <p><strong>{{ patient_name }}</strong> did not show up for their scheduled appointment.</p>
+                <p><strong>Missed Appointment Time:</strong> {{ appointment_time }}</p>
+                <p><strong>Wait Time Exceeded:</strong> {{ wait_time_exceeded }} minutes</p>
+            </div>
+            
+            <div class="patient-info">
+                <h3>👤 Patient Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Patient Name</div>
+                        <div class="info-value">{{ patient_name }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Patient ID</div>
+                        <div class="info-value">{{ patient_id }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Phone Number</div>
+                        <div class="info-value">{{ patient_phone }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Email</div>
+                        <div class="info-value">{{ patient_email }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Appointment Type</div>
+                        <div class="info-value">{{ appointment_type }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Duration</div>
+                        <div class="info-value">{{ appointment_duration }} min</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="history-section">
+                <h4>📊 Patient History</h4>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ total_appointments }}</div>
+                        <div class="stat-label">Total Appointments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ no_show_count }}</div>
+                        <div class="stat-label">Previous No-Shows</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ cancellation_count }}</div>
+                        <div class="stat-label">Cancellations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ attendance_rate }}%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                    </div>
+                </div>
+                
+                {% if recent_no_shows %}
+                <h5>Recent No-Show History:</h5>
+                <ul>
+                    {% for no_show in recent_no_shows %}
+                    <li>{{ no_show.date }} - {{ no_show.appointment_type }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            
+            <h3>📞 Contact Attempts</h3>
+            <div class="timeline">
+                {% for attempt in contact_attempts %}
+                <div class="timeline-item">
+                    <div class="timeline-time">{{ attempt.time }}</div>
+                    <div class="timeline-event">
+                        <strong>{{ attempt.method }}:</strong> {{ attempt.result }}
+                        {% if attempt.notes %}
+                        <br><em>{{ attempt.notes }}</em>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="timeline-item">
+                    <div class="timeline-time">--:--</div>
+                    <div class="timeline-event">No contact attempts recorded yet</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <div class="action-card">
+                    <h4>📞 Call Patient</h4>
+                    <p>Contact patient directly</p>
+                    <a href="tel:{{ patient_phone }}" class="cta-button">Call Now</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>📧 Send Email</h4>
+                    <p>Send follow-up message</p>
+                    <a href="{{ send_email_url }}" class="cta-button">Send Email</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>📅 Reschedule</h4>
+                    <p>Offer new appointment time</p>
+                    <a href="{{ reschedule_url }}" class="cta-button">Reschedule</a>
+                </div>
+                
+                <div class="action-card">
+                    <h4>📝 Add Notes</h4>
+                    <p>Document the no-show</p>
+                    <a href="{{ add_notes_url }}" class="cta-button secondary-button">Add Notes</a>
+                </div>
+            </div>
+            
+            {% if policy_actions %}
+            <div style="background-color: #e8f4fd; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📋 Policy Actions</h4>
+                <p>Based on clinic policy and patient history:</p>
+                <ul>
+                    {% for action in policy_actions %}
+                    <li>{{ action }}</li>
+                    {% endfor %}
+                </ul>
+                
+                {% if charge_no_show_fee %}
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                    <strong>💰 No-Show Fee:</strong> ${{ no_show_fee }} should be applied to patient account.
+                    <div style="text-align: center; margin: 10px 0;">
+                        <a href="{{ apply_fee_url }}" class="cta-button">Apply Fee</a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if next_available_slots %}
+            <div style="background-color: #e8f5e8; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📅 Available Time Slots</h4>
+                <p>Next available appointments for rescheduling:</p>
+                <ul>
+                    {% for slot in next_available_slots %}
+                    <li>{{ slot.date }} at {{ slot.time }} ({{ slot.duration }} min)</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🔧 Quick Actions</h4>
+                <div style="text-align: center;">
+                    <a href="{{ patient_chart_url }}" class="cta-button secondary-button">📋 View Chart</a>
+                    <a href="{{ schedule_url }}" class="cta-button secondary-button">📅 View Schedule</a>
+                    <a href="{{ fill_slot_url }}" class="cta-button secondary-button">🔄 Fill Time Slot</a>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <p><strong>Mark this no-show as:</strong></p>
+                <a href="{{ mark_contacted_url }}" class="cta-button secondary-button">✅ Patient Contacted</a>
+                <a href="{{ mark_resolved_url }}" class="cta-button secondary-button">✅ Resolved</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - No-Show Management System<br>
+            Alert generated at {{ alert_time }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ preferences_url }}">Alert Preferences</a></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,6 +7,12 @@ import json
 import ssl
 import certifi
 import os
+from .template_manager import (
+    template_manager, 
+    TemplateContext, 
+    RecipientType, 
+    TemplateType
+)
 
 
 logger = logging.getLogger(__name__)
@@ -79,8 +85,52 @@ class EmailClient:
 # ...existing code...
 
     @staticmethod
-    def send_appointment_confirmation_email(appointment_data, recipient_email, is_patient=True):
-        """Send appointment confirmation email"""
+    def send_appointment_confirmation_email(appointment_data, recipient_email, is_patient=True, 
+                                          user_preferences=None, additional_links=None):
+        """Send enhanced appointment confirmation email with personalization"""
+        try:
+            # Ensure appointment_data is a dict
+            if isinstance(appointment_data, str):
+                try:
+                    appointment_data = json.loads(appointment_data)
+                except Exception as e:
+                    logger.error(f"appointment_data is a string but not valid JSON: {appointment_data} | Error: {e}")
+                    return False, "Invalid appointment data format"
+
+            if not isinstance(appointment_data, dict):
+                logger.error(f"appointment_data is not a dict after parsing: {appointment_data}")
+                return False, "Invalid appointment data format"
+
+            # Use enhanced template management system
+            template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
+            
+            # Create enhanced template context
+            context = TemplateContext(
+                recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
+                recipient_email=recipient_email,
+                recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
+                appointment=appointment_data,
+                preferences=user_preferences or {},
+                links=additional_links or {}
+            )
+            
+            # Render template with enhanced features
+            subject, html_message = template_manager.render_template(template_key, context)
+            
+            return EmailClient.send_email(
+                subject=subject,
+                message=strip_tags(html_message),
+                recipient_list=[recipient_email],
+                html_message=html_message
+            )
+
+        except Exception as e:
+            logger.error(f"Error sending appointment confirmation email: {str(e)}")
+            return False, str(e)
+    
+    @staticmethod
+    def send_appointment_confirmation_email_legacy(appointment_data, recipient_email, is_patient=True):
+        """Legacy method for backward compatibility"""
         try:
             # Ensure appointment_data is a dict
             if isinstance(appointment_data, str):
@@ -118,8 +168,61 @@ class EmailClient:
             return False, str(e)
 
     @staticmethod
-    def send_appointment_update_email(appointment_data, update_type, recipient_email, is_patient=True):
-        """Send appointment update email"""
+    def send_appointment_update_email(appointment_data, update_type, recipient_email, is_patient=True,
+                                    user_preferences=None, additional_links=None):
+        """Send enhanced appointment update email (reschedule/cancellation) with personalization"""
+        try:
+            # Ensure appointment_data is a dict
+            if isinstance(appointment_data, str):
+                try:
+                    appointment_data = json.loads(appointment_data)
+                except Exception as e:
+                    logger.error(f"appointment_data is a string but not valid JSON: {appointment_data} | Error: {e}")
+                    return False, "Invalid appointment data format"
+
+            if not isinstance(appointment_data, dict):
+                logger.error(f"appointment_data is not a dict after parsing: {appointment_data}")
+                return False, "Invalid appointment data format"
+
+            # Determine template key based on update type and recipient
+            if update_type == "reschedule":
+                template_key = "appointment_reschedule_patient" if is_patient else "appointment_reschedule_doctor"
+            elif update_type == "cancellation":
+                template_key = "appointment_cancellation_patient" if is_patient else "appointment_cancellation_doctor"
+            else:
+                logger.error(f"Invalid update_type: {update_type}")
+                return False, "Invalid update type"
+
+            # Create enhanced template context
+            context = TemplateContext(
+                recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
+                recipient_email=recipient_email,
+                recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
+                appointment=appointment_data,
+                preferences=user_preferences or {},
+                links=additional_links or {}
+            )
+            
+            # Add update_type to metadata for template access
+            context.metadata['update_type'] = update_type
+            
+            # Render template with enhanced features
+            subject, html_message = template_manager.render_template(template_key, context)
+
+            return EmailClient.send_email(
+                subject=subject,
+                message=strip_tags(html_message),
+                recipient_list=[recipient_email],
+                html_message=html_message
+            )
+
+        except Exception as e:
+            logger.error(f"Error sending appointment update email: {str(e)}")
+            return False, str(e)
+    
+    @staticmethod
+    def send_appointment_update_email_legacy(appointment_data, update_type, recipient_email, is_patient=True):
+        """Legacy method for backward compatibility"""
         try:
             # Ensure appointment_data is a dict
             if isinstance(appointment_data, str):
@@ -163,4 +266,4 @@ class EmailClient:
             return False, str(e)
 
 # Create a singleton instance
-email_client = EmailClient() 
+email_client = EmailClient()

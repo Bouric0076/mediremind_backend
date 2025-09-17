@@ -3,7 +3,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import json
 from supabase_client import admin_client
-from authapp.utils import get_authenticated_user
+from authentication.utils import get_authenticated_user
+from authentication.middleware import api_csrf_exempt, get_request_user
 from datetime import datetime
 from .utils import (
     send_appointment_reminder,
@@ -12,21 +13,16 @@ from .utils import (
     trigger_manual_reminder
 )
 
-@csrf_exempt
+@api_csrf_exempt
 def save_subscription(request):
     """Save a push notification subscription"""
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
-    # Verify authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({"error": "Authorization required"}, status=401)
-
-    token = auth_header.split(' ')[1]
-    user = get_authenticated_user(token)
+    # Get authenticated user using unified middleware
+    user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Invalid token"}, status=401)
+        return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         data = json.loads(request.body)
@@ -236,4 +232,4 @@ def check_subscriptions(request):
         })
 
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500) 
+        return JsonResponse({"error": str(e)}, status=500)

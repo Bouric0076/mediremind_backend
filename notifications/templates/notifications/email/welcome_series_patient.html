@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {{ clinic_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-message {
+            background-color: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 20px 10px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Welcome to {{ clinic_name }}!</h1>
+            <p>Your health journey starts here</p>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-message">
+                <h2>Hello {{ recipient_name }}!</h2>
+                <p>We're thrilled to welcome you to our healthcare family. At {{ clinic_name }}, we're committed to providing you with exceptional care and support throughout your health journey.</p>
+            </div>
+            
+            <h3>What You Can Expect:</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📅</div>
+                    <h4>Easy Scheduling</h4>
+                    <p>Book, reschedule, or cancel appointments online 24/7</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💊</div>
+                    <h4>Medication Reminders</h4>
+                    <p>Never miss a dose with our smart reminder system</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h4>Patient Portal</h4>
+                    <p>Access your health records, test results, and more</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏥</div>
+                    <h4>Expert Care</h4>
+                    <p>Our experienced team is here to support your health goals</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 40px 0;">
+                <a href="{{ portal_url }}" class="cta-button">Access Patient Portal</a>
+                <a href="{{ portal_url }}/appointments/new" class="cta-button">Schedule Appointment</a>
+            </div>
+            
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 30px 0;">
+                <h4>📋 Getting Started Checklist:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>Complete your health profile in the patient portal</li>
+                    <li>Upload your insurance information</li>
+                    <li>Add emergency contacts</li>
+                    <li>Schedule your first appointment</li>
+                    <li>Download our mobile app for easy access</li>
+                </ul>
+            </div>
+            
+            <p><strong>Need Help?</strong> Our support team is available Monday-Friday, 8 AM - 6 PM. Contact us at <a href="tel:{{ clinic_phone }}">{{ clinic_phone }}</a> or <a href="mailto:{{ clinic_email }}">{{ clinic_email }}</a>.</p>
+        </div>
+        
+        <div class="footer">
+            <div class="social-links">
+                <a href="{{ social_facebook }}">Facebook</a>
+                <a href="{{ social_twitter }}">Twitter</a>
+                <a href="{{ social_instagram }}">Instagram</a>
+            </div>
+            <p>{{ clinic_name }}<br>
+            {{ clinic_address }}<br>
+            <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ privacy_url }}">Privacy Policy</a></p>
+        </div>
+    </div>
+</body>
+</html>

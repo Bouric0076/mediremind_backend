@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Notification</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+        .header.warning {
+            background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+        }
+        .header.info {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+        .header.success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        }
+        .emergency-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .urgency-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .content {
+            padding: 30px;
+        }
+        .alert-summary {
+            background-color: #fff3cd;
+            border: 2px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .alert-summary.critical {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .alert-summary.warning {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        .alert-summary.info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        .alert-summary.resolved {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .emergency-details {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .detail-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .detail-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .detail-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+        }
+        .action-required {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 25px 0;
+        }
+        .action-required.warning {
+            background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+        }
+        .action-required.info {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+        .action-button {
+            display: inline-block;
+            background-color: white;
+            color: #dc3545;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 10px;
+            transition: transform 0.2s;
+            font-size: 16px;
+        }
+        .action-button:hover {
+            transform: translateY(-2px);
+        }
+        .secondary-button {
+            background-color: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        .timeline {
+            margin: 25px 0;
+        }
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #dc3545;
+        }
+        .timeline-item.resolved {
+            border-left-color: #28a745;
+        }
+        .timeline-item.warning {
+            border-left-color: #fd7e14;
+        }
+        .timeline-item.info {
+            border-left-color: #007bff;
+        }
+        .timeline-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #dc3545;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .timeline-icon.resolved {
+            background-color: #28a745;
+        }
+        .timeline-icon.warning {
+            background-color: #fd7e14;
+        }
+        .timeline-icon.info {
+            background-color: #007bff;
+        }
+        .timeline-content {
+            flex: 1;
+        }
+        .timeline-time {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .timeline-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .timeline-description {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .affected-services {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .affected-services.critical {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .service-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .service-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .service-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #dc3545;
+        }
+        .service-status.operational {
+            background-color: #28a745;
+        }
+        .service-status.degraded {
+            background-color: #fd7e14;
+        }
+        .service-status.maintenance {
+            background-color: #007bff;
+        }
+        .contact-emergency {
+            background-color: #e8f4fd;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .contact-item {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+        }
+        .contact-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .contact-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .contact-value {
+            font-weight: 600;
+            color: #495057;
+        }
+        .contact-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .updates-section {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        .status-indicator.critical {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-indicator.warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-indicator.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-indicator.resolved {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .emergency-banner {
+            background-color: #dc3545;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: 600;
+            animation: blink 2s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.7; }
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            .header, .content {
+                padding: 20px;
+            }
+            .details-grid, .service-list, .contact-grid {
+                grid-template-columns: 1fr;
+            }
+            .urgency-badge {
+                position: static;
+                display: inline-block;
+                margin-top: 10px;
+            }
+            .timeline-item {
+                flex-direction: column;
+                text-align: center;
+            }
+            .timeline-icon {
+                margin: 0 auto 10px auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% if emergency_type == 'critical' %}
+    <div class="emergency-banner">
+        🚨 CRITICAL EMERGENCY ALERT - IMMEDIATE ACTION REQUIRED 🚨
+    </div>
+    {% endif %}
+    
+    <div class="container">
+        <div class="header {{ emergency_severity|lower }}">
+            <div class="urgency-badge">{{ emergency_severity|upper }}</div>
+            <div class="emergency-icon">
+                {% if emergency_type == 'medical' %}🏥
+                {% elif emergency_type == 'weather' %}🌪️
+                {% elif emergency_type == 'security' %}🔒
+                {% elif emergency_type == 'system' %}⚠️
+                {% elif emergency_type == 'facility' %}🏢
+                {% else %}🚨{% endif %}
+            </div>
+            <h1>{{ emergency_title }}</h1>
+            <p>{{ emergency_subtitle }}</p>
+            <p><strong>Alert Time:</strong> {{ alert_timestamp }}</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert-summary {{ emergency_severity|lower }}">
+                <h3>📢 Emergency Summary</h3>
+                <p><strong>{{ emergency_description }}</strong></p>
+                {% if estimated_duration %}
+                <p><strong>Estimated Duration:</strong> {{ estimated_duration }}</p>
+                {% endif %}
+                {% if affected_areas %}
+                <p><strong>Affected Areas:</strong> {{ affected_areas|join:', ' }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="emergency-details">
+                <h4>📋 Emergency Details</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Emergency ID</div>
+                        <div class="detail-value">{{ emergency_id }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Started</div>
+                        <div class="detail-value">{{ start_time }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value">
+                            <span class="status-indicator {{ emergency_status|lower }}">{{ emergency_status }}</span>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Priority Level</div>
+                        <div class="detail-value">{{ priority_level }}</div>
+                    </div>
+                    {% if resolution_time %}
+                    <div class="detail-item">
+                        <div class="detail-label">Resolved</div>
+                        <div class="detail-value">{{ resolution_time }}</div>
+                    </div>
+                    {% endif %}
+                    {% if next_update %}
+                    <div class="detail-item">
+                        <div class="detail-label">Next Update</div>
+                        <div class="detail-value">{{ next_update }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if emergency_status != 'Resolved' %}
+            <div class="action-required {{ emergency_severity|lower }}">
+                <h3>⚡ Immediate Actions Required</h3>
+                <p>{{ action_instructions }}</p>
+                {% if emergency_actions %}
+                {% for action in emergency_actions %}
+                <a href="{{ action.url }}" class="action-button">{{ action.label }}</a>
+                {% endfor %}
+                {% endif %}
+                {% if emergency_phone %}
+                <a href="tel:{{ emergency_phone }}" class="action-button">📞 Call Emergency Line</a>
+                {% endif %}
+                {% if status_page_url %}
+                <a href="{{ status_page_url }}" class="action-button secondary-button">📊 View Status Page</a>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if affected_services %}
+            <div class="affected-services {{ emergency_severity|lower }}">
+                <h4>🔧 Affected Services</h4>
+                <div class="service-list">
+                    {% for service in affected_services %}
+                    <div class="service-item">
+                        <div class="service-status {{ service.status|lower }}"></div>
+                        <div>
+                            <div style="font-weight: 600;">{{ service.name }}</div>
+                            <div style="font-size: 12px; color: #6c757d;">{{ service.status }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if timeline_updates %}
+            <div class="timeline">
+                <h4>📅 Timeline & Updates</h4>
+                {% for update in timeline_updates %}
+                <div class="timeline-item {{ update.type|lower }}">
+                    <div class="timeline-icon {{ update.type|lower }}">
+                        {% if update.type == 'resolved' %}✅
+                        {% elif update.type == 'warning' %}⚠️
+                        {% elif update.type == 'info' %}ℹ️
+                        {% else %}🚨{% endif %}
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">{{ update.timestamp }}</div>
+                        <div class="timeline-title">{{ update.title }}</div>
+                        <div class="timeline-description">{{ update.description }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="contact-emergency">
+                <h4>📞 Emergency Contacts</h4>
+                <p>If you need immediate assistance or have questions about this emergency:</p>
+                
+                <div class="contact-grid">
+                    {% if emergency_phone %}
+                    <div class="contact-item">
+                        <div class="contact-icon">📞</div>
+                        <div class="contact-label">Emergency Hotline</div>
+                        <div class="contact-value">
+                            <a href="tel:{{ emergency_phone }}" class="contact-link">{{ emergency_phone }}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if emergency_email %}
+                    <div class="contact-item">
+                        <div class="contact-icon">📧</div>
+                        <div class="contact-label">Emergency Email</div>
+                        <div class="contact-value">
+                            <a href="mailto:{{ emergency_email }}" class="contact-link">{{ emergency_email }}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if emergency_text %}
+                    <div class="contact-item">
+                        <div class="contact-icon">💬</div>
+                        <div class="contact-label">Emergency Text</div>
+                        <div class="contact-value">
+                            <a href="sms:{{ emergency_text }}" class="contact-link">{{ emergency_text }}</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if status_page_url %}
+                    <div class="contact-item">
+                        <div class="contact-icon">🌐</div>
+                        <div class="contact-label">Status Page</div>
+                        <div class="contact-value">
+                            <a href="{{ status_page_url }}" class="contact-link">Live Updates</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if safety_instructions %}
+            <div style="background-color: #fff3cd; border: 2px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>🛡️ Safety Instructions</h4>
+                <ul>
+                    {% for instruction in safety_instructions %}
+                    <li><strong>{{ instruction.title }}:</strong> {{ instruction.description }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            {% if alternative_locations %}
+            <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4>📍 Alternative Locations</h4>
+                <div class="details-grid">
+                    {% for location in alternative_locations %}
+                    <div class="detail-item">
+                        <div class="detail-label">{{ location.type }}</div>
+                        <div class="detail-value">
+                            <strong>{{ location.name }}</strong><br>
+                            {{ location.address }}<br>
+                            <a href="tel:{{ location.phone }}" class="contact-link">{{ location.phone }}</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="updates-section">
+                <h4>🔄 Stay Updated</h4>
+                <p>We will continue to monitor this situation and provide updates as they become available.</p>
+                
+                {% if update_frequency %}
+                <p><strong>Update Frequency:</strong> {{ update_frequency }}</p>
+                {% endif %}
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    {% if status_page_url %}
+                    <a href="{{ status_page_url }}" class="action-button" style="color: #007bff;">📊 Live Status Page</a>
+                    {% endif %}
+                    {% if subscribe_updates_url %}
+                    <a href="{{ subscribe_updates_url }}" class="action-button" style="color: #007bff;">🔔 Subscribe to Updates</a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if emergency_status == 'Resolved' %}
+            <div style="background-color: #d4edda; border: 2px solid #c3e6cb; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <h3>✅ Emergency Resolved</h3>
+                <p><strong>Resolution Time:</strong> {{ resolution_time }}</p>
+                <p>{{ resolution_summary }}</p>
+                {% if post_incident_actions %}
+                <p><strong>Follow-up Actions:</strong></p>
+                <ul style="text-align: left; display: inline-block;">
+                    {% for action in post_incident_actions %}
+                    <li>{{ action }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <h4>📱 Emergency Notification Preferences</h4>
+                <p>Manage how you receive emergency notifications:</p>
+                <a href="{{ notification_preferences_url }}" style="color: #007bff; text-decoration: none; font-weight: 600;">⚙️ Update Notification Settings</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>{{ clinic_name }} - Emergency Management Team<br>
+            Emergency ID: {{ emergency_id }} | Issued: {{ alert_timestamp }}<br>
+            <a href="{{ emergency_contacts_url }}">Emergency Contacts</a> | <a href="{{ emergency_procedures_url }}">Emergency Procedures</a></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -16,12 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from notifications.scheduler_api import scheduler_api_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('auth/', include('authapp.urls')),
-    path('patients/', include('patients.urls')),
-    path('staff/', include('staff_profiles.urls')),
+    path('auth/', include('authentication.urls')),
+    path('accounts/', include('accounts.urls')), 
     path('appointments/', include('appointments.urls')),
     path('notifications/', include('notifications.urls')),
+    path('analytics/', include('analytics.urls')),
+    path('api/', include(scheduler_api_urls)),
 ]

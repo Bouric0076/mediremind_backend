@@ -1,71 +1,351 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Appointment Confirmed - MediRemind</title>
     <style>
+        /* Reset and base styles */
+        * { box-sizing: border-box; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #374151;
+            background-color: #f9fafb;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        
+        .email-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        
         .header {
-            background-color: #4CAF50;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
             color: white;
-            padding: 20px;
+            padding: 32px 24px;
             text-align: center;
-            border-radius: 5px 5px 0 0;
         }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+        
+        .header .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+        
         .content {
-            padding: 20px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 0 0 5px 5px;
+            padding: 32px 24px;
         }
-        .appointment-details {
-            background-color: white;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
+        
+        .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 24px;
+            font-weight: 500;
         }
-        .footer {
+        
+        .success-message {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10B981;
+            padding: 16px 20px;
+            margin-bottom: 32px;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .success-message p {
+            color: #065f46;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .appointment-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            position: relative;
+        }
+        
+        .appointment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #10B981, #059669);
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .appointment-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .appointment-title::before {
+            content: '📅';
+            margin-right: 8px;
+            font-size: 24px;
+        }
+        
+        .detail-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 0;
+        }
+        
+        .detail-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .detail-icon {
+            width: 24px;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #4b5563;
+            min-width: 80px;
+            margin-right: 12px;
+        }
+        
+        .detail-value {
+            color: #1f2937;
+            font-weight: 500;
+        }
+        
+        .cta-section {
             text-align: center;
-            margin-top: 20px;
+            margin: 32px 0;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #2563EB 0%, #1d4ed8 100%);
+            color: white;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.25);
+            transition: all 0.2s ease;
+        }
+        
+        .instructions {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 24px 0;
+        }
+        
+        .instructions h3 {
+            color: #92400e;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .instructions ul {
+            color: #78350f;
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .footer {
+            background-color: #f8fafc;
+            padding: 24px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer-content {
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+        
+        .footer-links {
+            margin: 16px 0;
+        }
+        
+        .footer-links a {
+            color: #2563EB;
+            text-decoration: none;
+            margin: 0 12px;
+            font-weight: 500;
+        }
+        
+        .copyright {
             font-size: 12px;
-            color: #666;
+            color: #9ca3af;
+            margin-top: 16px;
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .email-container { background-color: #1f2937; }
+            .content { background-color: #1f2937; }
+            .greeting, .detail-value { color: #f9fafb; }
+            .appointment-card { background: #374151; border-color: #4b5563; }
+            .footer { background-color: #374151; }
+        }
+        
+        /* Mobile responsiveness */
+        @media only screen and (max-width: 600px) {
+            .email-container { margin: 0; }
+            .header, .content, .footer { padding: 20px 16px; }
+            .header h1 { font-size: 24px; }
+            .appointment-card { padding: 20px; }
+            .detail-row { flex-direction: column; align-items: flex-start; }
+            .detail-label { margin-bottom: 4px; }
+            .cta-button { padding: 12px 24px; font-size: 14px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Appointment Confirmed!</h1>
-    </div>
-    <div class="content">
-        <p>Dear {{ recipient_name }},</p>
-        
-        <p>Your appointment has been successfully confirmed. Here are the details:</p>
-        
-        <div class="appointment-details">
-            <p><strong>Doctor:</strong> {{ appointment.doctor_name }}</p>
-            <p><strong>Date:</strong> {{ appointment.date }}</p>
-            <p><strong>Time:</strong> {{ appointment.time }}</p>
-            <p><strong>Location:</strong> {{ appointment.location }}</p>
-            {% if appointment.notes %}
-            <p><strong>Notes:</strong> {{ appointment.notes }}</p>
-            {% endif %}
+    <div class="email-container">
+        <div class="header">
+            <h1>✅ Appointment Confirmed!</h1>
+            <p class="tagline">Your Health, Our Priority</p>
         </div>
-
-        <p>Please arrive 10-15 minutes before your scheduled appointment time.</p>
         
-        <p>If you need to reschedule or cancel your appointment, please do so at least 24 hours in advance.</p>
+        <div class="content">
+            <div class="greeting">
+                Hello {{ recipient_name|default:"there" }}! 👋
+            </div>
+            
+            <div class="success-message">
+                <p>🎉 Great news! Your appointment has been successfully confirmed and added to your healthcare schedule.</p>
+            </div>
+            
+            <div class="appointment-card">
+                <div class="appointment-title">
+                    Your Appointment Details
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-icon">👨‍⚕️</span>
+                    <span class="detail-label">Doctor:</span>
+                    <span class="detail-value">{{ appointment.doctor_name|default:"Dr. Smith" }}</span>
+                </div>
+                
+                {% if appointment.specialty %}
+                <div class="detail-row">
+                    <span class="detail-icon">🏥</span>
+                    <span class="detail-label">Specialty:</span>
+                    <span class="detail-value">{{ appointment.specialty }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="detail-row">
+                    <span class="detail-icon">📅</span>
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">{{ appointment.date|default:"TBD" }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-icon">⏰</span>
+                    <span class="detail-label">Time:</span>
+                    <span class="detail-value">{{ appointment.time|default:"TBD" }}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-icon">📍</span>
+                    <span class="detail-label">Location:</span>
+                    <span class="detail-value">{{ appointment.location|default:"TBD" }}</span>
+                </div>
+                
+                {% if appointment.duration %}
+                <div class="detail-row">
+                    <span class="detail-icon">⏱️</span>
+                    <span class="detail-label">Duration:</span>
+                    <span class="detail-value">{{ appointment.duration }} minutes</span>
+                </div>
+                {% endif %}
+                
+                {% if appointment.notes %}
+                <div class="detail-row">
+                    <span class="detail-icon">📝</span>
+                    <span class="detail-label">Notes:</span>
+                    <span class="detail-value">{{ appointment.notes }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="cta-section">
+                <a href="{{ appointment.calendar_link|default:'#' }}" class="cta-button">
+                    📅 Add to Calendar
+                </a>
+            </div>
+            
+            <div class="instructions">
+                <h3>📋 Important Reminders</h3>
+                <ul>
+                    <li><strong>Arrive early:</strong> Please arrive 10-15 minutes before your scheduled time</li>
+                    <li><strong>Bring documents:</strong> Valid ID and insurance card</li>
+                    {% if appointment.preparation_instructions %}
+                    <li><strong>Preparation:</strong> {{ appointment.preparation_instructions }}</li>
+                    {% endif %}
+                    <li><strong>Changes:</strong> To reschedule or cancel, please contact us at least 24 hours in advance</li>
+                </ul>
+            </div>
+            
+            <p style="margin-top: 32px; color: #6b7280; line-height: 1.6;">
+                We're looking forward to seeing you! If you have any questions or concerns before your appointment, 
+                don't hesitate to reach out to our team.
+            </p>
+            
+            <p style="margin-top: 24px; color: #1f2937; font-weight: 500;">
+                Warm regards,<br>
+                <strong>The MediRemind Team</strong> 💙
+            </p>
+        </div>
         
-        <p>Best regards,<br>The MediRemind Team</p>
-    </div>
-    <div class="footer">
-        <p>This is an automated message, please do not reply to this email.</p>
-        <p>&copy; 2024 MediRemind. All rights reserved.</p>
+        <div class="footer">
+            <div class="footer-content">
+                <p><strong>MediRemind Healthcare</strong></p>
+                <p>Your trusted partner in health management</p>
+            </div>
+            
+            <div class="footer-links">
+                <a href="{{ support_url|default:'#' }}">Contact Support</a>
+                <a href="{{ portal_url|default:'#' }}">Patient Portal</a>
+                <a href="{{ unsubscribe_url|default:'#' }}">Unsubscribe</a>
+            </div>
+            
+            <div class="copyright">
+                <p>This is an automated message. Please do not reply to this email.</p>
+                <p>&copy; 2024 MediRemind. All rights reserved. | <a href="{{ privacy_url|default:'#' }}" style="color: #9ca3af;">Privacy Policy</a></p>
+            </div>
+        </div>
     </div>
 </body>
-</html> 
+</html>
