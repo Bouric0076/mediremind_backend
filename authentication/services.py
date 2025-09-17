@@ -1,45 +1,50 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from typing import Dict, Optional, Tuple
+from django.contrib.auth.hashers import check_password
+from rest_framework.authtoken.models import Token
+from typing import Dict, Optional, Tuple, Any
 import json
 import hashlib
 import secrets
 import pyotp
 import uuid
+import logging
 from datetime import timedelta
-from supabase_client import supabase, admin_client
 from .models import (
     MFADevice, LoginAttempt, UserSession, AuditLog
 )
 from .exceptions import (
     AuthenticationError, MFARequiredError, AccountLockedError,
-    InvalidMFATokenError, SessionExpiredError
+    InvalidMFATokenError, SessionExpiredError, RateLimitExceededError
 )
+from supabase_client import supabase
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 
 class AuthenticationService:
-    """Unified authentication service for MediRemind platform"""
+    """Enhanced authentication service with MFA and security monitoring"""
     
     MAX_LOGIN_ATTEMPTS = 5
     LOCKOUT_DURATION = timedelta(minutes=30)
     SESSION_DURATION = timedelta(hours=8)
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.supabase_client = supabase
-        self.admin_client = admin_client
     
     def authenticate(self, email: str, password: str, 
                     mfa_token: Optional[str] = None,
                     ip_address: str = None,
                     user_agent: str = None) -> Dict:
         """
-        Unified authentication flow with enhanced security
+        Unified authentication flow with enhanced security and Supabase integration
         
         Args:
             email: User email address
@@ -65,12 +70,17 @@ class AuthenticationService:
                 self._check_rate_limiting(user, ip_address)
             
             try:
-                # 2. Validate credentials with Supabase
-                supabase_result = self._authenticate_with_supabase(email, password)
+                # 2. Validate credentials with Supabase first
+                supabase_result = self.supabase_client.auth.sign_in_with_password({
+                    "email": email,
+                    "password": password
+                })
                 
-                # 3. Get or create Django user
-                if not user:
-                    user = self._sync_user_from_supabase(supabase_result.user)
+                if not supabase_result.user:
+                    raise AuthenticationError('Invalid credentials')
+                
+                # 3. Get or sync Django user
+                user = self._sync_user_from_supabase(supabase_result.user)
                 
                 # 4. MFA verification if enabled
                 if user.mfa_enabled:
@@ -82,8 +92,10 @@ class AuthenticationService:
                     self._verify_mfa_token(user, mfa_token)
                 
                 # 5. Create secure session
-                session = self._create_session(user, supabase_result.session, 
-                                             ip_address, user_agent)
+                session = self._create_session(user, ip_address, user_agent)
+                
+                # Create or get auth token
+                token, created = Token.objects.get_or_create(user=user)
                 
                 # 6. Reset failed attempts and log success
                 user.failed_login_attempts = 0
@@ -98,8 +110,9 @@ class AuthenticationService:
                     'success': True,
                     'user': user,
                     'session': session,
-                    'access_token': supabase_result.session.access_token,
+                    'access_token': token.key,
                     'refresh_token': supabase_result.session.refresh_token,
+                    'supabase_session': supabase_result.session,
                     'expires_at': session.expires_at
                 }
                 
@@ -118,52 +131,51 @@ class AuthenticationService:
                 
                 raise AuthenticationError('Authentication failed')
     
-    def refresh_session(self, refresh_token: str, session_key: str) -> Dict:
+    def refresh_session(self, refresh_token: str, session_key: str = '') -> Dict:
         """
-        Refresh an expired session
+        Refresh user session using Supabase refresh tokens
         
         Args:
             refresh_token: Supabase refresh token
-            session_key: Current session key
+            session_key: Optional session key
             
         Returns:
-            Dict containing new session information
+            Dict containing new tokens
         """
-        
         try:
-            # Validate current session
-            session = UserSession.objects.get(
-                session_key=session_key,
-                is_active=True
-            )
+            # Refresh Supabase session
+            refresh_result = self.supabase_client.auth.refresh_session(refresh_token)
             
-            if session.expires_at <= timezone.now():
-                session.is_active = False
-                session.terminated_at = timezone.now()
-                session.termination_reason = 'expired'
-                session.save()
-                raise SessionExpiredError('Session expired')
+            if not refresh_result.session:
+                raise SessionExpiredError("Failed to refresh session")
             
-            # Refresh with Supabase
-            result = self.supabase_client.auth.refresh_session(refresh_token)
+            # Get Django user
+            user = self._sync_user_from_supabase(refresh_result.user)
             
-            if not result.session:
-                raise AuthenticationError('Failed to refresh session')
+            # Check if user is still active
+            if not user.is_active:
+                raise SessionExpiredError("User account is inactive")
             
-            # Update session
-            session.expires_at = timezone.now() + self.SESSION_DURATION
-            session.last_activity = timezone.now()
-            session.save()
+            # Update Django token
+            token, created = Token.objects.get_or_create(user=user)
+            
+            # Update session activity if session_key provided
+            if session_key:
+                UserSession.objects.filter(
+                    user=user, 
+                    session_key=session_key,
+                    is_active=True
+                ).update(last_activity=timezone.now())
             
             return {
-                'success': True,
-                'access_token': result.session.access_token,
-                'refresh_token': result.session.refresh_token,
-                'expires_at': session.expires_at
+                'access_token': token.key,
+                'refresh_token': refresh_result.session.refresh_token,
+                'expires_at': timezone.now() + timedelta(hours=24)
             }
             
-        except UserSession.DoesNotExist:
-            raise AuthenticationError('Invalid session')
+        except Exception as e:
+            self.logger.error(f"Session refresh failed: {str(e)}")
+            raise SessionExpiredError("Failed to refresh session")
     
     def logout(self, session_key: str, reason: str = 'user_logout') -> bool:
         """
@@ -183,6 +195,12 @@ class AuthenticationService:
                 is_active=True
             )
             
+            # Logout from Supabase
+            try:
+                self.supabase_client.auth.sign_out()
+            except Exception as e:
+                self.logger.warning(f"Supabase logout failed: {str(e)}")
+            
             # Terminate session
             session.is_active = False
             session.terminated_at = timezone.now()
@@ -195,11 +213,11 @@ class AuthenticationService:
                 f'User logged out: {reason}'
             )
             
-            # Sign out from Supabase (best effort)
+            # Remove auth token
             try:
-                self.supabase_client.auth.sign_out()
+                Token.objects.filter(user=session.user).delete()
             except:
-                pass  # Don't fail logout if Supabase fails
+                pass  # Don't fail logout if token deletion fails
             
             return True
             
@@ -394,36 +412,40 @@ class AuthenticationService:
         if self.is_rate_limited(ip_address):
             raise AuthenticationError('Too many failed attempts from this IP')
     
-    def _authenticate_with_supabase(self, email: str, password: str):
-        """Authenticate with Supabase"""
-        try:
-            result = self.supabase_client.auth.sign_in_with_password({
-                'email': email,
-                'password': password
-            })
-            
-            if not result.user or not result.session:
-                raise AuthenticationError('Invalid credentials')
-            
-            return result
-            
-        except Exception as e:
-            raise AuthenticationError(f'Authentication failed: {str(e)}')
-    
     def _sync_user_from_supabase(self, supabase_user) -> User:
-        """Create or update Django user from Supabase user data"""
+        """Sync Supabase user with Django user model"""
         try:
-            user = User.objects.get(id=supabase_user.id)
+            # Try to get existing Django user
+            user = User.objects.get(email=supabase_user.email)
+            
+            # Update user data if needed
+            if user.full_name != supabase_user.user_metadata.get('full_name', ''):
+                user.full_name = supabase_user.user_metadata.get('full_name', '')
+                user.save()
+                
         except User.DoesNotExist:
-            # Create new user
+            # Create new Django user from Supabase data
             user = User.objects.create(
                 id=supabase_user.id,
                 email=supabase_user.email,
                 full_name=supabase_user.user_metadata.get('full_name', ''),
-                is_verified=supabase_user.email_confirmed_at is not None,
-                created_at=timezone.now()
+                role=supabase_user.user_metadata.get('role', 'patient'),
+                is_active=True,
+                email_verified=supabase_user.email_confirmed_at is not None
             )
-        
+            
+        return user
+    
+    def _get_or_create_user(self, email: str, **kwargs) -> User:
+        """Get or create Django user"""
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Create new user with provided data
+            user = User.objects.create_user(
+                email=email,
+                **kwargs
+            )
         return user
     
     def _verify_mfa_token(self, user: User, token: str) -> None:
@@ -441,8 +463,7 @@ class AuthenticationService:
         
         raise InvalidMFATokenError('Invalid MFA token')
     
-    def _create_session(self, user: User, supabase_session, 
-                       ip_address: str, user_agent: str) -> UserSession:
+    def _create_session(self, user: User, ip_address: str, user_agent: str) -> UserSession:
         """Create secure user session"""
         
         # Deactivate existing active sessions for this user

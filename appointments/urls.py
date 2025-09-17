@@ -4,13 +4,19 @@ from . import views
 app_name = 'appointments'
 
 urlpatterns = [
-    # Appointment CRUD operations
-    path('create/', views.create_appointment, name='create_appointment'),
-    path('<int:appointment_id>/', views.get_appointment, name='get_appointment'),
-    path('<int:appointment_id>/update/', views.update_appointment, name='update_appointment'),
-    path('<int:appointment_id>/delete/', views.delete_appointment, name='delete_appointment'),
+    # Core appointment management - API endpoints
+    path('', views.get_all_appointments, name='appointment-list'),  # GET /appointments/
+    path('create/', views.create_appointment, name='create_appointment'),  # POST /appointments/create/
+    path('<uuid:appointment_id>/', views.get_appointment_detail, name='get_appointment_detail'),  # GET /appointments/{id}/
+    path('<uuid:appointment_id>/update/', views.update_appointment, name='update_appointment'),  # PUT /appointments/{id}/update/
+    path('<uuid:appointment_id>/cancel/', views.cancel_appointment, name='cancel_appointment'),  # DELETE /appointments/{id}/cancel/
     
-    # Appointment listing and statistics
-    path('list/', views.list_appointments, name='list_appointments'),
+    # Enhanced appointment management endpoints
+    path('availability/check/', views.check_availability, name='check_availability'),  # GET /appointments/availability/check/
+    path('statistics/', views.get_appointment_statistics, name='appointment_statistics'),  # GET /appointments/statistics/
+    path('bulk-update/', views.bulk_update_appointments, name='bulk_update_appointments'),  # POST /appointments/bulk-update/
+    
+    # Legacy endpoints (keeping for backward compatibility)
+    path('list/', views.get_all_appointments, name='list_appointments'),
     path('stats/', views.get_appointment_stats, name='get_appointment_stats'),
 ]

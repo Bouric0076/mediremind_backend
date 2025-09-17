@@ -35,3 +35,7 @@ class PermissionDeniedError(Exception):
 class SessionExpiredError(Exception):
     """Raised when user session has expired."""
     pass
+
+class RateLimitExceededError(AuthenticationError):
+    """Raised when rate limit is exceeded for authentication attempts."""
+    pass

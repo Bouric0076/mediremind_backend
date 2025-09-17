@@ -66,6 +66,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'authentication.middleware.AuthenticationMiddleware',  # Custom authentication middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -246,6 +247,11 @@ BEEM_API_KEY = os.getenv('BEEM_API_KEY')
 BEEM_SECRET_KEY = os.getenv('BEEM_SECRET_KEY')
 BEEM_SENDER_ID = os.getenv('BEEM_SENDER_ID', 'MediRemind')
 BEEM_WHATSAPP_NAMESPACE = os.getenv('BEEM_WHATSAPP_NAMESPACE')
+
+# Field-level encryption configuration
+# SECURITY WARNING: Use a secure, randomly generated key in production
+# This key should be stored securely and never committed to version control
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=')
 
 # Logging configuration
 LOGGING = {

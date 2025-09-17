@@ -12,9 +12,10 @@ urlpatterns = [
     
     # Patient management - API endpoints
     path('patients/', views.get_all_patients, name='patient-list'),  # GET /patients/
-    path('<uuid:pk>/', views.get_patient_detail, name='patient-detail'),  # GET /patients/{id}/
-    path('create/', views.create_patient, name='patient-create'),  # POST /patients/create/
-    path('<uuid:pk>/update/', views.update_patient, name='patient-update'),  # PUT /patients/{id}/update/
+    path('patients/<uuid:pk>/', views.get_patient_detail, name='patient-detail'),  # GET /patients/{id}/
+    path('patients/create/', views.create_patient, name='patient-create'),  # POST /patients/create/
+    path('patients/<uuid:pk>/update/', views.update_patient, name='patient-update'),  # PUT /patients/{id}/update/
+    path('patients/<uuid:pk>/delete/', views.delete_patient, name='patient-delete'),  # DELETE /patients/{id}/delete/
     
     # Staff management
     path('staff/', views.get_all_staff, name='staff-list'),
