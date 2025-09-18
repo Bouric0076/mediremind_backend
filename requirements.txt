@@ -1,4 +1,5 @@
 # Core Django framework
+# Updated: 2025-01-14 - Removed consul and other Python 3.13 incompatible packages
 Django
 django-cors-headers
 django-environ
