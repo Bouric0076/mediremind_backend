@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',  # Add token authentication
-    'webpush',
+    # 'webpush',  # Removed - package not compatible with Python 3.13
     'corsheaders',
 
     # Local apps
@@ -236,16 +236,23 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for CSRF token
 
-# Web Push settings
-WEBPUSH_SETTINGS = {
-    "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY"),
-    "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY"),
-    "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
-}
+# Web Push settings - Temporarily disabled due to Python 3.13 compatibility issues
+# WEBPUSH_SETTINGS = {
+#     "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY"),
+#     "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY"),
+#     "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
+# }
 
 # Validate VAPID settings
-if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
-    print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
+# if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
+#     print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
+
+# Temporary placeholder for webpush settings
+WEBPUSH_SETTINGS = {
+    "VAPID_PUBLIC_KEY": "",
+    "VAPID_PRIVATE_KEY": "",
+    "VAPID_ADMIN_EMAIL": "admin@mediremind.com"
+}
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

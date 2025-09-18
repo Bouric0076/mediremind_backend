@@ -1,5 +1,5 @@
 from django.conf import settings
-from pywebpush import webpush, WebPushException
+# from pywebpush import webpush, WebPushException  # Commented out - not compatible with Python 3.13
 import json
 from pathlib import Path
 from supabase_client import admin_client
@@ -18,60 +18,16 @@ class PushNotificationHandler:
             "aud": "https://fcm.googleapis.com"  # Required for Chrome/Firefox
         }
         
+        # Web push functionality temporarily disabled due to Python 3.13 compatibility issues
         if not self.vapid_private_key or not self.vapid_public_key:
-            raise ValueError("VAPID keys not properly configured in settings")
+            print("Warning: VAPID keys not properly configured. Web push notifications disabled.")
     
     def send_push_notification(self, subscription_info, title, message, url=None, data=None):
         """Send a push notification to a subscription"""
-        try:
-            if not subscription_info or not isinstance(subscription_info, dict):
-                raise ValueError("Invalid subscription info format")
-
-            if not subscription_info.get('endpoint') or not subscription_info.get('keys', {}).get('p256dh') or not subscription_info.get('keys', {}).get('auth'):
-                raise ValueError("Missing required subscription fields")
-
-            payload = {
-                "notification": {  # Standard notification format
-                    "title": title,
-                    "body": message,
-                    "icon": "/icon.png",  # Add your icon path
-                    "badge": "/badge.png",  # Add your badge path
-                    "vibrate": [100, 50, 100],
-                    "data": {
-                        "url": url,
-                        **data
-                    } if data else {"url": url}
-                }
-            }
-            
-            print(f"Sending push notification with payload: {payload}")
-            print(f"Using subscription: {subscription_info}")
-            
-            response = webpush(
-                subscription_info=subscription_info,
-                data=json.dumps(payload),
-                vapid_private_key=self.vapid_private_key,
-                vapid_claims=self.vapid_claims
-            )
-            
-            print(f"Push notification sent successfully: {response}")
-            return True, "Push notification sent successfully"
-            
-        except WebPushException as e:
-            print(f"WebPush error: {str(e)}")
-            if e.response and e.response.status_code == 410:
-                # Subscription has expired or been unsubscribed
-                try:
-                    admin_client.table("push_subscriptions").delete().eq("endpoint", subscription_info["endpoint"]).execute()
-                except Exception as del_e:
-                    print(f"Error deleting expired subscription: {str(del_e)}")
-            return False, str(e)
-        except ValueError as e:
-            print(f"Validation error: {str(e)}")
-            return False, str(e)
-        except Exception as e:
-            print(f"Error sending push notification: {str(e)}")
-            return False, str(e)
+        # Web push functionality temporarily disabled due to Python 3.13 compatibility issues
+        print(f"Web push notification disabled: {title} - {message}")
+        print("Web push functionality temporarily disabled due to Python 3.13 compatibility issues")
+        return False, "Web push functionality temporarily disabled"
     
     def get_user_subscriptions(self, user_id):
         """Get all push subscriptions for a user from Supabase"""
@@ -194,4 +150,4 @@ class PushNotificationHandler:
 
 push_notifications = PushNotificationHandler()
 
-__all__ = ['push_notifications'] 
+__all__ = ['push_notifications']
