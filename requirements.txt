@@ -1,380 +1,380 @@
 # Core FastAPI and web framework dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.11.5
-pydantic_core==2.33.2
-pydantic-settings==2.1.0
+fastapi
+uvicorn[standard]
+pydantic
+pydantic_core
+pydantic-settings
 
 # Database dependencies
-supabase==2.15.1
-postgrest==1.0.2
-gotrue==2.12.0
-realtime==2.4.3
-storage3==0.11.3
-supafunc==0.9.4
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.23
-alembic==1.13.1
+supabase
+postgrest
+gotrue
+realtime
+storage3
+supafunc
+psycopg2-binary
+sqlalchemy
+alembic
 
 # Redis for caching and queuing
-redis==5.0.1
-hiredis==2.2.3
-aioredis==2.0.1
+redis
+hiredis
+aioredis
 
 # Background task processing
-celery==5.3.4
-kombu==5.3.4
+celery
+kombu
 
 # HTTP client for external API calls
-httpx==0.28.1
-httpcore==1.0.9
-requests==2.32.3
-aiohttp==3.11.18
-aiohttp-retry==2.9.1
+httpx
+httpcore
+requests
+aiohttp
+aiohttp-retry
 
 # Authentication and security
-PyJWT==2.10.1
-cryptography==45.0.3
-passlib[bcrypt]==1.7.4
+PyJWT
+cryptography
+passlib[bcrypt]
 
 # Email sending
-sendgrid==6.11.0
-yagmail==0.15.293
+sendgrid
+yagmail
 
 # Push notifications
-pyfcm==1.5.4
-pywebpush==2.0.3
-webpush==1.0.5
+pyfcm
+pywebpush
+webpush
 
 # Cloud storage for backups
-boto3==1.34.0
-azure-storage-blob==12.19.0
-google-cloud-storage==2.10.0
+boto3
+azure-storage-blob
+google-cloud-storage
 
 # Data processing and utilities
-pandas==2.1.4
-numpy==1.25.2
-python-dateutil==2.9.0.post0
-pytz==2025.2
-tzdata==2025.2
+pandas
+numpy
+python-dateutil
+pytz
+tzdata
 
 # Monitoring and logging
-prometheus-client==0.19.0
-psutil==5.9.6
-structlog==23.2.0
-coloredlogs==15.0.1
+prometheus-client
+psutil
+structlog
+coloredlogs
 
 # Configuration management
-python-dotenv==1.1.0
-pyyaml==6.0.1
-toml==0.10.2
+python-dotenv
+pyyaml
+toml
 
 # Testing dependencies
-pytest==8.3.5
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
-pytest-mock==3.14.0
-factory-boy==3.3.0
-faker==20.1.0
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+factory-boy
+faker
 
 # Development dependencies
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.7.1
-pre-commit==3.6.0
+black
+isort
+flake8
+mypy
+pre-commit
 
 # Performance and profiling
-memory-profiler==0.61.0
-line-profiler==4.1.1
+memory-profiler
+line-profiler
 
 # Async utilities
-aiofiles==23.2.1
-aiohappyeyeballs==2.4.6
-aiosignal==1.3.2
+aiofiles
+aiohappyeyeballs
+aiosignal
 
 # Serialization
-orjson==3.9.10
-msgpack==1.0.7
+orjson
+msgpack
 
 # Validation and parsing
-validators==0.22.0
-python-multipart==0.0.6
+validators
+python-multipart
 
 # Scheduling and cron
-apscheduler==3.10.4
-croniter==2.0.1
+apscheduler
+croniter
 
 # Compression and archiving
-lz4==4.3.2
-zstandard==0.22.0
+lz4
+zstandard
 
 # Network and protocol utilities
-dnspython==2.4.2
-requests-oauthlib==1.3.1
+dnspython
+requests-oauthlib
 
-# Image processing (for notification attachments)
-Pillow==10.1.0
+# Image processing
+Pillow
 
-# PDF generation (for reports)
-reportlab==4.0.7
+# PDF generation
+reportlab
 
 # Excel file handling
-openpyxl==3.1.2
+openpyxl
 
 # Environment and system
-click==8.1.8
-rich==13.7.0
-tqdm==4.66.1
-colorama==0.4.6
+click
+rich
+tqdm
+colorama
 
 # Message queuing alternatives
-pika==1.3.2  # RabbitMQ
-kafka-python==2.0.2  # Apache Kafka
+pika
+kafka-python
 
 # Additional utilities
-more-itertools==10.1.0
-toolz==0.12.0
-retrying==1.3.4
-tenacity==8.2.3
+more-itertools
+toolz
+retrying
+tenacity
 
 # Health checks and monitoring
-healthcheck==1.3.3
+healthcheck
 
 # API documentation
-fastapi-users==12.1.2
-fastapi-limiter==0.1.5
+fastapi-users
+fastapi-limiter
 
 # WebSocket support
-websockets==14.2
+websockets
 
-# Template rendering (for email templates)
-Jinja2==3.1.5
-MarkupSafe==3.0.2
+# Template rendering
+Jinja2
+MarkupSafe
 
 # Rate limiting
-slowapi==0.1.9
+slowapi
 
 # Circuit breaker pattern
-pybreaker==1.0.2
+pybreaker
 
 # Retry mechanisms
-backoff==2.2.1
+backoff
 
 # Metrics and telemetry
-opentelemetry-api==1.21.0
-opentelemetry-sdk==1.21.0
-opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
 
 # Service discovery
-consul==1.1.0
+consul
 
 # Configuration validation
-cerberus==1.3.5
+cerberus
 
 # Dependency injection
-dependency-injector==4.41.0
+dependency-injector
 
 # State machines
-transitions==0.9.0
+transitions
 
 # Graph processing
-networkx==3.2.1
+networkx
 
-# Machine learning (for intelligent scheduling)
-scikit-learn==1.3.2
+# Machine learning
+scikit-learn
 
-# Natural language processing (for message analysis)
-nltk==3.8.1
+# Natural language processing
+nltk
 
 # Geolocation services
-geopy==2.4.1
+geopy
 
 # QR code generation
-qrcode[pil]==7.4.2
+qrcode[pil]
 
 # Barcode generation
-python-barcode==0.15.1
+python-barcode
 
 # Calendar utilities
-icalendar==5.0.11
+icalendar
 
 # Phone number validation
-phonumbers==8.13.26
+phonumbers
 
 # Email validation
-email-validator==2.1.0
+email-validator
 
 # Password strength validation
-password-strength==0.0.3
+password-strength
 
 # Internationalization
-babel==2.13.1
+babel
 
 # Currency handling
-money==1.3.0
+money
 
 # Progress bars
-progressbar2==4.2.0
+progressbar2
 
 # Command line interface
-typer==0.9.0
+typer
 
 # File watching
-watchdog==3.0.0
+watchdog
 
 # Memory optimization
-pympler==0.9
+pympler
 
 # Code quality
-bandit==1.7.5
-safety==2.3.5
+bandit
+safety
 
 # Documentation generation
-sphinx==7.2.6
-mkdocs==1.5.3
+sphinx
+mkdocs
 
 # API testing
-tavern==2.4.1
+tavern
 
 # Load testing
-locust==2.17.0
+locust
 
 # Security scanning
-semgrep==1.45.0
+semgrep
 
 # Dependency management
-pipdeptree==2.13.1
+pipdeptree
 
 # Virtual environment
-virtualenv==20.25.0
+virtualenv
 
 # Package building
-setuptools==69.0.2
-wheel==0.42.0
-build==1.0.3
+setuptools
+wheel
+build
 
 # Version management
-bumpversion==0.6.0
+bumpversion
 
 # Git hooks
-gitpython==3.1.40
+gitpython
 
 # Continuous integration
-tox==4.11.4
+tox
 
 # Code formatting
-autopep8==2.0.4
-yapf==0.40.2
+autopep8
+yapf
 
 # Import sorting
-reorder-python-imports==3.12.0
+reorder-python-imports
 
 # Unused import removal
-unimport==0.16.0
+unimport
 
 # Dead code detection
-vulture==2.10
+vulture
 
 # Complexity analysis
-radon==6.0.1
+radon
 
 # Type checking
-pyright==1.1.338
+pyright
 
 # Linting
-pylint==3.0.3
-flake8-docstrings==1.7.0
-flake8-import-order==0.18.2
+pylint
+flake8-docstrings
+flake8-import-order
 
 # Security
-bandit[toml]==1.7.5
+bandit[toml]
 
 # Performance monitoring
-py-spy==0.3.14
+py-spy
 
 # Network monitoring
-scapy==2.5.0
+scapy
 
 # System monitoring
-glances==3.4.0
+glances
 
 # Database monitoring
-sqlalchemy-utils==0.41.1
+sqlalchemy-utils
 
 # Cache monitoring
-redis-py-cluster==2.1.3
+redis-py-cluster
 
 # Message queue monitoring
-flower==2.0.1
+flower
 
 # Web server monitoring
-gunicorn==23.0.0
+gunicorn
 
 # Render deployment packages
-dj-database-url==2.1.0
-whitenoise==6.6.0
+dj-database-url
+whitenoise
 
 # SSL/TLS
-pyopenssl==23.3.0
+pyopenssl
 
 # Certificate management
-certifi==2025.1.31
+certifi
 
 # Network security
-paramiko==3.4.0
+paramiko
 
 # Encryption
-fernet==1.0.1
+fernet
 
 # Time utilities
-arrow==1.3.0
-pendulum==2.1.2
+arrow
+pendulum
 
 # Caching utilities
-cachetools==5.3.2
+cachetools
 
 # URL utilities
-urllib3==2.3.0
-furl==2.1.3
+urllib3
+furl
 
 # HTTP utilities
-h11==0.16.0
-h2==4.2.0
-hpack==4.1.0
-hyperframe==6.1.0
+h11
+h2
+hpack
+hyperframe
 
 # Async utilities
-anyio==4.9.0
-sniffio==1.3.1
+anyio
+sniffio
 
 # Data structures
-multidict==6.1.0
-frozenlist==1.5.0
-propcache==0.3.0
-yarl==1.18.3
+multidict
+frozenlist
+propcache
+yarl
 
 # Utilities
-attrs==25.1.0
-idna==3.10
-charset-normalizer==3.4.1
-packaging==25.0
-pluggy==1.6.0
-iniconfig==2.1.0
-six==1.17.0
-blinker==1.9.0
-itsdangerous==2.2.0
-deprecation==2.1.0
-typing-inspection==0.4.1
-typing_extensions==4.13.2
-StrEnum==0.4.15
+attrs
+idna
+charset-normalizer
+packaging
+pluggy
+iniconfig
+six
+blinker
+itsdangerous
+deprecation
+typing-inspection
+typing_extensions
+StrEnum
 
-# Legacy framework support (if needed)
-Django==5.2
-Flask==3.1.0
-Werkzeug==3.1.3
-django-cors-headers==4.7.0
-django-environ==0.10.0
-mysqlclient==2.2.7
-sqlparse==0.5.3
-asgiref==3.8.1
+# Legacy framework support
+Django
+Flask
+Werkzeug
+django-cors-headers
+django-environ
+mysqlclient
+sqlparse
+asgiref

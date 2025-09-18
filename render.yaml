@@ -10,7 +10,6 @@ services:
   - type: web
     name: mediremind-backend
     runtime: python
-    pythonVersion: "3.11"
     buildCommand: "bash build.sh"
     startCommand: "gunicorn mediremind_backend.wsgi:application --bind 0.0.0.0:$PORT"
     plan: free
