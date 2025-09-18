@@ -1,380 +1,85 @@
-# Core FastAPI and web framework dependencies
-fastapi
-uvicorn[standard]
-pydantic
-pydantic_core
-pydantic-settings
+# Core Django framework
+Django
+django-cors-headers
+django-environ
 
-# Database dependencies
-supabase
-postgrest
-gotrue
-realtime
-storage3
-supafunc
+# Django REST Framework
+djangorestframework
+
+# Database
 psycopg2-binary
-sqlalchemy
-alembic
+dj-database-url
 
-# Redis for caching and queuing
-redis
-hiredis
-aioredis
+# Web server and static files
+gunicorn
+whitenoise
 
-# Background task processing
-celery
-kombu
-
-# HTTP client for external API calls
-httpx
-httpcore
-requests
-aiohttp
-aiohttp-retry
+# Environment and configuration
+python-dotenv
 
 # Authentication and security
 PyJWT
 cryptography
-passlib[bcrypt]
 
-# Email sending
-sendgrid
-yagmail
+# HTTP client
+requests
+httpx
 
-# Push notifications
-pyfcm
-pywebpush
-webpush
-
-# Cloud storage for backups
-boto3
-azure-storage-blob
-google-cloud-storage
-
-# Data processing and utilities
+# Data processing
 pandas
 numpy
+
+# Redis for caching
+redis
+hiredis
+
+# Background tasks
+celery
+
+# Email
+sendgrid
+
+# Push notifications
+pywebpush
+py-vapid
+
+# Utilities
 python-dateutil
 pytz
-tzdata
 
-# Monitoring and logging
-prometheus-client
-psutil
-structlog
-coloredlogs
-
-# Configuration management
-python-dotenv
-pyyaml
-toml
-
-# Testing dependencies
+# Development and testing
 pytest
-pytest-asyncio
-pytest-cov
-pytest-mock
-factory-boy
-faker
+pytest-django
 
-# Development dependencies
-black
-isort
-flake8
-mypy
-pre-commit
+# API framework (FastAPI for microservices)
+fastapi
+uvicorn
+pydantic
 
-# Performance and profiling
-memory-profiler
-line-profiler
-
-# Async utilities
+# Async support
 aiofiles
-aiohappyeyeballs
-aiosignal
 
-# Serialization
+# JSON handling
 orjson
-msgpack
 
-# Validation and parsing
-validators
-python-multipart
-
-# Scheduling and cron
-apscheduler
-croniter
-
-# Compression and archiving
-lz4
-zstandard
-
-# Network and protocol utilities
-dnspython
-requests-oauthlib
-
-# Image processing
-Pillow
-
-# PDF generation
-reportlab
-
-# Excel file handling
-openpyxl
-
-# Environment and system
-click
-rich
-tqdm
-colorama
-
-# Message queuing alternatives
-pika
-kafka-python
-
-# Additional utilities
-more-itertools
-toolz
-retrying
-tenacity
-
-# Health checks and monitoring
-healthcheck
-
-# API documentation
-fastapi-users
-fastapi-limiter
-
-# WebSocket support
-websockets
-
-# Template rendering
-Jinja2
-MarkupSafe
-
-# Rate limiting
-slowapi
-
-# Circuit breaker pattern
-pybreaker
-
-# Retry mechanisms
-backoff
-
-# Metrics and telemetry
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-instrumentation-fastapi
-
-# Service discovery
-consul
-
-# Configuration validation
-cerberus
-
-# Dependency injection
-dependency-injector
-
-# State machines
-transitions
-
-# Graph processing
-networkx
-
-# Machine learning
-scikit-learn
-
-# Natural language processing
-nltk
-
-# Geolocation services
-geopy
-
-# QR code generation
-qrcode[pil]
-
-# Barcode generation
-python-barcode
-
-# Calendar utilities
-icalendar
-
-# Phone number validation
-phonumbers
-
-# Email validation
+# Validation
 email-validator
 
-# Password strength validation
-password-strength
+# File handling
+Pillow
 
-# Internationalization
-babel
-
-# Currency handling
-money
-
-# Progress bars
-progressbar2
-
-# Command line interface
-typer
-
-# File watching
-watchdog
-
-# Memory optimization
-pympler
-
-# Code quality
-bandit
-safety
-
-# Documentation generation
-sphinx
-mkdocs
-
-# API testing
-tavern
-
-# Load testing
-locust
-
-# Security scanning
-semgrep
-
-# Dependency management
-pipdeptree
-
-# Virtual environment
-virtualenv
-
-# Package building
-setuptools
-wheel
-build
-
-# Version management
-bumpversion
-
-# Git hooks
-gitpython
-
-# Continuous integration
-tox
-
-# Code formatting
-autopep8
-yapf
-
-# Import sorting
-reorder-python-imports
-
-# Unused import removal
-unimport
-
-# Dead code detection
-vulture
-
-# Complexity analysis
-radon
-
-# Type checking
-pyright
-
-# Linting
-pylint
-flake8-docstrings
-flake8-import-order
-
-# Security
-bandit[toml]
-
-# Performance monitoring
-py-spy
-
-# Network monitoring
-scapy
-
-# System monitoring
-glances
-
-# Database monitoring
-sqlalchemy-utils
-
-# Cache monitoring
-redis-py-cluster
-
-# Message queue monitoring
-flower
-
-# Web server monitoring
-gunicorn
-
-# Render deployment packages
-dj-database-url
-whitenoise
-
-# SSL/TLS
-pyopenssl
-
-# Certificate management
-certifi
-
-# Network security
-paramiko
-
-# Encryption
-fernet
+# Monitoring and system info
+structlog
+psutil
 
 # Time utilities
 arrow
-pendulum
 
-# Caching utilities
-cachetools
+# Supabase client
+supabase
 
-# URL utilities
-urllib3
-furl
+# AWS SDK (for backup/storage)
+boto3
 
-# HTTP utilities
-h11
-h2
-hpack
-hyperframe
-
-# Async utilities
-anyio
-sniffio
-
-# Data structures
-multidict
-frozenlist
-propcache
-yarl
-
-# Utilities
-attrs
-idna
-charset-normalizer
-packaging
-pluggy
-iniconfig
-six
-blinker
-itsdangerous
-deprecation
-typing-inspection
-typing_extensions
-StrEnum
-
-# Legacy framework support
-Django
-Flask
-Werkzeug
-django-cors-headers
-django-environ
-mysqlclient
-sqlparse
-asgiref
+# Web push notifications
+webpush-data-encryption
