@@ -82,5 +82,5 @@ supabase
 # AWS SDK (for backup/storage)
 boto3
 
-# Web push notifications
-webpush-data-encryption
+# Web push notifications (webpush-data-encryption removed - no Python 3.13 compatible version)
+# Using pywebpush and py-vapid instead for web push functionality
