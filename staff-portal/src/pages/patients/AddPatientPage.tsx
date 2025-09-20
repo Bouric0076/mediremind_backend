@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 import type { RootState } from '../../store';
+import { API_CONFIG } from '../../constants';
 
 interface PatientFormData {
   firstName: string;
@@ -279,7 +280,7 @@ export const AddPatientPage: React.FC = () => {
         headers['Authorization'] = `Token ${token}`;
       }
 
-      const response = await fetch('http://localhost:8000/accounts/create/', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/accounts/create/`, {
         method: 'POST',
         headers,
         credentials: 'include', // Include cookies for session authentication

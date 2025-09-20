@@ -253,7 +253,6 @@ class LoginView(AuthenticationView):
                 # Create user session using the proper auth service method
                 user_session = self.auth_service._create_session(
                     user=user,
-                    supabase_session=None,  # Not using Supabase in this case
                     ip_address=client_info['ip_address'],
                     user_agent=client_info['user_agent']
                 )

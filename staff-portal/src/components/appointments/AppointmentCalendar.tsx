@@ -297,86 +297,338 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
     return (
       <Box>
-        {/* Week headers */}
-        <Grid container>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <Grid size={{ xs: true }} key={day}>
-              <Box p={1} textAlign="center">
-                <Typography variant="subtitle2" color="text.secondary">
-                  {day}
+        {/* Enhanced Week headers */}
+        <Grid container sx={{ mb: 1 }}>
+          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+            <Grid size={{ xs: 'grow' }} key={day}>
+              <Box 
+                p={2} 
+                textAlign="center"
+                sx={{
+                  backgroundColor: 'grey.50',
+                  borderRadius: '8px 8px 0 0',
+                  borderBottom: '2px solid',
+                  borderBottomColor: index === 0 || index === 6 ? 'error.light' : 'primary.light',
+                }}
+              >
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    color: index === 0 || index === 6 ? 'error.main' : 'primary.main',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  {day.slice(0, 3)}
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'text.secondary',
+                    display: { xs: 'none', sm: 'block' },
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  {day.slice(3)}
                 </Typography>
               </Box>
             </Grid>
           ))}
         </Grid>
 
-        {/* Calendar grid */}
+        {/* Enhanced Calendar grid */}
         {weeks.map((week, weekIndex) => (
-          <Grid container key={weekIndex} sx={{ minHeight: 120 }}>
-            {week.map(day => {
+          <Grid container key={weekIndex} sx={{ minHeight: 140, mb: 1 }}>
+            {week.map((day, dayIndex) => {
               const dayEvents = calendarEvents.filter(event =>
                 isSameDay(event.start, day)
               );
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isTodayDate = isToday(day);
+              const isWeekend = dayIndex === 0 || dayIndex === 6;
 
               return (
-                <Grid size={{ xs: true }} key={day.toISOString()}>
+                <Grid size={{ xs: 'grow' }} key={day.toISOString()}>
                   <Paper
-                    variant="outlined"
+                    elevation={isTodayDate ? 4 : 1}
                     sx={{
-                      height: 120,
-                      p: 1,
-                      backgroundColor: isToday(day) ? 'primary.50' : 'background.paper',
+                      height: 140,
+                      p: 1.5,
                       cursor: 'pointer',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      background: isTodayDate 
+                        ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                        : isCurrentMonth 
+                          ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
+                          : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+                      border: isTodayDate ? '2px solid #667eea' : '1px solid #e2e8f0',
+                      borderRadius: 2,
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       '&:hover': {
-                        backgroundColor: 'action.hover',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(0,0,0,0.1)',
+                        borderColor: isTodayDate ? '#667eea' : 'primary.main',
+                        '& .day-number': {
+                          transform: 'scale(1.1)',
+                        },
                       },
+                      '&::before': isTodayDate ? {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+                        pointerEvents: 'none',
+                      } : {},
                     }}
                     onClick={() => onNewAppointment(day)}
                   >
-                    <Typography
-                      variant="body2"
-                      color={
-                        isSameMonth(day, currentDate)
-                          ? isToday(day)
-                            ? 'primary.main'
-                            : 'text.primary'
-                          : 'text.disabled'
-                      }
-                      fontWeight={isToday(day) ? 'bold' : 'normal'}
+                    {/* Day number with enhanced styling */}
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        mb: 1,
+                      }}
                     >
-                      {format(day, 'd')}
-                    </Typography>
-
-                    <Box mt={0.5}>
-                      {dayEvents.slice(0, 3).map(event => (
-                        <Chip
-                          key={event.id}
-                          label={event.title}
-                          size="small"
+                      <Typography
+                        className="day-number"
+                        variant="h6"
+                        sx={{
+                          color: isTodayDate 
+                            ? 'white'
+                            : isCurrentMonth
+                              ? isWeekend ? 'error.main' : 'text.primary'
+                              : 'text.disabled',
+                          fontWeight: isTodayDate ? 700 : isCurrentMonth ? 600 : 400,
+                          fontSize: '1.1rem',
+                          transition: 'transform 0.2s ease-in-out',
+                          textShadow: isTodayDate ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                        }}
+                      >
+                        {format(day, 'd')}
+                      </Typography>
+                      
+                      {/* Event count indicator */}
+                      {dayEvents.length > 0 && (
+                        <Box
                           sx={{
-                            backgroundColor: event.color,
-                            color: 'white',
-                            fontSize: '0.7rem',
+                            backgroundColor: isTodayDate ? 'rgba(255,255,255,0.3)' : 'primary.main',
+                            color: isTodayDate ? 'white' : 'white',
+                            borderRadius: '50%',
+                            width: 20,
                             height: 20,
-                            mb: 0.25,
-                            display: 'block',
-                            '& .MuiChip-label': {
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            },
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                           }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAppointmentClick(event.appointment);
-                          }}
-                          onContextMenu={(e) => handleAppointmentContextMenu(e, event.appointment)}
-                        />
-                      ))}
+                        >
+                          {dayEvents.length}
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Enhanced appointment display */}
+                     <Box sx={{ height: 'calc(100% - 40px)', overflow: 'hidden' }}>
+                       {dayEvents.slice(0, 3).map((event, index) => {
+                         const appointment = event.appointment;
+                         const isUrgent = appointment.appointmentType?.toLowerCase().includes('urgent') || 
+                                         appointment.appointmentType?.toLowerCase().includes('emergency');
+                         const isFollowUp = appointment.appointmentType?.toLowerCase().includes('follow');
+                         
+                         return (
+                           <Box
+                             key={event.id}
+                             sx={{
+                               background: `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)`,
+                               color: 'white',
+                               borderRadius: 2,
+                               p: 1,
+                               mb: 0.5,
+                               fontSize: '0.7rem',
+                               fontWeight: 500,
+                               cursor: 'pointer',
+                               position: 'relative',
+                               overflow: 'hidden',
+                               boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                               border: isUrgent ? '1px solid #ff6b6b' : '1px solid rgba(255,255,255,0.2)',
+                               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                               '&:hover': {
+                                 transform: 'translateX(3px) translateY(-1px)',
+                                 boxShadow: '0 6px 20px rgba(0,0,0,0.2)',
+                                 '& .appointment-time': {
+                                   transform: 'scale(1.05)',
+                                 },
+                                 '& .status-indicator': {
+                                   transform: 'scale(1.1) rotate(5deg)',
+                                 },
+                               },
+                               '&::before': {
+                                 content: '""',
+                                 position: 'absolute',
+                                 left: 0,
+                                 top: 0,
+                                 bottom: 0,
+                                 width: 4,
+                                 background: isUrgent 
+                                   ? 'linear-gradient(180deg, #ff6b6b 0%, #ff8e8e 100%)'
+                                   : 'linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 100%)',
+                                 borderRadius: '0 2px 2px 0',
+                               },
+                               '&::after': isUrgent ? {
+                                 content: '"!"',
+                                 position: 'absolute',
+                                 top: 2,
+                                 right: 4,
+                                 width: 12,
+                                 height: 12,
+                                 backgroundColor: '#ff4757',
+                                 color: 'white',
+                                 borderRadius: '50%',
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center',
+                                 fontSize: '0.6rem',
+                                 fontWeight: 700,
+                                 animation: 'pulse 2s infinite',
+                                 '@keyframes pulse': {
+                                   '0%': { transform: 'scale(1)', opacity: 1 },
+                                   '50%': { transform: 'scale(1.1)', opacity: 0.8 },
+                                   '100%': { transform: 'scale(1)', opacity: 1 },
+                                 },
+                               } : {},
+                             }}
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               onAppointmentClick(event.appointment);
+                             }}
+                             onContextMenu={(e) => handleAppointmentContextMenu(e, event.appointment)}
+                           >
+                             {/* Time and Patient Info */}
+                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                               <Typography 
+                                 className="appointment-time"
+                                 variant="caption" 
+                                 sx={{ 
+                                   fontWeight: 600,
+                                   fontSize: '0.75rem',
+                                   textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                   transition: 'transform 0.2s ease',
+                                 }}
+                               >
+                                 {appointment.time}
+                               </Typography>
+                               
+                               {/* Status indicator */}
+                               <Box
+                                 className="status-indicator"
+                                 sx={{
+                                   width: 8,
+                                   height: 8,
+                                   borderRadius: '50%',
+                                   backgroundColor: appointment.status === 'confirmed' ? '#4ade80' :
+                                                  appointment.status === 'scheduled' ? '#fbbf24' :
+                                                  appointment.status === 'completed' ? '#06b6d4' : '#ef4444',
+                                   boxShadow: '0 0 0 2px rgba(255,255,255,0.3)',
+                                   transition: 'transform 0.2s ease',
+                                 }}
+                               />
+                             </Box>
+                             
+                             {/* Patient Name */}
+                             <Typography 
+                               variant="caption" 
+                               sx={{ 
+                                 display: 'block',
+                                 overflow: 'hidden',
+                                 textOverflow: 'ellipsis',
+                                 whiteSpace: 'nowrap',
+                                 fontWeight: 500,
+                                 lineHeight: 1.2,
+                                 mb: 0.25,
+                                 textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                               }}
+                             >
+                               {appointment.patientName}
+                             </Typography>
+                             
+                             {/* Appointment Type with Badge */}
+                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                               <Typography 
+                                 variant="caption" 
+                                 sx={{ 
+                                   overflow: 'hidden',
+                                   textOverflow: 'ellipsis',
+                                   whiteSpace: 'nowrap',
+                                   opacity: 0.9,
+                                   fontSize: '0.65rem',
+                                   lineHeight: 1,
+                                   flex: 1,
+                                 }}
+                               >
+                                 {appointment.appointmentType}
+                               </Typography>
+                               
+                               {/* Type badges */}
+                               {isFollowUp && (
+                                 <Box
+                                   sx={{
+                                     backgroundColor: 'rgba(255,255,255,0.2)',
+                                     color: 'white',
+                                     borderRadius: 0.5,
+                                     px: 0.5,
+                                     py: 0.25,
+                                     fontSize: '0.5rem',
+                                     fontWeight: 600,
+                                     textTransform: 'uppercase',
+                                     letterSpacing: 0.5,
+                                   }}
+                                 >
+                                   F/U
+                                 </Box>
+                               )}
+                             </Box>
+                             
+                             {/* Shimmer effect overlay */}
+                             <Box
+                               sx={{
+                                 position: 'absolute',
+                                 top: 0,
+                                 left: '-100%',
+                                 width: '100%',
+                                 height: '100%',
+                                 background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                 transition: 'left 0.6s',
+                                 pointerEvents: 'none',
+                               }}
+                               className="shimmer-overlay"
+                             />
+                           </Box>
+                         );
+                       })}
+                      
                       {dayEvents.length > 3 && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Box
+                          sx={{
+                            backgroundColor: isTodayDate ? 'rgba(255,255,255,0.2)' : 'grey.100',
+                            color: isTodayDate ? 'white' : 'text.secondary',
+                            borderRadius: 1,
+                            p: 0.5,
+                            textAlign: 'center',
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            border: `1px dashed ${isTodayDate ? 'rgba(255,255,255,0.3)' : 'grey.300'}`,
+                          }}
+                        >
                           +{dayEvents.length - 3} more
-                        </Typography>
+                        </Box>
                       )}
                     </Box>
                   </Paper>
@@ -402,7 +654,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             <Box p={1} />
           </Grid>
           {days.map(day => (
-            <Grid size={{ xs: true }} key={day.toISOString()}>
+            <Grid size={{ xs: 'grow' }} key={day.toISOString()}>
               <Box p={1} textAlign="center">
                 <Typography variant="subtitle2">
                   {format(day, 'EEE')}
@@ -437,7 +689,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                 });
 
                 return (
-                  <Grid size={{ xs: true }} key={`${day.toISOString()}-${hour}`}>
+                  <Grid size={{ xs: 'grow' }} key={`${day.toISOString()}-${hour}`}>
                     <Box
                       sx={{
                         height: 60,
@@ -599,71 +851,242 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
   return (
     <Box>
-      {/* Calendar Header */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Box display="flex" alignItems="center" gap={2}>
-            <Typography variant="h5">{getViewTitle()}</Typography>
-            {loading && <CircularProgress size={20} />}
+      {/* Enhanced Calendar Header */}
+      <Paper 
+        elevation={0}
+        sx={{ 
+          p: 3, 
+          mb: 3,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          borderRadius: 3,
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(255,255,255,0.05) 100%)',
+            pointerEvents: 'none',
+          }
+        }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+          <Box display="flex" alignItems="center" gap={3}>
+            <Box>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 700,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  mb: 0.5
+                }}
+              >
+                {getViewTitle()}
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  opacity: 0.9,
+                  fontSize: '0.9rem'
+                }}
+              >
+                {format(currentDate, 'EEEE, MMMM do, yyyy')}
+              </Typography>
+            </Box>
+            {loading && (
+              <CircularProgress 
+                size={24} 
+                sx={{ color: 'rgba(255,255,255,0.8)' }}
+              />
+            )}
           </Box>
 
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box display="flex" alignItems="center" gap={2}>
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<AddIcon />}
               onClick={() => onNewAppointment()}
+              sx={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'white',
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: 2,
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.3)',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                },
+                transition: 'all 0.2s ease-in-out',
+              }}
             >
               New Appointment
             </Button>
 
-            <Divider orientation="vertical" flexItem />
-
-            <IconButton onClick={() => navigateDate('prev')}>
-              <ChevronLeft />
-            </IconButton>
-            <Button variant="outlined" onClick={() => navigateDate('today')}>
-              Today
-            </Button>
-            <IconButton onClick={() => navigateDate('next')}>
-              <ChevronRight />
-            </IconButton>
-
-            <Divider orientation="vertical" flexItem />
-
-            <Button
-              variant={viewMode === 'month' ? 'contained' : 'outlined'}
-              startIcon={<CalendarMonth />}
-              onClick={() => setViewMode('month')}
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 2,
+                p: 0.5,
+                backdropFilter: 'blur(10px)',
+              }}
             >
-              Month
-            </Button>
-            <Button
-              variant={viewMode === 'week' ? 'contained' : 'outlined'}
-              startIcon={<ViewWeek />}
-              onClick={() => setViewMode('week')}
+              <IconButton 
+                onClick={() => navigateDate('prev')}
+                sx={{ 
+                  color: 'white',
+                  '&:hover': { 
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    transform: 'scale(1.1)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <ChevronLeft />
+              </IconButton>
+              <Button 
+                variant="text" 
+                onClick={() => navigateDate('today')}
+                sx={{
+                  color: 'white',
+                  fontWeight: 500,
+                  px: 2,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                  },
+                }}
+              >
+                Today
+              </Button>
+              <IconButton 
+                onClick={() => navigateDate('next')}
+                sx={{ 
+                  color: 'white',
+                  '&:hover': { 
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    transform: 'scale(1.1)',
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              >
+                <ChevronRight />
+              </IconButton>
+            </Box>
+
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 0.5,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 2,
+                p: 0.5,
+                backdropFilter: 'blur(10px)',
+              }}
             >
-              Week
-            </Button>
-            <Button
-              variant={viewMode === 'day' ? 'contained' : 'outlined'}
-              startIcon={<ViewDay />}
-              onClick={() => setViewMode('day')}
-            >
-              Day
-            </Button>
+              <Button
+                variant={viewMode === 'month' ? 'contained' : 'text'}
+                startIcon={<CalendarMonth />}
+                onClick={() => setViewMode('month')}
+                size="small"
+                sx={{
+                  color: 'white',
+                  backgroundColor: viewMode === 'month' ? 'rgba(255,255,255,0.3)' : 'transparent',
+                  fontWeight: 500,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                  },
+                }}
+              >
+                Month
+              </Button>
+              <Button
+                variant={viewMode === 'week' ? 'contained' : 'text'}
+                startIcon={<ViewWeek />}
+                onClick={() => setViewMode('week')}
+                size="small"
+                sx={{
+                  color: 'white',
+                  backgroundColor: viewMode === 'week' ? 'rgba(255,255,255,0.3)' : 'transparent',
+                  fontWeight: 500,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                  },
+                }}
+              >
+                Week
+              </Button>
+              <Button
+                variant={viewMode === 'day' ? 'contained' : 'text'}
+                startIcon={<ViewDay />}
+                onClick={() => setViewMode('day')}
+                size="small"
+                sx={{
+                  color: 'white',
+                  backgroundColor: viewMode === 'day' ? 'rgba(255,255,255,0.3)' : 'transparent',
+                  fontWeight: 500,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                  },
+                }}
+              >
+                Day
+              </Button>
+            </Box>
           </Box>
         </Box>
 
-        {/* Filters */}
-        <Stack direction="row" spacing={2} alignItems="center">
-          <FilterIcon color="action" />
+        {/* Enhanced Filters */}
+        <Box 
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            borderRadius: 2,
+            p: 2,
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1}>
+            <FilterIcon sx={{ color: 'rgba(255,255,255,0.8)' }} />
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+              Filters:
+            </Typography>
+          </Box>
           
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Provider</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel sx={{ color: 'rgba(255,255,255,0.8)' }}>Provider</InputLabel>
             <Select
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value)}
               label="Provider"
+              sx={{
+                color: 'white',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.3)',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.5)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.7)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: 'rgba(255,255,255,0.8)',
+                },
+              }}
             >
               <MenuItem value="all">All Providers</MenuItem>
               {providers.map(provider => (
@@ -671,10 +1094,11 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar
                       sx={{
-                        width: 20,
-                        height: 20,
+                        width: 24,
+                        height: 24,
                         backgroundColor: provider.color,
-                        fontSize: '0.7rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
                       }}
                     >
                       {provider.name.charAt(0)}
@@ -686,12 +1110,27 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Status</InputLabel>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel sx={{ color: 'rgba(255,255,255,0.8)' }}>Status</InputLabel>
             <Select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               label="Status"
+              sx={{
+                color: 'white',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.3)',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.5)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.7)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: 'rgba(255,255,255,0.8)',
+                },
+              }}
             >
               <MenuItem value="all">All Status</MenuItem>
               {Object.keys(statusColors).map(status => (
@@ -703,6 +1142,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                         height: 12,
                         borderRadius: '50%',
                         backgroundColor: statusColors[status as keyof typeof statusColors],
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                       }}
                     />
                     {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
@@ -712,10 +1152,23 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             </Select>
           </FormControl>
 
-          <Typography variant="body2" color="text.secondary">
-            {calendarEvents.length} appointment{calendarEvents.length !== 1 ? 's' : ''}
-          </Typography>
-        </Stack>
+          <Box sx={{ ml: 'auto' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: 'rgba(255,255,255,0.9)',
+                fontWeight: 500,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                px: 2,
+                py: 0.5,
+                borderRadius: 1,
+                backdropFilter: 'blur(5px)',
+              }}
+            >
+              {calendarEvents.length} appointment{calendarEvents.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        </Box>
       </Paper>
 
       {/* Calendar Content */}

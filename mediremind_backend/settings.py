@@ -27,9 +27,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Enable debug mode for development
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ['mediremind-backend.onrender.com', 'localhost', '127.0.0.1', '0.0.0.0']
+# ALLOWED_HOSTS configuration for Render
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+
+# Add Render hostname if available
+if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 
 # Custom User Model
 AUTH_USER_MODEL = 'authentication.User'
@@ -45,7 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',  # Add token authentication
-    'webpush',
+    # 'webpush',  # Removed - package not compatible with Python 3.13
     'corsheaders',
 
     # Local apps
@@ -61,11 +66,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'authentication.middleware.AuthenticationMiddleware',  # Custom authentication middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -93,18 +100,15 @@ WSGI_APPLICATION = 'mediremind_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+import dj_database_url
+
+# Use DATABASE_URL for Render deployment, fallback to individual env vars for local development
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'postgres'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    }
+    'default': dj_database_url.config(
+        default=f"postgresql://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD', '')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'postgres')}?sslmode=require",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 
@@ -142,7 +146,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# WhiteNoise configuration for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -171,15 +179,28 @@ MAX_LOGIN_ATTEMPTS = 5
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-# CORS settings for development
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Vite default port
-    "http://127.0.0.1:5173",
-]
+
+# Development CORS settings
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",  # Vite default port
+        "http://127.0.0.1:5173",
+    ]
+else:
+    # Production CORS settings
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [
+        "https://mediremind-frontend.onrender.com",  # Update with your actual frontend URL
+    ]
+    
+    # Add frontend URL from environment variable if available
+    if 'FRONTEND_URL' in os.environ:
+        CORS_ALLOWED_ORIGINS.append(os.environ['FRONTEND_URL'])
 
 # Allow all headers for development
 CORS_ALLOW_HEADERS = [
@@ -215,16 +236,23 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for CSRF token
 
-# Web Push settings
-WEBPUSH_SETTINGS = {
-    "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY"),
-    "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY"),
-    "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
-}
+# Web Push settings - Temporarily disabled due to Python 3.13 compatibility issues
+# WEBPUSH_SETTINGS = {
+#     "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY"),
+#     "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY"),
+#     "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
+# }
 
 # Validate VAPID settings
-if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
-    print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
+# if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
+#     print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
+
+# Temporary placeholder for webpush settings
+WEBPUSH_SETTINGS = {
+    "VAPID_PUBLIC_KEY": "",
+    "VAPID_PRIVATE_KEY": "",
+    "VAPID_ADMIN_EMAIL": "admin@mediremind.com"
+}
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -246,6 +274,11 @@ BEEM_API_KEY = os.getenv('BEEM_API_KEY')
 BEEM_SECRET_KEY = os.getenv('BEEM_SECRET_KEY')
 BEEM_SENDER_ID = os.getenv('BEEM_SENDER_ID', 'MediRemind')
 BEEM_WHATSAPP_NAMESPACE = os.getenv('BEEM_WHATSAPP_NAMESPACE')
+
+# Field-level encryption configuration
+# SECURITY WARNING: Use a secure, randomly generated key in production
+# This key should be stored securely and never committed to version control
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=')
 
 # Logging configuration
 LOGGING = {

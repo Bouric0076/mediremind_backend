@@ -1,11 +1,17 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.utils import timezone
 from authentication.utils import get_authenticated_user
 from authentication.middleware import api_csrf_exempt, get_request_user
+from .models import EnhancedPatient, EnhancedStaffProfile
+from authentication.models import User
 import json
 import logging
+from datetime import datetime
 
 # Test endpoint for debugging authentication
 @api_csrf_exempt
@@ -50,35 +56,55 @@ def get_all_patients(request):
         # Get query parameters
         page = int(request.GET.get('page', 1))
         limit = int(request.GET.get('limit', 10))
+        search = request.GET.get('search', '').strip()
         
-        # Mock data for now - replace with actual database queries
-        patients = [
-            {
-                "id": 1,
-                "name": "John Doe",
-                "email": "john.doe@example.com",
-                "phone": "+1234567890",
-                "date_of_birth": "1990-01-15",
-                "status": "active"
-            },
-            {
-                "id": 2,
-                "name": "Jane Smith",
-                "email": "jane.smith@example.com",
-                "phone": "+1234567891",
-                "date_of_birth": "1985-03-22",
-                "status": "active"
-            }
-        ]
+        # Build query
+        patients_query = EnhancedPatient.objects.select_related('user').filter(is_active=True)
+        
+        # Apply search filter if provided
+        if search:
+            patients_query = patients_query.filter(
+                user__full_name__icontains=search
+            ) | patients_query.filter(
+                user__email__icontains=search
+            )
+        
+        # Order by creation date (newest first)
+        patients_query = patients_query.order_by('-created_at')
+        
+        # Apply pagination
+        paginator = Paginator(patients_query, limit)
+        patients_page = paginator.get_page(page)
+        
+        # Serialize patient data
+        patients_data = []
+        for patient in patients_page:
+            patients_data.append({
+                "id": str(patient.id),
+                "name": patient.user.full_name,
+                "email": patient.user.email,
+                "phone": patient.phone,  # This will be decrypted automatically
+                "date_of_birth": patient.date_of_birth.isoformat(),
+                "age": patient.age,
+                "gender": patient.get_gender_display(),
+                "status": "active" if patient.is_active else "inactive",
+                "primary_care_physician": patient.primary_care_physician.user.full_name if patient.primary_care_physician else None,
+                "created_at": patient.created_at.isoformat(),
+                "updated_at": patient.updated_at.isoformat()
+            })
         
         return JsonResponse({
-            "patients": patients,
-            "total": len(patients),
+            "patients": patients_data,
+            "total": paginator.count,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "total_pages": paginator.num_pages,
+            "has_next": patients_page.has_next(),
+            "has_previous": patients_page.has_previous()
         })
         
     except Exception as e:
+        logging.error(f"Error fetching patients: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_csrf_exempt
@@ -91,19 +117,74 @@ def get_patient_detail(request, pk):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # Mock patient data - replace with actual database query
-        patient = {
-            "id": pk,
-            "name": "John Doe",
-            "email": "john.doe@example.com",
-            "phone": "+1234567890",
-            "date_of_birth": "1990-01-15",
-            "status": "active",
-            "address": "123 Main St, City, State 12345",
-            "emergency_contact": "+1234567899"
+        # Get patient from database
+        patient = get_object_or_404(
+            EnhancedPatient.objects.select_related('user', 'primary_care_physician__user'),
+            id=pk,
+            is_active=True
+        )
+        
+        # Serialize detailed patient data
+        patient_data = {
+            "id": str(patient.id),
+            "name": patient.user.full_name,
+            "email": patient.user.email,
+            "phone": patient.phone,
+            "date_of_birth": patient.date_of_birth.isoformat(),
+            "age": patient.age,
+            "gender": patient.get_gender_display(),
+            "marital_status": patient.get_marital_status_display() if patient.marital_status else None,
+            "blood_type": patient.blood_type,
+            "height_inches": patient.height_inches,
+            "weight_lbs": patient.weight_lbs,
+            "bmi": patient.bmi,
+            "address": {
+                "line1": patient.address_line1,
+                "line2": patient.address_line2,
+                "city": patient.city,
+                "state": patient.state,
+                "zip_code": patient.zip_code,
+                "country": patient.country
+            },
+            "emergency_contact": {
+                "name": patient.emergency_contact_name,
+                "relationship": patient.emergency_contact_relationship,
+                "phone": patient.emergency_contact_phone,
+                "email": patient.emergency_contact_email
+            },
+            "medical_info": {
+                "allergies": patient.allergies,
+                "current_medications": patient.current_medications,
+                "medical_conditions": patient.medical_conditions,
+                "surgical_history": patient.surgical_history,
+                "family_medical_history": patient.family_medical_history
+            },
+            "lifestyle": {
+                "smoking_status": patient.get_smoking_status_display(),
+                "alcohol_use": patient.get_alcohol_use_display(),
+                "exercise_frequency": patient.get_exercise_frequency_display() if patient.exercise_frequency else None
+            },
+            "insurance": {
+                "provider": patient.insurance_provider,
+                "type": patient.get_insurance_type_display() if patient.insurance_type else None,
+                "policy_number": patient.insurance_policy_number,
+                "group_number": patient.insurance_group_number
+            },
+            "preferences": {
+                "language": patient.preferred_language,
+                "communication": patient.get_preferred_communication_display()
+            },
+            "primary_care_physician": {
+                "id": str(patient.primary_care_physician.id),
+                "name": patient.primary_care_physician.user.full_name
+            } if patient.primary_care_physician else None,
+            "status": "active" if patient.is_active else "inactive",
+            "registration_completed": patient.registration_completed,
+            "created_at": patient.created_at.isoformat(),
+            "updated_at": patient.updated_at.isoformat()
         }
         
-        return JsonResponse({"patient": patient})
+        return JsonResponse({"patient": patient_data})
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -329,27 +410,29 @@ def get_all_staff(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # Mock staff data
-        staff = [
-            {
-                "id": 1,
-                "name": "Dr. Sarah Johnson",
-                "email": "sarah.johnson@hospital.com",
-                "role": "Doctor",
-                "department": "Cardiology",
-                "status": "active"
-            },
-            {
-                "id": 2,
-                "name": "Nurse Mary Wilson",
-                "email": "mary.wilson@hospital.com",
-                "role": "Nurse",
-                "department": "Emergency",
-                "status": "active"
-            }
-        ]
+        # Get all active staff members from database
+        staff_query = EnhancedStaffProfile.objects.select_related('user', 'specialization').filter(
+            is_active=True,
+            employment_status__in=['full_time', 'part_time', 'contract', 'per_diem', 'locum_tenens']
+        ).order_by('user__full_name')
         
-        return JsonResponse({"staff": staff, "total": len(staff)})
+        # Serialize staff data
+        staff_data = []
+        for staff_member in staff_query:
+            staff_data.append({
+                "id": str(staff_member.id),
+                "name": staff_member.user.full_name,
+                "email": staff_member.user.email,
+                "role": staff_member.job_title,
+                "department": staff_member.department,
+                "specialization": staff_member.specialization.name if staff_member.specialization else None,
+                "employment_status": staff_member.get_employment_status_display(),
+                "status": "active" if staff_member.is_active else "inactive",
+                "created_at": staff_member.created_at.isoformat(),
+                "updated_at": staff_member.updated_at.isoformat()
+            })
+        
+        return JsonResponse({"staff": staff_data, "total": len(staff_data)})
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -603,4 +686,170 @@ def get_credential_detail(request, pk):
         return JsonResponse({"credential": credential})
         
     except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_csrf_exempt
+@require_http_methods(["PUT"])
+def update_patient(request, pk):
+    """Update patient information"""
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        # Get patient from database
+        patient = get_object_or_404(
+            EnhancedPatient.objects.select_related('user'),
+            id=pk,
+            is_active=True
+        )
+        
+        data = json.loads(request.body)
+        
+        # Update user information
+        if 'firstName' in data or 'lastName' in data:
+            first_name = data.get('firstName', patient.user.full_name.split()[0])
+            last_name = data.get('lastName', ' '.join(patient.user.full_name.split()[1:]))
+            patient.user.full_name = f"{first_name} {last_name}"
+        
+        if 'email' in data:
+            # Check if email is already taken by another user
+            if User.objects.filter(email=data['email']).exclude(id=patient.user.id).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
+            patient.user.email = data['email']
+        
+        # Update patient-specific fields
+        if 'phone' in data:
+            patient.phone = data['phone']
+        if 'dateOfBirth' in data:
+            patient.date_of_birth = datetime.strptime(data['dateOfBirth'], '%Y-%m-%d').date()
+        if 'gender' in data:
+            patient.gender = data['gender']
+        if 'maritalStatus' in data:
+            patient.marital_status = data['maritalStatus']
+        if 'bloodType' in data:
+            patient.blood_type = data['bloodType']
+        if 'height' in data:
+            patient.height_inches = data['height']
+        if 'weight' in data:
+            patient.weight_lbs = data['weight']
+        
+        # Update address
+        address = data.get('address', {})
+        if address:
+            if 'line1' in address:
+                patient.address_line1 = address['line1']
+            if 'line2' in address:
+                patient.address_line2 = address['line2']
+            if 'city' in address:
+                patient.city = address['city']
+            if 'state' in address:
+                patient.state = address['state']
+            if 'zipCode' in address:
+                patient.zip_code = address['zipCode']
+            if 'country' in address:
+                patient.country = address['country']
+        
+        # Update emergency contact
+        emergency_contact = data.get('emergencyContact', {})
+        if emergency_contact:
+            if 'name' in emergency_contact:
+                patient.emergency_contact_name = emergency_contact['name']
+            if 'relationship' in emergency_contact:
+                patient.emergency_contact_relationship = emergency_contact['relationship']
+            if 'phone' in emergency_contact:
+                patient.emergency_contact_phone = emergency_contact['phone']
+            if 'email' in emergency_contact:
+                patient.emergency_contact_email = emergency_contact['email']
+        
+        # Update medical information
+        medical_info = data.get('medicalInfo', {})
+        if medical_info:
+            if 'allergies' in medical_info:
+                patient.allergies = medical_info['allergies']
+            if 'currentMedications' in medical_info:
+                patient.current_medications = medical_info['currentMedications']
+            if 'medicalConditions' in medical_info:
+                patient.medical_conditions = medical_info['medicalConditions']
+            if 'surgicalHistory' in medical_info:
+                patient.surgical_history = medical_info['surgicalHistory']
+            if 'familyMedicalHistory' in medical_info:
+                patient.family_medical_history = medical_info['familyMedicalHistory']
+        
+        # Update lifestyle information
+        lifestyle = data.get('lifestyle', {})
+        if lifestyle:
+            if 'smokingStatus' in lifestyle:
+                patient.smoking_status = lifestyle['smokingStatus']
+            if 'alcoholUse' in lifestyle:
+                patient.alcohol_use = lifestyle['alcoholUse']
+            if 'exerciseFrequency' in lifestyle:
+                patient.exercise_frequency = lifestyle['exerciseFrequency']
+        
+        # Update insurance information
+        insurance = data.get('insurance', {})
+        if insurance:
+            if 'provider' in insurance:
+                patient.insurance_provider = insurance['provider']
+            if 'type' in insurance:
+                patient.insurance_type = insurance['type']
+            if 'policyNumber' in insurance:
+                patient.insurance_policy_number = insurance['policyNumber']
+            if 'groupNumber' in insurance:
+                patient.insurance_group_number = insurance['groupNumber']
+        
+        # Update preferences
+        preferences = data.get('preferences', {})
+        if preferences:
+            if 'language' in preferences:
+                patient.preferred_language = preferences['language']
+            if 'communication' in preferences:
+                patient.preferred_communication = preferences['communication']
+        
+        # Save changes
+        with transaction.atomic():
+            patient.user.save()
+            patient.save()
+        
+        return JsonResponse({
+            "message": "Patient updated successfully",
+            "patient_id": str(patient.id)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error updating patient: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_patient(request, pk):
+    """Soft delete a patient (deactivate)"""
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        # Get patient from database
+        patient = get_object_or_404(
+            EnhancedPatient.objects.select_related('user'),
+            id=pk,
+            is_active=True
+        )
+        
+        # Soft delete by setting is_active to False
+        patient.is_active = False
+        patient.user.is_active = False
+        
+        with transaction.atomic():
+            patient.save()
+            patient.user.save()
+        
+        return JsonResponse({
+            "message": "Patient deactivated successfully",
+            "patient_id": str(patient.id)
+        })
+        
+    except Exception as e:
+        logging.error(f"Error deleting patient: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
