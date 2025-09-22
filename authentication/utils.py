@@ -3,7 +3,8 @@ from django.contrib.sessions.models import Session
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from .models import UserSession
-from supabase_client import supabase
+# Removed Supabase import - using Django-only authentication
+# from supabase_client import supabase
 import logging
 
 User = get_user_model()
@@ -33,9 +34,13 @@ class AuthenticatedUser:
                 patient_profile = EnhancedPatient.objects.get(user=user)
                 profile_data.update({
                     'patient_id': str(patient_profile.id),
-                    'phone_number': patient_profile.phone_number,
+                    'phone_number': patient_profile.phone,
                     'date_of_birth': patient_profile.date_of_birth.isoformat() if patient_profile.date_of_birth else None,
-                    'address': patient_profile.address,
+                    'address_line1': patient_profile.address_line1,
+                    'address_line2': patient_profile.address_line2,
+                    'city': patient_profile.city,
+                    'state': patient_profile.state,
+                    'zip_code': patient_profile.zip_code,
                     'emergency_contact': patient_profile.emergency_contact_name,
                     'emergency_phone': patient_profile.emergency_contact_phone
                 })
@@ -47,7 +52,7 @@ class AuthenticatedUser:
                     'department': staff_profile.department,
                     'specialization': staff_profile.specialization,
                     'license_number': staff_profile.license_number,
-                    'phone_number': staff_profile.phone_number
+                    'phone_number': staff_profile.work_phone
                 })
         except Exception as e:
             logger.warning(f"Could not load profile data for user {user.id}: {str(e)}")
@@ -56,10 +61,10 @@ class AuthenticatedUser:
 
 def get_authenticated_user(token: str) -> AuthenticatedUser:
     """
-    Get authenticated user from Django token or Supabase token
+    Get authenticated user from Django token (Django-only authentication)
     
     Args:
-        token: Authentication token (Django or Supabase)
+        token: Authentication token (Django token or session key)
         
     Returns:
         AuthenticatedUser instance or None
@@ -93,36 +98,7 @@ def get_authenticated_user(token: str) -> AuthenticatedUser:
             return AuthenticatedUser(user)
             
         except Token.DoesNotExist:
-            logger.debug("Token not found in Django tokens, trying Supabase authentication...")
-            
-            # Try Supabase token authentication
-            try:
-                # Verify token with Supabase
-                user_response = supabase.auth.get_user(token)
-                
-                if user_response.user:
-                    # Get or sync Django user
-                    try:
-                        user = User.objects.get(email=user_response.user.email)
-                        
-                        if not user.is_active:
-                            logger.warning(f"Inactive user attempted access: {user.email}")
-                            return None
-                        
-                        # Update session activity
-                        UserSession.objects.filter(
-                            user=user, is_active=True
-                        ).update(last_activity=timezone.now())
-                        
-                        logger.info(f"User authenticated via Supabase token: {user.email}")
-                        return AuthenticatedUser(user)
-                        
-                    except User.DoesNotExist:
-                        logger.warning(f"Supabase user not found in Django: {user_response.user.email}")
-                        return None
-                        
-            except Exception as supabase_error:
-                logger.debug(f"Supabase authentication failed: {str(supabase_error)}")
+            logger.debug("Token not found in Django tokens, trying session authentication...")
             
             # Try session-based authentication as fallback
             try:
@@ -191,10 +167,11 @@ def get_user_profile(user_id, role=None):
                 return {
                     'id': str(patient_profile.id),
                     'user_id': str(user.id),
-                    'phone_number': patient_profile.phone_number,
+                    'phone_number': patient_profile.phone,
                     'date_of_birth': patient_profile.date_of_birth.isoformat() if patient_profile.date_of_birth else None,
                     'gender': patient_profile.gender,
-                    'address': patient_profile.address,
+                    'address_line1': patient_profile.address_line1,
+                    'address_line2': patient_profile.address_line2,
                     'city': patient_profile.city,
                     'state': patient_profile.state,
                     'zip_code': patient_profile.zip_code,
@@ -202,7 +179,7 @@ def get_user_profile(user_id, role=None):
                     'emergency_contact_phone': patient_profile.emergency_contact_phone,
                     'insurance_provider': patient_profile.insurance_provider,
                     'insurance_policy_number': patient_profile.insurance_policy_number,
-                    'medical_history': patient_profile.medical_history,
+                    'family_medical_history': patient_profile.family_medical_history,
                     'allergies': patient_profile.allergies,
                     'current_medications': patient_profile.current_medications
                 }
@@ -220,14 +197,13 @@ def get_user_profile(user_id, role=None):
                     'department': staff_profile.department,
                     'specialization': staff_profile.specialization,
                     'license_number': staff_profile.license_number,
-                    'phone_number': staff_profile.phone_number,
+                    'phone_number': staff_profile.work_phone,
                     'office_location': staff_profile.office_location,
-                    'bio': staff_profile.bio,
-                    'years_of_experience': staff_profile.years_of_experience,
+                    'years_experience': staff_profile.years_experience,
                     'education': staff_profile.education,
-                    'certifications': staff_profile.certifications,
+                    'board_certifications': staff_profile.board_certifications,
                     'languages_spoken': staff_profile.languages_spoken,
-                    'availability_schedule': staff_profile.availability_schedule
+                    'default_schedule': staff_profile.default_schedule
                 }
             except EnhancedStaffProfile.DoesNotExist:
                 logger.warning(f"Staff profile not found for user {user_id}")

@@ -21,7 +21,7 @@ from .exceptions import (
     AuthenticationError, MFARequiredError, AccountLockedError,
     InvalidMFATokenError, SessionExpiredError, RateLimitExceededError
 )
-from supabase_client import supabase
+from .sync_utils import SyncErrorHandler, SyncMetrics, safe_sync_operation
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +37,13 @@ class AuthenticationService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.supabase_client = supabase
     
     def authenticate(self, email: str, password: str, 
                     mfa_token: Optional[str] = None,
                     ip_address: str = None,
                     user_agent: str = None) -> Dict:
         """
-        Unified authentication flow with enhanced security and Supabase integration
+        Unified authentication flow using Django as primary authentication source
         
         Args:
             email: User email address
@@ -63,26 +62,23 @@ class AuthenticationService:
         """
         
         with transaction.atomic():
-            # 1. Pre-authentication checks
+            # 1. Get Django user and perform pre-authentication checks
             user = self._get_user_by_email(email)
-            if user:
-                self._check_account_status(user)
-                self._check_rate_limiting(user, ip_address)
+            if not user:
+                self._log_login_attempt(None, ip_address, user_agent, 
+                                      success=False, failure_reason='user_not_found')
+                raise AuthenticationError('Invalid credentials')
+            
+            self._check_account_status(user)
+            self._check_rate_limiting(user, ip_address)
             
             try:
-                # 2. Validate credentials with Supabase first
-                supabase_result = self.supabase_client.auth.sign_in_with_password({
-                    "email": email,
-                    "password": password
-                })
-                
-                if not supabase_result.user:
+                # 2. Validate credentials using Django authentication
+                django_user = authenticate(username=email, password=password)
+                if not django_user:
                     raise AuthenticationError('Invalid credentials')
                 
-                # 3. Get or sync Django user
-                user = self._sync_user_from_supabase(supabase_result.user)
-                
-                # 4. MFA verification if enabled
+                # 3. MFA verification if enabled
                 if user.mfa_enabled:
                     if not mfa_token:
                         self._log_login_attempt(user, ip_address, user_agent, 
@@ -91,13 +87,13 @@ class AuthenticationService:
                     
                     self._verify_mfa_token(user, mfa_token)
                 
-                # 5. Create secure session
+                # 4. Create secure session
                 session = self._create_session(user, ip_address, user_agent)
                 
                 # Create or get auth token
                 token, created = Token.objects.get_or_create(user=user)
                 
-                # 6. Reset failed attempts and log success
+                # 5. Reset failed attempts and log success
                 user.failed_login_attempts = 0
                 user.account_locked_until = None
                 user.last_login_at = timezone.now()
@@ -111,15 +107,12 @@ class AuthenticationService:
                     'user': user,
                     'session': session,
                     'access_token': token.key,
-                    'refresh_token': supabase_result.session.refresh_token,
-                    'supabase_session': supabase_result.session,
                     'expires_at': session.expires_at
                 }
                 
             except Exception as e:
                 # Handle authentication failures
-                if user:
-                    self._handle_failed_login(user, str(e))
+                self._handle_failed_login(user, str(e))
                 
                 self._log_login_attempt(
                     user, ip_address, user_agent, 
@@ -131,45 +124,48 @@ class AuthenticationService:
                 
                 raise AuthenticationError('Authentication failed')
     
-    def refresh_session(self, refresh_token: str, session_key: str = '') -> Dict:
+    def refresh_session(self, access_token: str, session_key: str = '') -> Dict:
         """
-        Refresh user session using Supabase refresh tokens
+        Refresh user session using Django authentication tokens
         
         Args:
-            refresh_token: Supabase refresh token
+            access_token: Django access token
             session_key: Optional session key
             
         Returns:
-            Dict containing new tokens
+            Dict containing refreshed tokens
         """
         try:
-            # Refresh Supabase session
-            refresh_result = self.supabase_client.auth.refresh_session(refresh_token)
-            
-            if not refresh_result.session:
-                raise SessionExpiredError("Failed to refresh session")
-            
-            # Get Django user
-            user = self._sync_user_from_supabase(refresh_result.user)
+            # Get user from Django token
+            try:
+                token = Token.objects.get(key=access_token)
+                user = token.user
+            except Token.DoesNotExist:
+                raise SessionExpiredError("Invalid access token")
             
             # Check if user is still active
             if not user.is_active:
                 raise SessionExpiredError("User account is inactive")
             
-            # Update Django token
-            token, created = Token.objects.get_or_create(user=user)
-            
-            # Update session activity if session_key provided
+            # Check if session is still valid
             if session_key:
-                UserSession.objects.filter(
+                session = UserSession.objects.filter(
                     user=user, 
                     session_key=session_key,
-                    is_active=True
-                ).update(last_activity=timezone.now())
+                    is_active=True,
+                    expires_at__gt=timezone.now()
+                ).first()
+                
+                if not session:
+                    raise SessionExpiredError("Session expired")
+                
+                # Update session activity
+                session.last_activity = timezone.now()
+                session.save(update_fields=['last_activity'])
             
+            # Token is still valid, return current token info
             return {
                 'access_token': token.key,
-                'refresh_token': refresh_result.session.refresh_token,
                 'expires_at': timezone.now() + timedelta(hours=24)
             }
             
@@ -194,12 +190,6 @@ class AuthenticationService:
                 session_key=session_key,
                 is_active=True
             )
-            
-            # Logout from Supabase
-            try:
-                self.supabase_client.auth.sign_out()
-            except Exception as e:
-                self.logger.warning(f"Supabase logout failed: {str(e)}")
             
             # Terminate session
             session.is_active = False
@@ -412,29 +402,7 @@ class AuthenticationService:
         if self.is_rate_limited(ip_address):
             raise AuthenticationError('Too many failed attempts from this IP')
     
-    def _sync_user_from_supabase(self, supabase_user) -> User:
-        """Sync Supabase user with Django user model"""
-        try:
-            # Try to get existing Django user
-            user = User.objects.get(email=supabase_user.email)
-            
-            # Update user data if needed
-            if user.full_name != supabase_user.user_metadata.get('full_name', ''):
-                user.full_name = supabase_user.user_metadata.get('full_name', '')
-                user.save()
-                
-        except User.DoesNotExist:
-            # Create new Django user from Supabase data
-            user = User.objects.create(
-                id=supabase_user.id,
-                email=supabase_user.email,
-                full_name=supabase_user.user_metadata.get('full_name', ''),
-                role=supabase_user.user_metadata.get('role', 'patient'),
-                is_active=True,
-                email_verified=supabase_user.email_confirmed_at is not None
-            )
-            
-        return user
+
     
     def _get_or_create_user(self, email: str, **kwargs) -> User:
         """Get or create Django user"""
@@ -577,6 +545,8 @@ class AuthenticationService:
         print(f"SMS verification code for {phone_number}: {verification_code}")
         
         return verification_code
+    
+
 
 
 class PermissionService:
@@ -584,6 +554,9 @@ class PermissionService:
     
     def __init__(self):
         self.auth_service = AuthenticationService()
+        # Import here to avoid circular imports
+        from .permissions_config import PERMISSIONS_CONFIG
+        self.permissions_config = PERMISSIONS_CONFIG
     
     def check_permission(self, user: User, permission_code: str, 
                         resource=None, context: Dict = None) -> bool:
@@ -604,8 +577,8 @@ class PermissionService:
         if not user.is_active:
             return False
         
-        # Check role-based permissions
-        if self._check_role_permission(user.role, permission_code):
+        # Check role-based permissions using centralized config
+        if self.permissions_config.has_permission(user.role, permission_code):
             return True
         
         # Check user-specific permissions
@@ -619,46 +592,8 @@ class PermissionService:
         return False
     
     def _check_role_permission(self, role: str, permission_code: str) -> bool:
-        """Check role-based permissions"""
-        # Define role-based permissions
-        role_permissions = {
-            'patient': [
-                'view_own_profile',
-                'update_own_profile',
-                'view_own_appointments',
-                'book_appointment',
-                'cancel_own_appointment'
-            ],
-            'physician': [
-                'view_patient_profile',
-                'update_patient_profile',
-                'view_patient_medical_records',
-                'create_medical_record',
-                'prescribe_medication',
-                'order_tests',
-                'view_appointments',
-                'manage_appointments'
-            ],
-            'nurse': [
-                'view_patient_profile',
-                'update_patient_vitals',
-                'view_patient_medical_records',
-                'administer_medication',
-                'view_appointments'
-            ],
-            'receptionist': [
-                'view_patient_basic_info',
-                'schedule_appointments',
-                'cancel_appointments',
-                'update_patient_contact_info'
-            ],
-            'system_admin': [
-                '*'  # All permissions
-            ]
-        }
-        
-        user_permissions = role_permissions.get(role, [])
-        return '*' in user_permissions or permission_code in user_permissions
+        """Check role-based permissions using centralized config"""
+        return self.permissions_config.has_permission(role, permission_code)
     
     def _check_user_permission(self, user: User, permission_code: str) -> bool:
         """Check user-specific permission overrides"""
@@ -677,189 +612,8 @@ class PermissionService:
     
     def get_user_permissions(self, user: User) -> list:
         """Get list of permissions for a user based on their role"""
-        # Define role-based permissions
-        role_permissions = {
-            'patient': [
-                'view_own_profile',
-                'update_own_profile',
-                'view_own_appointments',
-                'book_appointment',
-                'cancel_own_appointment'
-            ],
-            'physician': [
-                'view_patient_profile',
-                'update_patient_profile',
-                'view_patient_medical_records',
-                'create_medical_record',
-                'prescribe_medication',
-                'order_tests',
-                'view_appointments',
-                'manage_appointments'
-            ],
-            'nurse': [
-                'view_patient_profile',
-                'update_patient_vitals',
-                'view_patient_medical_records',
-                'administer_medication',
-                'view_appointments'
-            ],
-            'receptionist': [
-                'view_patient_basic_info',
-                'schedule_appointments',
-                'cancel_appointments',
-                'update_patient_contact_info'
-            ],
-            'system_admin': [
-                'view_patient_profile',
-                'update_patient_profile',
-                'view_patient_medical_records',
-                'create_medical_record',
-                'prescribe_medication',
-                'order_tests',
-                'view_appointments',
-                'manage_appointments',
-                'view_patient_basic_info',
-                'schedule_appointments',
-                'cancel_appointments',
-                'update_patient_contact_info',
-                'manage_users',
-                'system_configuration'
-            ]
-        }
-        
-        return role_permissions.get(user.role, [])
+        return self.permissions_config.get_role_permissions(user.role)
     
     def get_detailed_permissions(self, user: User) -> Dict:
         """Get detailed permissions with categories and descriptions"""
-        permissions = self.get_user_permissions(user)
-        
-        # Permission categories and descriptions
-        permission_details = {
-            'view_own_profile': {
-                'category': 'profile',
-                'description': 'View own profile information',
-                'level': 'read'
-            },
-            'update_own_profile': {
-                'category': 'profile',
-                'description': 'Update own profile information',
-                'level': 'write'
-            },
-            'view_own_appointments': {
-                'category': 'appointments',
-                'description': 'View own appointments',
-                'level': 'read'
-            },
-            'book_appointment': {
-                'category': 'appointments',
-                'description': 'Book new appointments',
-                'level': 'write'
-            },
-            'cancel_own_appointment': {
-                'category': 'appointments',
-                'description': 'Cancel own appointments',
-                'level': 'write'
-            },
-            'view_patient_profile': {
-                'category': 'patients',
-                'description': 'View patient profiles',
-                'level': 'read'
-            },
-            'update_patient_profile': {
-                'category': 'patients',
-                'description': 'Update patient profiles',
-                'level': 'write'
-            },
-            'view_patient_medical_records': {
-                'category': 'medical_records',
-                'description': 'View patient medical records',
-                'level': 'read'
-            },
-            'create_medical_record': {
-                'category': 'medical_records',
-                'description': 'Create new medical records',
-                'level': 'write'
-            },
-            'prescribe_medication': {
-                'category': 'prescriptions',
-                'description': 'Prescribe medications',
-                'level': 'write'
-            },
-            'order_tests': {
-                'category': 'medical_records',
-                'description': 'Order medical tests',
-                'level': 'write'
-            },
-            'view_appointments': {
-                'category': 'appointments',
-                'description': 'View all appointments',
-                'level': 'read'
-            },
-            'manage_appointments': {
-                'category': 'appointments',
-                'description': 'Manage all appointments',
-                'level': 'admin'
-            },
-            'update_patient_vitals': {
-                'category': 'medical_records',
-                'description': 'Update patient vital signs',
-                'level': 'write'
-            },
-            'administer_medication': {
-                'category': 'prescriptions',
-                'description': 'Administer medications',
-                'level': 'write'
-            },
-            'view_patient_basic_info': {
-                'category': 'patients',
-                'description': 'View basic patient information',
-                'level': 'read'
-            },
-            'schedule_appointments': {
-                'category': 'appointments',
-                'description': 'Schedule appointments for patients',
-                'level': 'write'
-            },
-            'cancel_appointments': {
-                'category': 'appointments',
-                'description': 'Cancel patient appointments',
-                'level': 'write'
-            },
-            'update_patient_contact_info': {
-                'category': 'patients',
-                'description': 'Update patient contact information',
-                'level': 'write'
-            },
-            'manage_users': {
-                'category': 'administration',
-                'description': 'Manage system users',
-                'level': 'admin'
-            },
-            'system_configuration': {
-                'category': 'administration',
-                'description': 'Configure system settings',
-                'level': 'admin'
-            }
-        }
-        
-        # Build detailed permissions response
-        detailed_permissions = {
-            'permissions': permissions,
-            'role': user.role,
-            'categories': {},
-            'details': {}
-        }
-        
-        # Group permissions by category
-        for permission in permissions:
-            if permission in permission_details:
-                detail = permission_details[permission]
-                category = detail['category']
-                
-                if category not in detailed_permissions['categories']:
-                    detailed_permissions['categories'][category] = []
-                
-                detailed_permissions['categories'][category].append(permission)
-                detailed_permissions['details'][permission] = detail
-        
-        return detailed_permissions
+        return self.permissions_config.get_detailed_permissions(user.role)

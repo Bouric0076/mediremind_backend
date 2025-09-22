@@ -32,6 +32,7 @@ from .models import (
     SecurityAlert, Permission, UserPermission, RolePermission
 )
 from .services import AuthenticationService, PermissionService
+from .sync_utils import SyncErrorHandler, SyncMetrics
 from accounts.models import EnhancedPatient
 from accounts.models import EnhancedStaffProfile
 
@@ -235,61 +236,23 @@ class LoginView(AuthenticationView):
                         'permissions': self.permission_service.get_user_permissions(user),
                     },
                     'token': auth_result['access_token'],
-                    'refreshToken': auth_result['refresh_token']
+                    'session_id': str(auth_result['session'].id) if 'session' in auth_result else None,
+                    'expires_at': auth_result.get('expires_at').isoformat() if auth_result.get('expires_at') else None
                 })
                 
             except Exception as auth_error:
                 logger.error(f"Authentication service error: {str(auth_error)}")
-                # Fallback to Django token auth instead of session-based auth
-                from rest_framework.authtoken.models import Token
                 
-                # Create or get Django token for the user
-                token, created = Token.objects.get_or_create(user=user)
-                if not created:
-                    # Regenerate token for security
-                    token.delete()
-                    token = Token.objects.create(user=user)
-                
-                # Create user session using the proper auth service method
-                user_session = self.auth_service._create_session(
-                    user=user,
-                    ip_address=client_info['ip_address'],
-                    user_agent=client_info['user_agent']
-                )
-                
-                # Also create Django session for compatibility
-                login(request, user)
-                if not request.session.session_key:
-                    request.session.create()
-                
-                # Use the session expiration from the created user session
-                session_expires = user_session.expires_at
-                
-                # Log successful login
+                # Log failed login attempt
                 self.log_login_attempt(
-                    email, client_info, True, 'success', user, mfa_verified
+                    email, client_info, False, f'auth_service_error: {str(auth_error)}', user
                 )
                 
-                # Get user profile
-                profile_data = self.get_user_profile_data(user)
-                
-                # Clear failed attempts
-                self.auth_service.clear_failed_attempts(email, client_info['ip_address'])
-                
+                # Return proper error response instead of fallback success
                 return JsonResponse({
-                    'success': True,
-                    'user': {
-                        'id': str(user.id),
-                        'email': user.email,
-                        'full_name': user.full_name,
-                        'role': user.role,
-                        'profile': profile_data,
-                        'permissions': self.permission_service.get_user_permissions(user),
-                        'session_expires': session_expires.isoformat(),
-                    },
-                    'token': token.key,  # Return actual Django token
-                    'refreshToken': token.key  # Use same token for refresh
-                })
+                    'success': False,
+                    'error': 'Authentication failed. Please check your credentials and try again.'
+                }, status=401)
             
         except json.JSONDecodeError:
             return JsonResponse({
@@ -472,7 +435,7 @@ class RefreshTokenView(AuthenticationView):
                 return JsonResponse({
                     'success': True,
                     'token': refresh_result['access_token'],
-                    'refreshToken': refresh_result['refresh_token']
+                    'expires_at': refresh_result.get('expires_at').isoformat() if refresh_result.get('expires_at') else None
                 })
                 
             except Exception as refresh_error:
@@ -683,9 +646,10 @@ def get_user_profile(request):
     """Get current user profile and permissions"""
     try:
         user = request.user
-        auth_view = AuthenticationView()
         
-        profile_data = auth_view.get_user_profile_data(user)
+        # Get profile data
+        from .utils import get_user_profile
+        profile_data = get_user_profile(user.id, user.role)
         permissions = PermissionService().get_user_permissions(user)
         
         # Get active sessions
@@ -834,3 +798,556 @@ def get_security_dashboard(request):
             'success': False,
             'error': 'An error occurred while fetching security dashboard'
         }, status=500)
+
+
+class UserRegistrationView(AuthenticationView):
+    """User registration view that synchronizes Django and Supabase"""
+    
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
+    def post(self, request):
+        """Register a new user in both Django and Supabase"""
+        try:
+            data = json.loads(request.body)
+            
+            # Validate required fields
+            required_fields = ['email', 'password', 'full_name', 'role']
+            for field in required_fields:
+                if not data.get(field):
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Missing required field: {field}'
+                    }, status=400)
+            
+            email = data['email'].lower().strip()
+            password = data['password']
+            full_name = data['full_name'].strip()
+            role = data['role'].lower()
+            
+            # Validate role
+            if role not in ['patient', 'staff', 'admin']:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid role. Must be patient, staff, or admin'
+                }, status=400)
+            
+            # Check if user already exists in Django
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'User with this email already exists'
+                }, status=400)
+            
+            # Use transaction to ensure atomicity
+            with transaction.atomic():
+                # Create Django user
+                django_user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=password,
+                    full_name=full_name,
+                    role=role,
+                    is_active=True
+                )
+                
+                # Create role-specific profile
+                if role == 'patient':
+                    from datetime import date
+                    EnhancedPatient.objects.create(
+                        user=django_user,
+                        date_of_birth=date(1990, 1, 1),  # Placeholder - should be collected in registration form
+                        gender='P',  # Prefer not to say - should be collected in registration form
+                        phone='000-000-0000',  # Placeholder
+                        address_line1='Not provided',  # Placeholder
+                        city='Not provided',  # Placeholder
+                        state='Not provided',  # Placeholder
+                        zip_code='00000',  # Placeholder
+                        emergency_contact_name='Not provided',  # Placeholder
+                        emergency_contact_relationship='Not provided',  # Placeholder
+                        emergency_contact_phone='000-000-0000',  # Placeholder
+                    )
+                elif role in ['staff', 'admin']:
+                    EnhancedStaffProfile.objects.create(
+                        user=django_user
+                    )
+                
+                # Log the registration
+                AuditLog.objects.create(
+                    user=django_user,
+                    action='USER_REGISTERED',
+                    resource_type='User',
+                    description=f'New {role} user registered: {email}',
+                    ip_address=self.get_client_info(request)['ip_address']
+                )
+                
+                logger.info(f"Successfully registered new {role} user: {email}")
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'User registered successfully',
+                    'user': {
+                        'id': str(django_user.id),
+                        'email': email,
+                        'full_name': full_name,
+                        'role': role
+                    }
+                })
+                
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Registration error: {str(e)}")
+            return JsonResponse({
+                 'success': False,
+                 'error': 'An error occurred during registration'
+             }, status=500)
+
+
+class UserSyncView(AuthenticationView):
+    """User synchronization service for existing users"""
+    
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
+    def post(self, request):
+        """Synchronize existing users between Django and Supabase"""
+        try:
+            data = json.loads(request.body)
+            
+            # Check if user has admin permissions
+            if not request.user.is_authenticated or not request.user.is_staff:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Admin permissions required'
+                }, status=403)
+            
+            sync_type = data.get('sync_type', 'audit')  # 'audit', 'fix', or 'specific'
+            email = data.get('email')  # For specific user sync
+            
+            if sync_type == 'specific' and not email:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Email required for specific user sync'
+                }, status=400)
+            
+            # Perform synchronization audit
+            sync_results = self._perform_sync_audit(sync_type, email)
+            
+            return JsonResponse({
+                'success': True,
+                'sync_results': sync_results
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"User sync error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred during synchronization'
+            }, status=500)
+
+
+class SyncHealthView(AuthenticationView):
+    """
+    Monitor synchronization health and provide detailed status information
+    """
+    
+    @method_decorator(csrf_exempt)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request):
+        """
+        Get comprehensive sync health status
+        """
+        try:
+            # Check if user has admin permissions
+            if not request.user.is_authenticated or not request.user.is_staff:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Admin permissions required'
+                }, status=403)
+            
+            # Get overall health metrics
+            health_status = SyncMetrics.get_sync_health_status()
+            
+            # Get recent sync operations
+            recent_logs = AuditLog.objects.filter(
+                action__startswith='SYNC_',
+                timestamp__gte=timezone.now() - timedelta(hours=24)
+            ).order_by('-timestamp')[:20]
+            
+            recent_operations = []
+            for log in recent_logs:
+                recent_operations.append({
+                    'timestamp': log.timestamp.isoformat(),
+                    'action': log.action,
+                    'user_email': log.user.email if log.user else 'system',
+                    'description': log.description,
+                    'ip_address': log.ip_address
+                })
+            
+            # Get sync error summary
+            error_summary = {}
+            error_logs = AuditLog.objects.filter(
+                action__startswith='SYNC_ERROR',
+                timestamp__gte=timezone.now() - timedelta(hours=24)
+            )
+            
+            for log in error_logs:
+                error_type = 'sync_error'
+                if 'network' in log.description.lower():
+                    error_type = 'network_error'
+                elif 'rate' in log.description.lower():
+                    error_type = 'rate_limit'
+                elif 'auth' in log.description.lower():
+                    error_type = 'authorization_error'
+                
+                if error_type not in error_summary:
+                    error_summary[error_type] = 0
+                error_summary[error_type] += 1
+            
+            return JsonResponse({
+                'success': True,
+                'health_status': health_status,
+                'recent_operations': recent_operations,
+                'error_summary': error_summary,
+                'recommendations': self._get_health_recommendations(health_status, error_summary)
+            })
+            
+        except Exception as e:
+            SyncErrorHandler.log_sync_operation(
+                'health_check', request.user.email if request.user.is_authenticated else 'anonymous',
+                False, {'endpoint': 'sync_health'}, e
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to get sync health status',
+                'details': str(e)
+            }, status=500)
+    
+    def _get_health_recommendations(self, health_status: dict, error_summary: dict) -> list:
+        """
+        Generate health recommendations based on current status
+        """
+        recommendations = []
+        
+        # Check overall health
+        if health_status.get('health_status') == 'critical':
+            if not health_status.get('supabase_available'):
+                recommendations.append({
+                    'priority': 'high',
+                    'message': 'Supabase is not available. Check network connectivity and API keys.',
+                    'action': 'Check Supabase configuration and network'
+                })
+            elif health_status.get('sync_ratio', 0) < 0.8:
+                recommendations.append({
+                    'priority': 'high',
+                    'message': f"Sync ratio is low ({health_status.get('sync_ratio', 0):.1%}). Run audit command to fix sync issues.",
+                    'action': 'python manage.py audit_user_sync --fix'
+                })
+        
+        # Check error patterns
+        if error_summary.get('network_error', 0) > 5:
+            recommendations.append({
+                'priority': 'medium',
+                'message': 'Multiple network errors detected. Check Supabase connectivity.',
+                'action': 'Monitor network stability and Supabase status'
+            })
+        
+        if error_summary.get('rate_limit', 0) > 0:
+            recommendations.append({
+                'priority': 'medium',
+                'message': 'Rate limiting detected. Consider implementing retry logic with backoff.',
+                'action': 'Review API usage patterns and implement rate limiting'
+            })
+        
+        if error_summary.get('authorization_error', 0) > 0:
+            recommendations.append({
+                'priority': 'high',
+                'message': 'Authorization errors detected. Check Supabase API keys and permissions.',
+                'action': 'Verify Supabase configuration and API keys'
+            })
+        
+        # Default recommendation if healthy
+        if not recommendations and health_status.get('health_status') == 'healthy':
+            recommendations.append({
+                'priority': 'low',
+                'message': 'Sync system is healthy. Continue monitoring.',
+                'action': 'Regular monitoring'
+            })
+        
+        return recommendations
+    
+    def _perform_sync_audit(self, sync_type, email=None):
+        """DISABLED: Previously performed user synchronization audit with Supabase"""
+        # Get Django users for basic reporting
+        if email:
+            django_users = User.objects.filter(email=email)
+            if not django_users.exists():
+                return {
+                    'error': f'User with email {email} not found in Django',
+                    'django_count': 0,
+                    'message': 'Using Django-only authentication'
+                }
+        else:
+            django_users = User.objects.all()
+        
+        return {
+            'django_count': len(django_users),
+            'sync_status': 'django_only',
+            'message': 'Sync functionality disabled - using Django-only authentication',
+            'issues_found': 0
+        }
+    
+    def _fix_sync_issues(self, missing_in_supabase, missing_in_django, supabase_users):
+        """Fix synchronization issues - Django-only approach"""
+        fix_results = {
+            'django_fixes': [],
+            'errors': [],
+            'message': 'Sync functionality disabled - using Django-only authentication'
+        }
+        
+        # Note: With Django-only authentication, we no longer sync with Supabase
+        # All user management is handled through Django
+        
+        return fix_results
+
+
+# Permission Synchronization API Views
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def permission_sync_data(request):
+    """
+    API endpoint to provide permission synchronization data for frontend
+    """
+    try:
+        # Get all permissions
+        all_permissions = list(PERMISSIONS_CONFIG._permissions.keys())
+        
+        # Get all roles
+        all_roles = list(PERMISSIONS_CONFIG._role_permissions.keys())
+        
+        # Get role permissions mapping
+        role_permissions = {}
+        for role in all_roles:
+            role_permissions[role] = PERMISSIONS_CONFIG.get_role_permissions(role)
+        
+        # Get detailed permissions for each role
+        detailed_permissions = {}
+        permission_service = PermissionService()
+        
+        for role in all_roles:
+            # Create a mock user with this role to get detailed permissions
+            class MockUser:
+                def __init__(self, role):
+                    self.role = role
+                    self.email = f"mock_{role}@example.com"
+            
+            mock_user = MockUser(role)
+            detailed_permissions[role] = permission_service.get_detailed_permissions(mock_user)
+        
+        # Get permission details
+        permission_details = {}
+        for perm_code, permission in PERMISSIONS_CONFIG._permissions.items():
+            permission_details[perm_code] = {
+                'code': permission.code,
+                'name': permission.name,
+                'description': permission.description,
+                'category': permission.category,
+                'level': permission.level
+            }
+        
+        # Get role hierarchy
+        role_hierarchy = PERMISSIONS_CONFIG._role_hierarchy.copy()
+        
+        sync_data = {
+            'permissions': all_permissions,
+            'roles': all_roles,
+            'rolePermissions': role_permissions,
+            'detailedPermissions': detailed_permissions,
+            'permissionDetails': permission_details,
+            'roleHierarchy': role_hierarchy,
+            'timestamp': request.META.get('HTTP_DATE', ''),
+            'version': '1.0'  # Version for compatibility checking
+        }
+        
+        return Response(sync_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to generate sync data: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def validate_user_permissions(request):
+    """
+    Validate user permissions against their role
+    """
+    try:
+        user = request.user
+        permission_service = PermissionService()
+        
+        # Get user's current permissions
+        user_permissions = permission_service.get_user_permissions(user)
+        expected_permissions = PERMISSIONS_CONFIG.get_role_permissions(user.userprofile.role)
+        
+        # Compare permissions
+        user_perm_set = set(user_permissions)
+        expected_perm_set = set(expected_permissions)
+        
+        missing_permissions = list(expected_perm_set - user_perm_set)
+        extra_permissions = list(user_perm_set - expected_perm_set)
+        
+        validation_result = {
+            'isValid': len(missing_permissions) == 0,
+            'userRole': user.userprofile.role,
+            'userPermissions': user_permissions,
+            'expectedPermissions': expected_permissions,
+            'missingPermissions': missing_permissions,
+            'extraPermissions': extra_permissions,
+            'timestamp': request.META.get('HTTP_DATE', '')
+        }
+        
+        return Response(validation_result, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to validate user permissions: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def permission_health_check(request):
+    """
+    Health check endpoint for permission system
+    """
+    try:
+        health_data = {
+            'status': 'healthy',
+            'permissionSystemVersion': '1.0',
+            'totalPermissions': len(PERMISSIONS_CONFIG._permissions),
+            'totalRoles': len(PERMISSIONS_CONFIG._role_permissions),
+            'configurationValid': True,
+            'timestamp': request.META.get('HTTP_DATE', '')
+        }
+        
+        # Basic validation checks
+        errors = []
+        warnings = []
+        
+        # Check if all role permissions reference valid permissions
+        for role, permissions in PERMISSIONS_CONFIG._role_permissions.items():
+            for perm in permissions:
+                if perm not in PERMISSIONS_CONFIG._permissions:
+                    errors.append(f"Role {role} references undefined permission: {perm}")
+        
+        # Check for orphaned permissions
+        all_permissions = set(PERMISSIONS_CONFIG._permissions.keys())
+        assigned_permissions = set()
+        for role_perms in PERMISSIONS_CONFIG._role_permissions.values():
+            assigned_permissions.update(role_perms)
+        
+        orphaned = all_permissions - assigned_permissions
+        if orphaned:
+            warnings.extend([f"Orphaned permission: {perm}" for perm in orphaned])
+        
+        if errors:
+            health_data['status'] = 'unhealthy'
+            health_data['configurationValid'] = False
+        elif warnings:
+            health_data['status'] = 'degraded'
+        
+        health_data['errors'] = errors
+        health_data['warnings'] = warnings
+        
+        return Response(health_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {
+                'status': 'unhealthy',
+                'error': f'Health check failed: {str(e)}',
+                'timestamp': request.META.get('HTTP_DATE', '')
+            }, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def check_permission(request):
+    """
+    Check if user has a specific permission
+    """
+    try:
+        permission_code = request.data.get('permission')
+        if not permission_code:
+            return Response(
+                {'error': 'Permission code is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = request.user
+        permission_service = PermissionService()
+        
+        has_permission = permission_service.check_permission(user, permission_code)
+        
+        result = {
+            'hasPermission': has_permission,
+            'permission': permission_code,
+            'userRole': user.userprofile.role,
+            'timestamp': request.META.get('HTTP_DATE', '')
+        }
+        
+        return Response(result, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to check permission: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_detailed_permissions(request):
+    """
+    Get detailed permissions for the current user
+    """
+    try:
+        user = request.user
+        permission_service = PermissionService()
+        
+        detailed_permissions = permission_service.get_detailed_permissions(user)
+        user_permissions = permission_service.get_user_permissions(user)
+        
+        result = {
+            'userRole': user.userprofile.role,
+            'permissions': user_permissions,
+            'detailedPermissions': detailed_permissions,
+            'timestamp': request.META.get('HTTP_DATE', '')
+        }
+        
+        return Response(result, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get user permissions: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

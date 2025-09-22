@@ -1,18 +1,20 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import { permissionChecker, type UserRole, type DetailedPermissions } from '../../utils/permissionUtils';
 
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: 'doctor' | 'nurse' | 'admin' | 'receptionist';
+  role: UserRole;
   permissions: string[];
   avatar?: string;
   department?: string;
   specialization?: string;
   phone?: string;
   session_expires?: string;
+  detailedPermissions?: DetailedPermissions;
 }
 
 interface AuthState {
@@ -60,6 +62,13 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken;
       state.error = null;
       
+      // Update permission checker with user permissions
+      permissionChecker.updatePermissions(
+        action.payload.user.permissions,
+        action.payload.user.role,
+        action.payload.user.detailedPermissions
+      );
+      
       // Only store tokens in localStorage if they're not session-based
       if (action.payload.token !== 'session_based_auth') {
         localStorage.setItem('token', action.payload.token);
@@ -78,6 +87,9 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.error = action.payload;
       
+      // Clear permission checker
+      permissionChecker.updatePermissions([], '');
+      
       // Clear tokens from localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
@@ -89,6 +101,9 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.error = null;
       
+      // Clear permission checker
+      permissionChecker.updatePermissions([], '');
+      
       // Clear tokens from localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
@@ -96,6 +111,15 @@ const authSlice = createSlice({
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
+        
+        // Update permission checker if permissions or role changed
+        if (action.payload.permissions || action.payload.role || action.payload.detailedPermissions) {
+          permissionChecker.updatePermissions(
+            state.user.permissions,
+            state.user.role,
+            state.user.detailedPermissions
+          );
+        }
       }
     },
     clearError: (state) => {

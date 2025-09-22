@@ -65,10 +65,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'mediremind_backend.cors_middleware.CustomCorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -190,6 +190,8 @@ if DEBUG:
         "http://127.0.0.1:3000",
         "http://localhost:5173",  # Vite default port
         "http://127.0.0.1:5173",
+        "http://localhost:8080",  # Flutter web app port
+        "http://127.0.0.1:8080",
     ]
 else:
     # Production CORS settings
@@ -215,12 +217,27 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# Additional CORS settings for better compatibility
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Preflight request max age
+CORS_PREFLIGHT_MAX_AGE = 86400
+
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8080",  # Flutter web app port
+    "http://127.0.0.1:8080",
 ]
 
 # Session settings for cross-origin requests
