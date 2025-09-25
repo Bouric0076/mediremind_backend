@@ -99,7 +99,7 @@ class AuthenticationMiddleware(MiddlewareMixin):
         Validate token with optimized database queries using select_related
         and caching for user permissions and profile data.
         """
-        from django.contrib.auth.models import Token
+        from rest_framework.authtoken.models import Token
         
         # Try to get user from cache first
         cache_key = f"auth_token_{token}"

@@ -1196,8 +1196,7 @@ def create_patient(request):
         if insurance.get('groupNumber'):
             patient_data['insurance_group_number'] = insurance['groupNumber']
         
-        # Create the patient with hospital association
-        patient_data['hospital'] = hospital
+        # Create the patient (hospital relationship is managed separately)
         patient = EnhancedPatient.objects.create(**patient_data)
         
         # Create hospital-patient relationship
