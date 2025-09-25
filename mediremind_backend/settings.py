@@ -203,7 +203,11 @@ else:
     
     # Add frontend URL from environment variable if available
     if 'FRONTEND_URL' in os.environ:
-        CORS_ALLOWED_ORIGINS.append(os.environ['FRONTEND_URL'])
+        frontend_url = os.environ['FRONTEND_URL']
+        # Ensure the URL has a proper scheme
+        if not frontend_url.startswith(('http://', 'https://')):
+            frontend_url = f"https://{frontend_url}"
+        CORS_ALLOWED_ORIGINS.append(frontend_url)
 
 # Allow all headers for development
 CORS_ALLOW_HEADERS = [
@@ -241,6 +245,14 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8080",
     "https://mediremind-frontend.onrender.com",  # Production frontend URL
 ]
+
+# Ensure all CSRF trusted origins have proper schemes
+csrf_origins_to_add = []
+for origin in CSRF_TRUSTED_ORIGINS:
+    if origin and not origin.startswith(('http://', 'https://')):
+        csrf_origins_to_add.append(f"https://{origin}")
+
+CSRF_TRUSTED_ORIGINS.extend(csrf_origins_to_add)
 
 # Session settings for cross-origin requests
 SESSION_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
