@@ -236,7 +236,7 @@ class LoginView(AuthenticationView):
                         'permissions': self.permission_service.get_user_permissions(user),
                     },
                     'token': auth_result['access_token'],
-                    'session_id': str(auth_result['session'].id) if 'session' in auth_result else None,
+                    'session_id': str(auth_result['session'].id) if isinstance(auth_result.get('session'), UserSession) else None,
                     'expires_at': auth_result.get('expires_at').isoformat() if auth_result.get('expires_at') else None
                 })
                 

@@ -184,32 +184,44 @@ LOGOUT_REDIRECT_URL = '/login/'
 CORS_ALLOW_CREDENTIALS = True
 CORS_PREFLIGHT_MAX_AGE = 86400
 
-# Production CORS configuration
+# Always set CORS_ALLOW_ALL_ORIGINS to False for security
+CORS_ALLOW_ALL_ORIGINS = False
+
+# Build CORS_ALLOWED_ORIGINS list based on environment
+CORS_ALLOWED_ORIGINS = []
+
 if DEBUG:
-    # Development settings - allow all origins for easier development
-    CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOWED_ORIGINS = [
+    # Development settings - include local development URLs
+    CORS_ALLOWED_ORIGINS.extend([
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
-    ]
+    ])
 else:
-    # Production settings - strict origin control
-    CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOWED_ORIGINS = [
+    # Production settings - include production URLs
+    CORS_ALLOWED_ORIGINS.extend([
         "https://mediremind-frontend.onrender.com",
         "https://mediremind-backend-cl6r.onrender.com",
-    ]
-    
-    # Add FRONTEND_URL from environment if available
-    if 'FRONTEND_URL' in os.environ:
-        frontend_url = os.environ['FRONTEND_URL']
-        if not frontend_url.startswith(('http://', 'https://')):
-            frontend_url = f"https://{frontend_url}"
+    ])
+
+# Add FRONTEND_URL from environment if available (works for both dev and prod)
+if 'FRONTEND_URL' in os.environ:
+    frontend_url = os.environ['FRONTEND_URL']
+    if not frontend_url.startswith(('http://', 'https://')):
+        # Use https for production, http for development
+        scheme = 'https' if not DEBUG else 'http'
+        frontend_url = f"{scheme}://{frontend_url}"
+    if frontend_url not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(frontend_url)
+
+# Add any additional origins from RENDER_EXTERNAL_HOSTNAME
+if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
+    render_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}"
+    if render_url not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(render_url)
 
 # Headers that are allowed during the actual request
 CORS_ALLOW_HEADERS = [

@@ -450,7 +450,7 @@ class AuthenticationService:
         Returns:
             UserSession: Created session instance
         """
-        from django.contrib.auth.models import Token
+        from rest_framework.authtoken.models import Token
         import secrets
         
         # Generate unique session key
@@ -487,7 +487,7 @@ class AuthenticationService:
         Returns:
             Dict containing new token and session info
         """
-        from django.contrib.auth.models import Token
+        from rest_framework.authtoken.models import Token
         
         try:
             # Validate current token
