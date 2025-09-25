@@ -1,5 +1,4 @@
 # Core Django framework
-# Updated: 2025-01-14 - Removed consul and other Python 3.13 incompatible packages
 Django
 django-cors-headers
 django-environ
@@ -30,11 +29,11 @@ httpx
 pandas
 numpy
 
-# Redis for caching
+# Redis for caching and message broker
 redis
 hiredis
 
-# Background tasks
+# Background tasks and queue management
 celery
 
 # Google Calendar Integration
@@ -43,12 +42,13 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 
-# Email
+# Email services
 sendgrid
 
 # Push notifications
 pywebpush
 py-vapid
+django-webpush
 
 # Utilities
 python-dateutil
@@ -72,7 +72,7 @@ orjson
 # Validation
 email-validator
 
-# File handling
+# File handling and image processing
 Pillow
 
 # Monitoring and system info
@@ -87,6 +87,3 @@ supabase
 
 # AWS SDK (for backup/storage)
 boto3
-
-# Web push notifications (webpush-data-encryption removed - no Python 3.13 compatible version)
-# Using pywebpush and py-vapid instead for web push functionality
