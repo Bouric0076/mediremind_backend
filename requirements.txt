@@ -22,6 +22,7 @@ bcrypt
 cryptography
 pyjwt
 pyotp
+qrcode
 
 # HTTP client
 requests
