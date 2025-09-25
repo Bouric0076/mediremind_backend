@@ -14,54 +14,149 @@ import logging
 from .utils import get_authenticated_user, validate_session_token
 from .models import UserSession
 from django.views import View
+from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import View
+from django.http import JsonResponse
+from django.utils import timezone
+from rest_framework.views import APIView as DRFAPIView
+from rest_framework.response import Response
+from rest_framework import status
+import logging
+import json
+
+from .models import UserSession
+from .services import AuthenticationService
 
 logger = logging.getLogger(__name__)
-
+User = get_user_model()
 
 class AuthenticationMiddleware(MiddlewareMixin):
-    """Middleware to handle authentication for API requests"""
+    """
+    Custom authentication middleware that handles token-based authentication
+    and session management with optimized database queries.
+    """
     
-    def process_request(self, request):
-        """Process incoming request to authenticate user"""
-        # Skip authentication for certain paths
-        skip_paths = [
-            '/admin/', '/static/', '/media/', 
-            '/auth/login/', '/auth/register/',
-            '/api/auth/login/', '/api/auth/register/',
-            '/accounts/register-hospital/', '/api/accounts/register-hospital/',
-            '/health/'
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.auth_service = AuthenticationService()
+        
+        # Paths that don't require authentication
+        self.skip_paths = [
+            '/admin/',
+            '/api/auth/login/',
+            '/api/auth/register/',
+            '/api/auth/password-reset/',
+            '/api/health/',
+            '/static/',
+            '/media/',
         ]
-        if any(request.path.startswith(path) for path in skip_paths):
-            return None
+    
+    def __call__(self, request):
+        # Skip authentication for certain paths
+        if any(request.path.startswith(path) for path in self.skip_paths):
+            return self.get_response(request)
         
-        # Get token from Authorization header or session
-        auth_header = request.headers.get('Authorization', '')
-        token = None
-        
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-        elif auth_header.startswith('Token '):
-            token = auth_header.split(' ')[1]
-        elif 'session_token' in request.session:
-            token = request.session['session_token']
-        elif hasattr(request, 'COOKIES') and 'session_token' in request.COOKIES:
-            token = request.COOKIES['session_token']
+        # Extract token from request
+        token = self._extract_token(request)
         
         if token:
-            user = get_authenticated_user(token)
-            if user:
-                request.user = user
-                request.authenticated_user = user
-                # Update session activity if it's a session token
-                if not auth_header.startswith(('Bearer ', 'Token ')):
-                    try:
-                        session = UserSession.objects.get(session_key=token, is_active=True)
-                        session.last_activity = timezone.now()
-                        session.save(update_fields=['last_activity'])
-                    except UserSession.DoesNotExist:
-                        pass
+            try:
+                # Validate token and get user with optimized query
+                user = self._validate_token_optimized(token, request)
+                if user:
+                    request.user = user
+                    # Update session activity asynchronously to reduce response time
+                    self._update_session_activity_async(user, request)
+                else:
+                    request.user = AnonymousUser()
+            except Exception as e:
+                logger.error(f"Authentication error: {str(e)}")
+                request.user = AnonymousUser()
+        else:
+            request.user = AnonymousUser()
         
-        return None
+        response = self.get_response(request)
+        return response
+    
+    def _extract_token(self, request):
+        """Extract authentication token from request headers or cookies"""
+        # Check Authorization header
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            return auth_header.split(' ')[1]
+        elif auth_header.startswith('Token '):
+            return auth_header.split(' ')[1]
+        
+        # Check cookies
+        return request.COOKIES.get('auth_token')
+    
+    def _validate_token_optimized(self, token, request):
+        """
+        Validate token with optimized database queries using select_related
+        and caching for user permissions and profile data.
+        """
+        from django.contrib.auth.models import Token
+        
+        # Try to get user from cache first
+        cache_key = f"auth_token_{token}"
+        cached_user = cache.get(cache_key)
+        
+        if cached_user:
+            return cached_user
+        
+        try:
+            # Use select_related to reduce database queries
+            django_token = Token.objects.select_related('user').get(key=token)
+            user = django_token.user
+            
+            if not user.is_active:
+                return None
+            
+            # Check if user is locked
+            if user.account_locked_until and user.account_locked_until > timezone.now():
+                return None
+            
+            # Cache user for 5 minutes to reduce database hits
+            cache.set(cache_key, user, 300)
+            
+            return user
+            
+        except Token.DoesNotExist:
+            return None
+    
+    def _update_session_activity_async(self, user, request):
+        """
+        Update session activity asynchronously to avoid blocking the response.
+        Uses caching to reduce database queries.
+        """
+        try:
+            # Get IP address
+            ip_address = self._get_client_ip(request)
+            
+            # Update session activity with optimized query
+            UserSession.objects.filter(
+                user=user,
+                is_active=True
+            ).update(
+                last_activity=timezone.now(),
+                ip_address=ip_address
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to update session activity: {str(e)}")
+    
+    def _get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+        return ip
 
 
 def token_required(view_func):

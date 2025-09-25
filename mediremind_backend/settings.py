@@ -66,14 +66,14 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'mediremind_backend.cors_middleware.CustomCorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Must be first for CORS to work properly
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'authentication.middleware.AuthenticationMiddleware',  # Custom authentication middleware
+    'authentication.middleware.AuthenticationMiddleware',  # Custom optimized authentication
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -182,35 +182,36 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # CORS settings
 CORS_ALLOW_CREDENTIALS = True
+CORS_PREFLIGHT_MAX_AGE = 86400
 
-# Development CORS settings
+# Production CORS configuration
 if DEBUG:
+    # Development settings - allow all origins for easier development
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = [
-        os.getenv('FRONTEND_URL', 'http://localhost:3000'),
-        os.getenv('VITE_DEV_URL', 'http://localhost:5173'),  # Vite default port
-        os.getenv('FLUTTER_WEB_URL', 'http://localhost:8080'),  # Flutter web app port
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
     ]
 else:
-    # Production CORS settings
+    # Production settings - strict origin control
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
-        "https://mediremind-frontend.onrender.com",  # Frontend service
-        "https://mediremind-backend-cl6r.onrender.com",  # Backend service URL from error
+        "https://mediremind-frontend.onrender.com",
+        "https://mediremind-backend-cl6r.onrender.com",
     ]
     
     # Add FRONTEND_URL from environment if available
     if 'FRONTEND_URL' in os.environ:
         frontend_url = os.environ['FRONTEND_URL']
-        # Ensure URL has proper scheme
         if not frontend_url.startswith(('http://', 'https://')):
             frontend_url = f"https://{frontend_url}"
         CORS_ALLOWED_ORIGINS.append(frontend_url)
 
-# Allow all headers for development
+# Headers that are allowed during the actual request
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -223,8 +224,8 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# Additional CORS settings for better compatibility
-CORS_ALLOW_METHODS = [
+# Methods that are allowed during the actual request
+CORS_ALLOWED_METHODS = [
     'DELETE',
     'GET',
     'OPTIONS',
@@ -233,8 +234,19 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Preflight request max age
-CORS_PREFLIGHT_MAX_AGE = 86400
+# Security Headers for Production
+# These settings enhance security by adding proper HTTP security headers
+SECURE_SSL_REDIRECT = not DEBUG  # Redirect HTTP to HTTPS in production
+SECURE_HSTS_SECONDS = 31536000  # 1 year - HTTP Strict Transport Security
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # Apply HSTS to all subdomains
+SECURE_HSTS_PRELOAD = True  # Allow site to be submitted to browser preload list
+SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME type sniffing
+SECURE_BROWSER_XSS_FILTER = True  # Enable XSS filtering in browsers
+X_FRAME_OPTIONS = 'DENY'  # Prevent clickjacking attacks
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'  # Control referrer information
+
+# Session and CSRF Cookie Security (consolidated settings)
+# These are now handled in the main session/CSRF settings section below
 
 # CSRF settings
 # Helper function to ensure URLs have proper schemes
@@ -264,15 +276,15 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Session settings for cross-origin requests
 SESSION_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
-SESSION_COOKIE_HTTPONLY = False  # Allow JavaScript access for debugging
+SESSION_COOKIE_SECURE = not DEBUG  # Use secure cookies in production
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookies
 SESSION_COOKIE_AGE = 28800  # 8 hours
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_DOMAIN = None  # Default domain setting
 
 # CSRF settings for cross-origin
 CSRF_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
-CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_SECURE = not DEBUG  # Use secure CSRF cookies in production
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for CSRF token
 
 # Web Push settings

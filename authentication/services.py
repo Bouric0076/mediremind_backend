@@ -1,30 +1,34 @@
-from django.contrib.auth import get_user_model, authenticate
-from django.contrib.sessions.models import Session
+from typing import Dict, Optional, List
+from django.contrib.auth import authenticate, get_user_model
+from rest_framework.authtoken.models import Token
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.contrib.auth.hashers import check_password
-from rest_framework.authtoken.models import Token
-from typing import Dict, Optional, Tuple, Any
-import json
-import hashlib
+from django.core.cache import cache
+from datetime import timedelta
 import secrets
-import pyotp
+import hashlib
 import uuid
 import logging
-from datetime import timedelta
+import pyotp
+import qrcode
+from io import BytesIO
+import base64
+from twilio.rest import Client
+
 from .models import (
-    MFADevice, LoginAttempt, UserSession, AuditLog
+    UserSession, LoginAttempt, AuditLog, 
+    Permission, RolePermission, UserPermission
 )
 from .exceptions import (
-    AuthenticationError, MFARequiredError, AccountLockedError,
-    InvalidMFATokenError, SessionExpiredError, RateLimitExceededError
+    AuthenticationError, MFARequiredError, AccountLockedError, 
+    SessionExpiredError, InvalidMFATokenError
 )
 from .sync_utils import AuthErrorHandler, AuthMetrics
+from .cache_utils import AuthCacheManager
 
 logger = logging.getLogger(__name__)
-
 User = get_user_model()
 
 
@@ -90,9 +94,6 @@ class AuthenticationService:
                 # 4. Create secure session
                 session = self._create_session(user, ip_address, user_agent)
                 
-                # Create or get auth token
-                token, created = Token.objects.get_or_create(user=user)
-                
                 # 5. Reset failed attempts and log success
                 user.failed_login_attempts = 0
                 user.account_locked_until = None
@@ -102,12 +103,16 @@ class AuthenticationService:
                 self._log_login_attempt(user, ip_address, user_agent, success=True)
                 self._log_audit_event(user, 'login', 'User logged in successfully')
                 
+                # Get the token created by _create_session
+                token = Token.objects.get(user=user)
+                
                 return {
                     'success': True,
                     'user': user,
                     'session': session,
                     'access_token': token.key,
-                    'expires_at': session.expires_at
+                    'expires_at': session.expires_at,
+                    'session_key': session.session_key
                 }
                 
             except Exception as e:
@@ -431,52 +436,98 @@ class AuthenticationService:
         
         raise InvalidMFATokenError('Invalid MFA token')
     
-    def _create_session(self, user: User, ip_address: str, user_agent: str) -> UserSession:
-        """Create secure user session"""
+    def _create_session(self, user: User, ip_address: str = '0.0.0.0', 
+                       user_agent: str = 'unknown', expires_hours: int = 24) -> UserSession:
+        """
+        Create a new user session
         
-        # Deactivate existing active sessions for this user
-        UserSession.objects.filter(
-            user=user, 
-            is_active=True
-        ).update(
-            is_active=False,
-            terminated_at=timezone.now(),
-            termination_reason='new_login'
-        )
+        Args:
+            user: User instance
+            ip_address: Client IP address
+            user_agent: Client user agent
+            expires_hours: Session expiration in hours
+            
+        Returns:
+            UserSession: Created session instance
+        """
+        from django.contrib.auth.models import Token
+        import secrets
         
-        # Generate secure session key (ensure uniqueness across both tables)
-        max_attempts = 10
-        for attempt in range(max_attempts):
-            session_key = secrets.token_urlsafe(32)
-            # Check uniqueness in both UserSession and Django Session tables
-            if (not UserSession.objects.filter(session_key=session_key).exists() and
-                not Session.objects.filter(session_key=session_key).exists()):
-                break
-        else:
-            # If we can't generate a unique key after max attempts, use UUID
-            session_key = str(uuid.uuid4())
-            # Ensure UUID is also unique
-            while (UserSession.objects.filter(session_key=session_key).exists() or
-                   Session.objects.filter(session_key=session_key).exists()):
-                session_key = str(uuid.uuid4())
+        # Generate unique session key
+        session_key = secrets.token_urlsafe(32)
         
-        # Create device fingerprint
-        device_fingerprint = hashlib.sha256(
-            f"{user_agent}{ip_address}".encode()
-        ).hexdigest()[:32]
+        # Calculate expiration time
+        expires_at = timezone.now() + timezone.timedelta(hours=expires_hours)
         
+        # Create session
         session = UserSession.objects.create(
             user=user,
             session_key=session_key,
             ip_address=ip_address,
             user_agent=user_agent,
-            device_fingerprint=device_fingerprint,
-            expires_at=timezone.now() + self.SESSION_DURATION,
+            expires_at=expires_at,
             is_active=True
         )
         
+        # Create or get Django auth token
+        token, created = Token.objects.get_or_create(user=user)
+        
         return session
     
+    def refresh_token(self, token: str, ip_address: str = '0.0.0.0', 
+                     user_agent: str = 'unknown') -> Dict:
+        """
+        Refresh an existing authentication token
+        
+        Args:
+            token: Current authentication token
+            ip_address: Client IP address
+            user_agent: Client user agent
+            
+        Returns:
+            Dict containing new token and session info
+        """
+        from django.contrib.auth.models import Token
+        
+        try:
+            # Validate current token
+            django_token = Token.objects.get(key=token)
+            user = django_token.user
+            
+            if not user.is_active:
+                raise ValidationError('User account is inactive')
+            
+            # Check if user is locked
+            if user.account_locked_until and user.account_locked_until > timezone.now():
+                raise ValidationError('Account is temporarily locked')
+            
+            # Create new token
+            django_token.delete()
+            new_token = Token.objects.create(user=user)
+            
+            # Create new session
+            session = self._create_session(user, ip_address, user_agent)
+            
+            # Log audit event
+            self._log_audit_event(
+                user, 'token_refresh',
+                f'Authentication token refreshed from {ip_address}'
+            )
+            
+            return {
+                'user': user,
+                'session': session,
+                'access_token': new_token.key,
+                'expires_at': session.expires_at,
+                'session_key': session.session_key
+            }
+            
+        except Token.DoesNotExist:
+            raise ValidationError('Invalid token')
+        except Exception as e:
+            logger.error(f"Token refresh failed: {str(e)}")
+            raise ValidationError('Token refresh failed')
+
     def _handle_failed_login(self, user: User, error_message: str) -> None:
         """Handle failed login attempt"""
         user.failed_login_attempts += 1
@@ -553,67 +604,120 @@ class PermissionService:
     """Service for handling user permissions and access control"""
     
     def __init__(self):
-        self.auth_service = AuthenticationService()
-        # Import here to avoid circular imports
-        from .permissions_config import PERMISSIONS_CONFIG
-        self.permissions_config = PERMISSIONS_CONFIG
+        self.permissions_config = {
+            'patient': [
+                'view_own_appointments',
+                'create_appointment',
+                'view_own_medical_records',
+                'update_own_profile',
+                'view_own_prescriptions'
+            ],
+            'doctor': [
+                'view_patient_appointments',
+                'create_medical_record',
+                'view_medical_records',
+                'update_medical_records',
+                'create_prescription',
+                'view_prescriptions',
+                'update_prescriptions'
+            ],
+            'nurse': [
+                'view_patient_appointments',
+                'view_medical_records',
+                'create_medical_record',
+                'view_prescriptions'
+            ],
+            'admin': [
+                'manage_users',
+                'manage_appointments',
+                'manage_medical_records',
+                'manage_prescriptions',
+                'view_analytics',
+                'system_administration'
+            ],
+            'receptionist': [
+                'manage_appointments',
+                'view_patient_info',
+                'create_appointment',
+                'update_appointment'
+            ]
+        }
     
-    def check_permission(self, user: User, permission_code: str, 
-                        resource=None, context: Dict = None) -> bool:
+    def get_user_permissions(self, user) -> List[str]:
         """
-        Check if user has specific permission
+        Get all permissions for a user with caching support
         
         Args:
             user: User instance
-            permission_code: Permission code to check
-            resource: Optional resource being accessed
-            context: Additional context for permission check
             
         Returns:
-            bool: Permission granted
+            List of permission strings
         """
+        # Try to get from cache first
+        cached_permissions = AuthCacheManager.get_cached_user_permissions(str(user.id))
+        if cached_permissions is not None:
+            return cached_permissions
         
-        # Basic active user check
-        if not user.is_active:
-            return False
+        permissions = set()
         
-        # Check role-based permissions using centralized config
-        if self.permissions_config.has_permission(user.role, permission_code):
+        # Get role-based permissions
+        if hasattr(user, 'role') and user.role:
+            role_permissions = self.permissions_config.get(user.role, [])
+            permissions.update(role_permissions)
+        
+        # Get user-specific permissions
+        try:
+            user_permissions = UserPermission.objects.filter(
+                user=user, 
+                is_granted=True
+            ).select_related('permission')
+            
+            for user_perm in user_permissions:
+                permissions.add(user_perm.permission.codename)
+        except Exception as e:
+            logger.error(f"Error fetching user permissions: {str(e)}")
+        
+        # Convert to list and cache
+        permissions_list = list(permissions)
+        AuthCacheManager.cache_user_permissions(str(user.id), permissions_list)
+        
+        return permissions_list
+    
+    def has_permission(self, user, permission: str, resource_id: str = None) -> bool:
+        """
+        Check if user has specific permission with caching support
+        
+        Args:
+            user: User instance
+            permission: Permission string to check
+            resource_id: Optional resource ID for resource-specific permissions
+            
+        Returns:
+            Boolean indicating if user has permission
+        """
+        # Get cached permissions
+        user_permissions = self.get_user_permissions(user)
+        
+        # Check basic permission
+        if permission in user_permissions:
             return True
         
-        # Check user-specific permissions
-        if self._check_user_permission(user, permission_code):
-            return True
-        
-        # Check resource-specific permissions
-        if resource and self._check_resource_permission(user, permission_code, resource):
-            return True
+        # Check resource-specific permissions if resource_id provided
+        if resource_id:
+            try:
+                resource_permission = UserPermission.objects.filter(
+                    user=user,
+                    permission__codename=permission,
+                    resource_id=resource_id,
+                    is_granted=True
+                ).exists()
+                
+                return resource_permission
+            except Exception as e:
+                logger.error(f"Error checking resource permission: {str(e)}")
         
         return False
     
-    def _check_role_permission(self, role: str, permission_code: str) -> bool:
-        """Check role-based permissions using centralized config"""
-        return self.permissions_config.has_permission(role, permission_code)
-    
-    def _check_user_permission(self, user: User, permission_code: str) -> bool:
-        """Check user-specific permission overrides"""
-        # This would check the UserPermission model
-        # Implementation depends on your specific needs
-        return False
-    
-    def _check_resource_permission(self, user: User, permission_code: str, resource) -> bool:
-        """Check resource-specific permissions (e.g., patient relationship)"""
-        # Example: Check if user has relationship with patient
-        if hasattr(resource, 'primary_doctor') and resource.primary_doctor:
-            if hasattr(resource.primary_doctor, 'user') and resource.primary_doctor.user == user:
-                return True
-        
-        return False
-    
-    def get_user_permissions(self, user: User) -> list:
-        """Get list of permissions for a user based on their role"""
-        return self.permissions_config.get_role_permissions(user.role)
-    
-    def get_detailed_permissions(self, user: User) -> Dict:
-        """Get detailed permissions with categories and descriptions"""
-        return self.permissions_config.get_detailed_permissions(user.role)
+    def invalidate_user_permissions_cache(self, user) -> None:
+        """Invalidate cached permissions for a user"""
+        AuthCacheManager.invalidate_user_cache(str(user.id))
