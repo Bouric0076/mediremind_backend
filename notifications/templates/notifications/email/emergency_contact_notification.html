@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Contact Notification - {{ hospital_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .hospital-name {
+            font-size: 18px;
+            color: #666;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .patient-info {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .patient-info h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .info-row {
+            margin: 8px 0;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .important-note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .important-note h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .contact-info {
+            background-color: #e8f4fd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .contact-info h4 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        .footer {
+            border-top: 1px solid #dee2e6;
+            padding-top: 20px;
+            margin-top: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .footer a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">MediRemind</div>
+            <div class="hospital-name">{{ hospital_name }}</div>
+        </div>
+
+        <div class="greeting">
+            Dear {{ emergency_contact_name }},
+        </div>
+
+        <div class="content">
+            <p>We hope this message finds you well. We are writing to inform you that you have been designated as an emergency contact for a patient in our healthcare system.</p>
+
+            <div class="patient-info">
+                <h3>Patient Information</h3>
+                <div class="info-row">
+                    <span class="info-label">Patient Name:</span> {{ patient_name }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Patient ID:</span> {{ patient_id }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Your Relationship:</span> {{ emergency_contact_relationship }}
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Registration Date:</span> {{ registration_date }}
+                </div>
+                {% if primary_doctor %}
+                <div class="info-row">
+                    <span class="info-label">Primary Care Physician:</span> {{ primary_doctor }}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="important-note">
+                <h4>What This Means</h4>
+                <p>As an emergency contact, you may be contacted in the following situations:</p>
+                <ul>
+                    <li>Medical emergencies requiring immediate notification</li>
+                    <li>Appointment reminders and cancellations (if enabled)</li>
+                    <li>Important healthcare communications when the patient cannot be reached</li>
+                    <li>No-show alerts for missed appointments (if enabled)</li>
+                </ul>
+                <p><strong>Please note:</strong> We will only contact you in accordance with HIPAA regulations and the patient's consent preferences.</p>
+            </div>
+
+            <div class="contact-info">
+                <h4>Hospital Contact Information</h4>
+                {% if hospital_phone %}
+                <div class="info-row">
+                    <span class="info-label">Phone:</span> {{ hospital_phone }}
+                </div>
+                {% endif %}
+                {% if hospital_email %}
+                <div class="info-row">
+                    <span class="info-label">Email:</span> {{ hospital_email }}
+                </div>
+                {% endif %}
+                {% if hospital_website %}
+                <div class="info-row">
+                    <span class="info-label">Website:</span> <a href="{{ hospital_website }}">{{ hospital_website }}</a>
+                </div>
+                {% endif %}
+                {% if hospital_address %}
+                <div class="info-row">
+                    <span class="info-label">Address:</span> {{ hospital_address }}
+                </div>
+                {% endif %}
+            </div>
+
+            <p>If you have any questions about this designation or need to update your contact information, please reach out to us using the contact information provided above.</p>
+
+            <p>If you believe you have received this notification in error or wish to be removed as an emergency contact, please contact the patient directly or reach out to our support team.</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            {% if support_url %}
+            <a href="{{ support_url }}" class="btn">Contact Support</a>
+            {% endif %}
+            {% if privacy_url %}
+            <a href="{{ privacy_url }}" class="btn btn-secondary">Privacy Policy</a>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>This email was sent by {{ hospital_name }} on behalf of {{ patient_name }}.</p>
+            <p>
+                {% if privacy_url %}
+                <a href="{{ privacy_url }}">Privacy Policy</a> |
+                {% endif %}
+                {% if support_url %}
+                <a href="{{ support_url }}">Support</a>
+                {% endif %}
+            </p>
+            <p>&copy; {{ current_year }} {{ hospital_name }}. All rights reserved.</p>
+            <p style="font-size: 12px; color: #999; margin-top: 15px;">
+                This communication contains confidential healthcare information. If you are not the intended recipient, 
+                please notify the sender immediately and delete this message.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

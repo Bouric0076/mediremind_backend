@@ -176,22 +176,22 @@
                 {% endfor %}
                 
                 <div style="text-align: center; margin: 20px 0;">
-                    <a href="{{ pharmacy_url }}" class="cta-button">🏪 Find Pharmacy</a>
-                    <a href="{{ medication_reminders_url }}" class="cta-button">⏰ Set Reminders</a>
+                    <a href="{{ pharmacy_url }}" class="cta-button">Find Pharmacy</a>
+                    <a href="{{ medication_reminders_url }}" class="cta-button">Set Reminders</a>
                 </div>
             </div>
             {% endif %}
             
             {% if care_instructions %}
             <div class="care-section">
-                <h3>🩺 Care Instructions</h3>
+                <h3>Care Instructions</h3>
                 {{ care_instructions|safe }}
             </div>
             {% endif %}
             
             {% if follow_up_required %}
             <div class="next-steps">
-                <h4>📅 Next Steps</h4>
+                <h4>Next Steps</h4>
                 <ul>
                     {% for step in next_steps %}
                     <li>{{ step }}</li>
@@ -201,7 +201,7 @@
                 {% if follow_up_date %}
                 <p><strong>Follow-up Appointment:</strong> {{ follow_up_date }}</p>
                 <div style="text-align: center; margin: 20px 0;">
-                    <a href="{{ schedule_followup_url }}" class="cta-button">📅 Schedule Follow-up</a>
+                    <a href="{{ schedule_followup_url }}" class="cta-button">Schedule Follow-up</a>
                 </div>
                 {% endif %}
             </div>
@@ -209,7 +209,7 @@
             
             {% if warning_signs %}
             <div class="alert">
-                <h4>⚠️ When to Contact Us</h4>
+                <h4>When to Contact Us</h4>
                 <p>Please contact us immediately if you experience any of the following:</p>
                 <ul>
                     {% for sign in warning_signs %}
@@ -239,7 +239,7 @@
             {% endif %}
             
             <div class="rating-section">
-                <h4>💝 How was your visit?</h4>
+                <h4>How was your visit?</h4>
                 <p>Your feedback helps us improve our care</p>
                 <div class="star-rating">⭐⭐⭐⭐⭐</div>
                 <a href="{{ feedback_url }}" class="cta-button">Leave Feedback</a>

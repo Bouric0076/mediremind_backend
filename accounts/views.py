@@ -1196,7 +1196,8 @@ def create_patient(request):
         if insurance.get('groupNumber'):
             patient_data['insurance_group_number'] = insurance['groupNumber']
         
-        # Create the patient
+        # Create the patient with hospital association
+        patient_data['hospital'] = hospital
         patient = EnhancedPatient.objects.create(**patient_data)
         
         # Create hospital-patient relationship
@@ -1211,6 +1212,19 @@ def create_patient(request):
                 added_by=user,
                 notes=f"Patient added by {user.full_name}"
             )
+        
+        # Send emergency contact notification if email is provided
+        if patient.emergency_contact_email:
+            try:
+                from notifications.patient_email_service import PatientEmailService
+                email_service = PatientEmailService()
+                email_service.send_emergency_contact_notification(patient)
+                logger.info(f"Emergency contact notification sent for patient {patient.id}")
+            except Exception as e:
+                logger.error(f"Failed to send emergency contact notification for patient {patient.id}: {str(e)}")
+        
+        # Note: Welcome email notifications are automatically handled by Django signals
+        # in accounts/signals.py - no manual email sending needed here
         
         # Return patient data
         response_data = {

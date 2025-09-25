@@ -233,17 +233,17 @@
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>✅ Appointment Confirmed!</h1>
+            <h1>Appointment Confirmed!</h1>
             <p class="tagline">Your Health, Our Priority</p>
         </div>
         
         <div class="content">
             <div class="greeting">
-                Hello {{ recipient_name|default:"there" }}! 👋
+                Hello {{ recipient_name|default:"there" }}!
             </div>
             
             <div class="success-message">
-                <p>🎉 Great news! Your appointment has been successfully confirmed and added to your healthcare schedule.</p>
+                <p>Great news! Your appointment has been successfully confirmed and added to your healthcare schedule.</p>
             </div>
             
             <div class="appointment-card">
@@ -252,40 +252,40 @@
                 </div>
                 
                 <div class="detail-row">
-                    <span class="detail-icon">👨‍⚕️</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Doctor:</span>
                     <span class="detail-value">{{ appointment.doctor_name|default:"Dr. Smith" }}</span>
                 </div>
                 
                 {% if appointment.specialty %}
                 <div class="detail-row">
-                    <span class="detail-icon">🏥</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Specialty:</span>
                     <span class="detail-value">{{ appointment.specialty }}</span>
                 </div>
                 {% endif %}
                 
                 <div class="detail-row">
-                    <span class="detail-icon">📅</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Date:</span>
                     <span class="detail-value">{{ appointment.date|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">
-                    <span class="detail-icon">⏰</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Time:</span>
                     <span class="detail-value">{{ appointment.time|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">
-                    <span class="detail-icon">📍</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Location:</span>
                     <span class="detail-value">{{ appointment.location|default:"TBD" }}</span>
                 </div>
                 
                 {% if appointment.duration %}
                 <div class="detail-row">
-                    <span class="detail-icon">⏱️</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Duration:</span>
                     <span class="detail-value">{{ appointment.duration }} minutes</span>
                 </div>
@@ -293,7 +293,7 @@
                 
                 {% if appointment.notes %}
                 <div class="detail-row">
-                    <span class="detail-icon">📝</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Notes:</span>
                     <span class="detail-value">{{ appointment.notes }}</span>
                 </div>
@@ -302,12 +302,12 @@
             
             <div class="cta-section">
                 <a href="{{ appointment.calendar_link|default:'#' }}" class="cta-button">
-                    📅 Add to Calendar
+                    Add to Calendar
                 </a>
             </div>
             
             <div class="instructions">
-                <h3>📋 Important Reminders</h3>
+                <h3>Important Reminders</h3>
                 <ul>
                     <li><strong>Arrive early:</strong> Please arrive 10-15 minutes before your scheduled time</li>
                     <li><strong>Bring documents:</strong> Valid ID and insurance card</li>
@@ -325,7 +325,7 @@
             
             <p style="margin-top: 24px; color: #1f2937; font-weight: 500;">
                 Warm regards,<br>
-                <strong>The MediRemind Team</strong> 💙
+                <strong>The MediRemind Team</strong>
             </p>
         </div>
         
@@ -343,7 +343,7 @@
             
             <div class="copyright">
                 <p>This is an automated message. Please do not reply to this email.</p>
-                <p>&copy; 2024 MediRemind. All rights reserved. | <a href="{{ privacy_url|default:'#' }}" style="color: #9ca3af;">Privacy Policy</a></p>
+                <p>&copy; 2025 MediRemind. All rights reserved. | <a href="{{ privacy_url|default:'#' }}" style="color: #9ca3af;">Privacy Policy</a></p>
             </div>
         </div>
     </div>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to {{ clinic_name }}</title>
+    <title>Welcome to {{ hospital_name }}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -105,57 +105,57 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎉 Welcome to {{ clinic_name }}!</h1>
+            <h1>Welcome to {{ hospital_name }}!</h1>
             <p>Your health journey starts here</p>
         </div>
         
         <div class="content">
             <div class="welcome-message">
-                <h2>Hello {{ recipient_name }}!</h2>
-                <p>We're thrilled to welcome you to our healthcare family. At {{ clinic_name }}, we're committed to providing you with exceptional care and support throughout your health journey.</p>
+                <h2>Hello {{ first_name }}!</h2>
+                <p>We're thrilled to welcome you to our healthcare family. At {{ hospital_name }}, we're committed to providing you with exceptional care and support throughout your health journey.</p>
             </div>
             
             <h3>What You Can Expect:</h3>
             <div class="feature-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">📅</div>
-                    <h4>Easy Scheduling</h4>
-                    <p>Book, reschedule, or cancel appointments online 24/7</p>
+                    <div class="feature-icon"></div>
+                    <h4>Easy Appointment Management</h4>
+                    <p>Book, reschedule, confirm, and cancel appointments through our mobile app</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">💊</div>
-                    <h4>Medication Reminders</h4>
-                    <p>Never miss a dose with our smart reminder system</p>
+                    <div class="feature-icon"></div>
+                    <h4>Smart Reminders</h4>
+                    <p>Receive appointment reminders and never miss your healthcare visits</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h4>Patient Portal</h4>
-                    <p>Access your health records, test results, and more</p>
+                    <div class="feature-icon"></div>
+                    <h4>Mobile App Access</h4>
+                    <p>View appointment history, manage your profile, and stay connected</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🏥</div>
+                    <div class="feature-icon"></div>
                     <h4>Expert Care</h4>
                     <p>Our experienced team is here to support your health goals</p>
                 </div>
             </div>
             
             <div style="text-align: center; margin: 40px 0;">
-                <a href="{{ portal_url }}" class="cta-button">Access Patient Portal</a>
-                <a href="{{ portal_url }}/appointments/new" class="cta-button">Schedule Appointment</a>
+                <a href="{{ mobile_app_url }}" class="cta-button">Download Mobile App</a>
+                <a href="{{ mobile_app_url }}" class="cta-button">Get Started</a>
             </div>
             
             <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 30px 0;">
-                <h4>📋 Getting Started Checklist:</h4>
+                <h4>Getting Started Checklist:</h4>
                 <ul style="margin: 0; padding-left: 20px;">
-                    <li>Complete your health profile in the patient portal</li>
+                    <li>Download our mobile app from your app store</li>
+                    <li>Complete your health profile in the app</li>
                     <li>Upload your insurance information</li>
                     <li>Add emergency contacts</li>
-                    <li>Schedule your first appointment</li>
-                    <li>Download our mobile app for easy access</li>
+                    <li>Book your first appointment through the app</li>
                 </ul>
             </div>
             
-            <p><strong>Need Help?</strong> Our support team is available Monday-Friday, 8 AM - 6 PM. Contact us at <a href="tel:{{ clinic_phone }}">{{ clinic_phone }}</a> or <a href="mailto:{{ clinic_email }}">{{ clinic_email }}</a>.</p>
+            <p><strong>Need Help?</strong> Our support team is available Monday-Friday, 8 AM - 6 PM. Contact us at <a href="tel:{{ hospital_phone }}">{{ hospital_phone }}</a> or <a href="mailto:{{ hospital_email }}">{{ hospital_email }}</a>.</p>
         </div>
         
         <div class="footer">
@@ -164,9 +164,10 @@
                 <a href="{{ social_twitter }}">Twitter</a>
                 <a href="{{ social_instagram }}">Instagram</a>
             </div>
-            <p>{{ clinic_name }}<br>
-            {{ clinic_address }}<br>
+            <p>{{ hospital_name }}<br>
+            {{ hospital_address }}<br>
             <a href="{{ unsubscribe_url }}">Unsubscribe</a> | <a href="{{ privacy_url }}">Privacy Policy</a></p>
+            <p>&copy; 2025 {{ hospital_name }}. All rights reserved.</p>
         </div>
     </div>
 </body>

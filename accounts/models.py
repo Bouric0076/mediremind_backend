@@ -252,7 +252,7 @@ class HospitalPatient(models.Model):
 
 def default_emergency_notification_types():
     """Default notification types for emergency contacts"""
-    return ['appointment_reminder', 'appointment_cancellation', 'appointment_rescheduled', 'no_show_alert']
+    return ['appointment_reminder', 'appointment_cancellation', 'appointment_rescheduled', 'no_show_alert', 'emergency_contact_added']
 
 
 def default_emergency_notification_methods():

@@ -246,17 +246,17 @@
 <body>
     <div class="email-container">
         <div class="header">
-            <h1>🔄 Appointment Rescheduled</h1>
+            <h1>Appointment Rescheduled</h1>
             <p class="tagline">Your Health, Our Priority</p>
         </div>
         
         <div class="content">
             <div class="greeting">
-                Hello {{ recipient_name|default:"there" }}! 👋
+                Hello {{ recipient_name|default:"there" }}!
             </div>
             
             <div class="update-message">
-                <p>📅 Your appointment has been rescheduled. We've updated your healthcare schedule with the new details below.</p>
+                <p>Your appointment has been rescheduled. We've updated your healthcare schedule with the new details below.</p>
             </div>
             
             <div class="appointment-card">
@@ -265,14 +265,14 @@
                 </div>
                 
                 <div class="detail-row">
-                    <span class="detail-icon">👨‍⚕️</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Doctor:</span>
                     <span class="detail-value">{{ appointment.doctor_name|default:"Dr. Smith" }}</span>
                 </div>
                 
                 {% if appointment.specialty %}
                 <div class="detail-row">
-                    <span class="detail-icon">🏥</span>
+                    <span class="detail-icon"></span>
                     <span class="detail-label">Specialty:</span>
                     <span class="detail-value">{{ appointment.specialty }}</span>
                 </div>

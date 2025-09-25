@@ -340,6 +340,39 @@ if not all([TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID]):
 # This key should be stored securely and never committed to version control
 FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=')
 
+# Patient Notification Settings
+PATIENT_NOTIFICATION_SETTINGS = {
+    # Email settings for patient communications
+    'PATIENT_PORTAL_URL': os.getenv('PATIENT_PORTAL_URL', 'https://app.mediremind.com'),
+    'SUPPORT_URL': os.getenv('SUPPORT_URL', 'https://mediremind.com/support'),
+    'PRIVACY_URL': os.getenv('PRIVACY_URL', 'https://mediremind.com/privacy'),
+    
+    # Welcome email settings
+    'SEND_WELCOME_EMAIL': os.getenv('SEND_WELCOME_EMAIL', 'True').lower() == 'true',
+    'WELCOME_EMAIL_DELAY_SECONDS': int(os.getenv('WELCOME_EMAIL_DELAY_SECONDS', '5')),  # Delay before sending
+    
+    # Password settings
+    'TEMPORARY_PASSWORD_LENGTH': int(os.getenv('TEMPORARY_PASSWORD_LENGTH', '12')),
+    'PASSWORD_RESET_TOKEN_EXPIRY_HOURS': int(os.getenv('PASSWORD_RESET_TOKEN_EXPIRY_HOURS', '24')),
+    
+    # Email template settings
+    'EMAIL_TEMPLATE_THEME': os.getenv('EMAIL_TEMPLATE_THEME', 'default'),
+    'INCLUDE_HOSPITAL_BRANDING': os.getenv('INCLUDE_HOSPITAL_BRANDING', 'True').lower() == 'true',
+    
+    # Notification preferences
+    'DEFAULT_EMAIL_NOTIFICATIONS': os.getenv('DEFAULT_EMAIL_NOTIFICATIONS', 'True').lower() == 'true',
+    'ALLOW_NOTIFICATION_PREFERENCES': os.getenv('ALLOW_NOTIFICATION_PREFERENCES', 'True').lower() == 'true',
+    
+    # Security settings
+    'REQUIRE_EMAIL_VERIFICATION': os.getenv('REQUIRE_EMAIL_VERIFICATION', 'False').lower() == 'true',
+    'LOG_EMAIL_EVENTS': os.getenv('LOG_EMAIL_EVENTS', 'True').lower() == 'true',
+}
+
+# Convenience settings for backward compatibility
+PATIENT_PORTAL_URL = PATIENT_NOTIFICATION_SETTINGS['PATIENT_PORTAL_URL']
+SUPPORT_URL = PATIENT_NOTIFICATION_SETTINGS['SUPPORT_URL']
+PRIVACY_URL = PATIENT_NOTIFICATION_SETTINGS['PRIVACY_URL']
+
 # Logging configuration
 LOGGING = {
     'version': 1,
