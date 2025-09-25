@@ -214,13 +214,13 @@ class EmergencyContactNotificationTest:
             return False
     
     @patch('notifications.email_client.EmailClient.send_email')
-    @patch('notifications.beem_client.beem_client.send_sms')
+    @patch('notifications.textsms_client.textsms_client.send_sms')
     def test_emergency_contact_notification_sending(self, mock_sms, mock_email):
         """Test that emergency contact notifications are sent"""
         try:
             # Setup mocks
             mock_email.return_value = True
-            mock_sms.return_value = True
+            mock_sms.return_value = (True, "Message sent successfully")  # Updated for TextSMS API response format
             
             # Create test data
             patient = self.create_test_patient()

@@ -324,11 +324,16 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
 # Frontend URL setting for email templates
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
-# Beem SMS Settings
-BEEM_API_KEY = os.getenv('BEEM_API_KEY')
-BEEM_SECRET_KEY = os.getenv('BEEM_SECRET_KEY')
-BEEM_SENDER_ID = os.getenv('BEEM_SENDER_ID', 'MediRemind')
-BEEM_WHATSAPP_NAMESPACE = os.getenv('BEEM_WHATSAPP_NAMESPACE')
+# TextSMS Settings (Kenya SMS API)
+TEXTSMS_API_KEY = os.getenv('TEXTSMS_API_KEY')
+TEXTSMS_PARTNER_ID = os.getenv('TEXTSMS_PARTNER_ID', '14699')  # Your Partner ID
+TEXTSMS_SENDER_ID = os.getenv('TEXTSMS_SENDER_ID', 'TextSMS')  # Your Shortcode/Sender ID
+
+# Validate TextSMS settings
+if not all([TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID]):
+    print("Warning: TextSMS settings not properly configured. SMS notifications will not work.")
+    print("Required environment variables: TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID")
+    print("Get your API key from: https://sms.textsms.co.ke/ -> Partner Account -> API & Generate")
 
 # Field-level encryption configuration
 # SECURITY WARNING: Use a secure, randomly generated key in production

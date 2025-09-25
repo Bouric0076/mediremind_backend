@@ -21,7 +21,7 @@ from .utils import (
     get_appointment_details
 )
 from .email_client import email_client
-from .beem_client import beem_client
+from .textsms_client import textsms_client
 from .push_notifications import push_notifications
 
 logger = logging.getLogger(__name__)
@@ -251,10 +251,14 @@ class AppointmentReminderService:
             phone_number = getattr(appointment.patient, 'phone', None)
             
             if phone_number:
-                beem_client.send_sms(
+                success, response_message = textsms_client.send_sms(
                     recipient=phone_number,
                     message=message
                 )
+                if success:
+                    logger.info(f"SMS sent successfully to {phone_number}: {response_message}")
+                else:
+                    logger.error(f"SMS sending failed to {phone_number}: {response_message}")
             else:
                 logger.warning(f"No phone number for patient {appointment.patient.id}")
                 
@@ -278,8 +282,10 @@ class AppointmentReminderService:
             logger.error(f"Error sending push notification: {str(e)}")
     
     def _send_whatsapp_notification(self, appointment_data: Dict, reminder_type: ReminderType, appointment: Appointment):
-        """Send WhatsApp notification (placeholder for future implementation)"""
-        logger.info(f"WhatsApp notification would be sent for appointment {appointment.id}")
+        """Send WhatsApp notification - placeholder for future implementation"""
+        logger.info(f"WhatsApp notification placeholder - appointment {appointment.id}")
+        # TODO: Implement WhatsApp notification logic
+        pass
     
     def _send_emergency_contact_notification(
         self, 
@@ -379,10 +385,15 @@ class AppointmentReminderService:
         try:
             message = self._get_emergency_contact_sms_message(reminder_type, appointment_data)
             
-            beem_client.send_sms(
+            success, response_message = textsms_client.send_sms(
                 recipient=emergency_contact_phone,
                 message=message
             )
+            
+            if success:
+                logger.info(f"Emergency contact SMS sent successfully to {emergency_contact_phone}: {response_message}")
+            else:
+                logger.error(f"Emergency contact SMS sending failed to {emergency_contact_phone}: {response_message}")
             
         except Exception as e:
             logger.error(f"Error sending emergency contact SMS: {str(e)}")

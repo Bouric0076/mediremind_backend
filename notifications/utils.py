@@ -4,7 +4,7 @@ from .push_notifications import push_notifications
 from .models import PushSubscription
 import pytz
 from .email_client import email_client
-from .beem_client import beem_client
+from .textsms_client import textsms_client
 import logging
 from .logging_config import NotificationLogger, LogCategory
 
@@ -258,11 +258,13 @@ def send_appointment_confirmation(appointment_id, patient_email, doctor_email):
 
         # Send SMS to patient if phone number is available
         if appointment_data.get('patient_phone'):
-            success, message = beem_client.send_sms(
+            success, message = textsms_client.send_sms(
                 recipient=appointment_data['patient_phone'],
                 message=f"Your appointment with Dr. {appointment_data['doctor_name']} has been confirmed for {appointment_data['appointment_time']}."
             )
-            if not success:
+            if success:
+                logger.info(f"Confirmation SMS sent successfully to patient: {message}")
+            else:
                 logger.error(f"Failed to send confirmation SMS to patient: {message}")
 
         # Send push notification to patient if device token is available

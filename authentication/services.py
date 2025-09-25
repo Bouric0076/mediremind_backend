@@ -15,7 +15,6 @@ import pyotp
 import qrcode
 from io import BytesIO
 import base64
-from twilio.rest import Client
 
 from .models import (
     UserSession, LoginAttempt, AuditLog, 
@@ -27,6 +26,7 @@ from .exceptions import (
 )
 from .sync_utils import AuthErrorHandler, AuthMetrics
 from .cache_utils import AuthCacheManager
+from notifications.textsms_client import textsms_client
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -587,13 +587,26 @@ class AuthenticationService:
         return codes
     
     def _send_sms_verification(self, phone_number: str) -> str:
-        """Send SMS verification code (placeholder)"""
-        # Implement SMS sending logic here
-        # Return the verification code that was sent
+        """Send SMS verification code using TextSMS API"""
         verification_code = f"{secrets.randbelow(1000000):06d}"
         
-        # TODO: Integrate with SMS service (Twilio, etc.)
-        print(f"SMS verification code for {phone_number}: {verification_code}")
+        try:
+            message = f"Your MediRemind verification code is: {verification_code}. This code expires in 10 minutes."
+            
+            success, response_message = textsms_client.send_sms(
+                recipient=phone_number,
+                message=message
+            )
+            
+            if success:
+                logger.info(f"SMS verification code sent successfully to {phone_number}: {response_message}")
+            else:
+                logger.error(f"SMS verification code sending failed to {phone_number}: {response_message}")
+                # Still return the code for testing purposes, but log the failure
+                
+        except Exception as e:
+            logger.error(f"Error sending SMS verification code to {phone_number}: {str(e)}")
+            # Still return the code for testing purposes, but log the failure
         
         return verification_code
     
