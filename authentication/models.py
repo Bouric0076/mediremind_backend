@@ -391,7 +391,7 @@ class LoginAttempt(models.Model):
     
     # Attempt details
     success = models.BooleanField(db_index=True)
-    failure_reason = models.CharField(max_length=100, blank=True)
+    failure_reason = models.CharField(max_length=255, blank=True)
     
     # MFA details
     mfa_required = models.BooleanField(default=False)
