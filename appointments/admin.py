@@ -22,18 +22,18 @@ class AppointmentTypeAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Basic Information', {
             'fields': (
-                'name', 'description', 'category', 'duration_minutes'
+                'name', 'description', 'code', 'default_duration'
             )
         }),
         ('Cost & Requirements', {
             'fields': (
-                'base_cost', 'requires_referral', 'requires_fasting',
-                'requires_preparation', 'preparation_instructions'
+                'base_cost', 'buffer_time', 'requires_preparation', 
+                'preparation_instructions', 'requires_fasting'
             )
         }),
-        ('Availability', {
+        ('Display & Status', {
             'fields': (
-                'is_telehealth_available', 'is_active'
+                'color_code', 'is_active'
             )
         }),
     )
@@ -53,9 +53,9 @@ class AppointmentAdmin(admin.ModelAdmin):
         'appointment_date', 'created_at'
     )
     search_fields = (
-        'appointment_id', 'patient__user__first_name',
+        'patient__user__first_name',
         'patient__user__last_name', 'provider__user__first_name',
-        'provider__user__last_name', 'chief_complaint'
+        'provider__user__last_name', 'reason'
     )
     ordering = ('-appointment_date', '-start_time')
     date_hierarchy = 'appointment_date'
@@ -63,18 +63,17 @@ class AppointmentAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Basic Information', {
             'fields': (
-                'patient', 'provider', 'appointment_type', 'appointment_id'
+                'patient', 'provider', 'appointment_type', 'title'
             )
         }),
         ('Scheduling', {
             'fields': (
-                'appointment_date', 'start_time', 'end_time',
-                'is_telehealth', 'telehealth_link'
+                'appointment_date', 'start_time', 'end_time', 'room'
             )
         }),
         ('Status & Priority', {
             'fields': (
-                'status', 'priority', 'chief_complaint', 'notes'
+                'status', 'priority', 'reason', 'notes'
             )
         }),
         ('Recurrence', {
@@ -86,7 +85,7 @@ class AppointmentAdmin(admin.ModelAdmin):
         }),
         ('Resources', {
             'fields': (
-                'room', 'equipment_needed'
+                'equipment_needed',
             ),
             'classes': ('collapse',)
         }),
@@ -260,19 +259,17 @@ class EquipmentAdmin(admin.ModelAdmin):
         }),
         ('Manufacturer Details', {
             'fields': (
-                'manufacturer', 'model', 'serial_number',
-                'purchase_date', 'warranty_expiry_date'
+                'manufacturer', 'model', 'serial_number'
             )
         }),
         ('Location & Status', {
             'fields': (
-                'current_location', 'status'
+                'location', 'assigned_room', 'status', 'is_portable'
             )
         }),
         ('Maintenance', {
             'fields': (
-                'last_maintenance_date', 'next_maintenance_date',
-                'maintenance_notes'
+                'last_maintenance', 'next_maintenance'
             ),
             'classes': ('collapse',)
         }),

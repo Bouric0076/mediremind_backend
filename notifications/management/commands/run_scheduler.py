@@ -4,7 +4,7 @@ import logging
 import signal
 import sys
 import time
-from notifications.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
+from notifications.persistent_scheduler import persistent_scheduler
 from notifications.queue_manager import start_queue_manager, stop_queue_manager, get_queue_health
 from notifications.background_tasks import start_background_tasks, stop_background_tasks, get_background_task_status
 
@@ -83,7 +83,7 @@ class Command(BaseCommand):
         try:
             if service in ['scheduler', 'all']:
                 self.stdout.write('Starting notification scheduler...')
-                start_scheduler()
+                persistent_scheduler.start()
                 self.stdout.write(self.style.SUCCESS('✓ Scheduler started'))
             
             if service in ['queue', 'all']:
@@ -114,7 +114,7 @@ class Command(BaseCommand):
             
             if service in ['scheduler', 'all']:
                 self.stdout.write('Stopping notification scheduler...')
-                stop_scheduler()
+                persistent_scheduler.stop()
                 self.stdout.write(self.style.SUCCESS('✓ Scheduler stopped'))
                 
         except Exception as e:
@@ -126,7 +126,7 @@ class Command(BaseCommand):
         
         if service in ['scheduler', 'all']:
             try:
-                status = get_scheduler_status()
+                status = persistent_scheduler.get_stats()
                 self.stdout.write(self.style.HTTP_INFO('📅 Scheduler Status:'))
                 self.stdout.write(f"  Running: {self.format_bool(status['is_running'])}")
                 self.stdout.write(f"  Queue Size: {status['queue_size']}")

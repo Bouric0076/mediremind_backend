@@ -21,7 +21,7 @@ from .exceptions import (
     AuthenticationError, MFARequiredError, AccountLockedError,
     InvalidMFATokenError, SessionExpiredError, RateLimitExceededError
 )
-from .sync_utils import SyncErrorHandler, SyncMetrics, safe_sync_operation
+from .sync_utils import AuthErrorHandler, AuthMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class AuthenticationService:
     
     MAX_LOGIN_ATTEMPTS = 5
     LOCKOUT_DURATION = timedelta(minutes=30)
-    SESSION_DURATION = timedelta(hours=8)
+    SESSION_DURATION = timedelta(days=7)  # Extended from 8 hours to 7 days to reduce frequent logins
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class AuthenticationService:
             # Token is still valid, return current token info
             return {
                 'access_token': token.key,
-                'expires_at': timezone.now() + timedelta(hours=24)
+                'expires_at': timezone.now() + timedelta(days=7)
             }
             
         except Exception as e:

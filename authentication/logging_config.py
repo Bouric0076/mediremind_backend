@@ -166,9 +166,9 @@ class SyncMonitor:
         """
         Perform comprehensive sync health check
         """
-        from authentication.sync_utils import SyncMetrics
+        from authentication.sync_utils import AuthMetrics
         
-        health_status = SyncMetrics.get_sync_health_status()
+        health_status = AuthMetrics.get_sync_health_status()
         error_rate_status = self.check_error_rate()
         
         overall_health = 'healthy'

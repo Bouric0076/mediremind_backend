@@ -379,7 +379,7 @@ export const Header: React.FC = () => {
           {user?.avatar ? (
             <Avatar
               src={user.avatar}
-              alt={`${user.firstName} ${user.lastName}`}
+              alt={user?.full_name || 'User'}
               sx={{ width: 32, height: 32, mr: 1 }}
             />
           ) : (
@@ -389,7 +389,7 @@ export const Header: React.FC = () => {
           )}
           <Box sx={{ textAlign: 'left', display: { xs: 'none', md: 'block' } }}>
             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-              {user?.firstName} {user?.lastName}
+              {user?.full_name}
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.8, lineHeight: 1 }}>
               {user?.role}
@@ -413,7 +413,7 @@ export const Header: React.FC = () => {
           {user?.avatar ? (
             <Avatar
               src={user.avatar}
-              alt={`${user.firstName} ${user.lastName}`}
+              alt={user?.full_name || 'User'}
               sx={{ width: 32, height: 32 }}
             />
           ) : (
@@ -482,7 +482,7 @@ export const Header: React.FC = () => {
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <Box sx={{ px: 2, py: 1 }}>
-          <Typography variant="subtitle2">{user?.firstName} {user?.lastName}</Typography>
+          <Typography variant="subtitle2">{user?.full_name}</Typography>
           <Typography variant="body2" color="text.secondary">
             {user?.email}
           </Typography>

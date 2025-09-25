@@ -2,8 +2,7 @@
 export interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  full_name: string;
   role: UserRole;
   department?: string;
   phone?: string;
@@ -12,6 +11,14 @@ export interface User {
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
+  profile?: {
+    type: string;
+    id: string;
+    specialization?: string;
+    license_number?: string;
+    department?: string;
+  };
+  permissions?: string[];
 }
 
 export type UserRole = 'admin' | 'doctor' | 'nurse' | 'receptionist' | 'manager';
@@ -154,7 +161,7 @@ export type AppointmentType =
   | 'diagnostic' 
   | 'vaccination';
 
-export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent' | 'emergency';
 
 export interface Reminder {
   id: string;

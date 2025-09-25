@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Rescheduled for {{ patient_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #17a2b8;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #17a2b8;
+            margin: 0;
+            font-size: 28px;
+        }
+        .appointment-details {
+            background-color: #e7f3ff;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #b3d9ff;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #004085;
+        }
+        .detail-value {
+            color: #212529;
+        }
+        .emergency-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .emergency-notice h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .reschedule-notice {
+            background-color: #d1ecf1;
+            border: 2px solid #17a2b8;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .reschedule-notice h3 {
+            color: #0c5460;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .old-appointment {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .new-appointment {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+            .detail-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Appointment Rescheduled</h1>
+            <p>Emergency Contact Notification</p>
+        </div>
+
+        <div class="emergency-notice">
+            <h3>📞 Emergency Contact Notification</h3>
+            <p>Hello {{ emergency_contact_name }},</p>
+            <p>You are receiving this notification as the <strong>{{ emergency_contact_relationship }}</strong> for <strong>{{ patient_name }}</strong>. Their appointment has been rescheduled.</p>
+        </div>
+
+        <div class="reschedule-notice">
+            <h3>📅 Schedule Change</h3>
+            <p style="font-size: 18px; margin: 0;"><strong>{{ patient_name }}'s</strong> appointment has been moved to a new date and time.</p>
+        </div>
+
+        {% if appointment.old_date and appointment.old_time %}
+        <div class="old-appointment">
+            <h4 style="color: #721c24; margin-top: 0;">❌ Previous Appointment (Cancelled)</h4>
+            <p><strong>Date:</strong> {{ appointment.old_date }}</p>
+            <p><strong>Time:</strong> {{ appointment.old_time }}</p>
+        </div>
+        {% endif %}
+
+        <div class="new-appointment">
+            <h4 style="color: #155724; margin-top: 0;">✅ New Appointment Details</h4>
+            <p><strong>Date:</strong> {{ appointment.date }}</p>
+            <p><strong>Time:</strong> {{ appointment.time }}</p>
+        </div>
+
+        <div class="appointment-details">
+            <h3>📋 Complete Appointment Information</h3>
+            <div class="detail-row">
+                <span class="detail-label">Patient:</span>
+                <span class="detail-value">{{ patient_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Doctor:</span>
+                <span class="detail-value">Dr. {{ appointment.doctor_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">New Date:</span>
+                <span class="detail-value">{{ appointment.date }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">New Time:</span>
+                <span class="detail-value">{{ appointment.time }}</span>
+            </div>
+            {% if appointment.location %}
+            <div class="detail-row">
+                <span class="detail-label">Location:</span>
+                <span class="detail-value">{{ appointment.location }}</span>
+            </div>
+            {% endif %}
+            {% if appointment.type %}
+            <div class="detail-row">
+                <span class="detail-label">Appointment Type:</span>
+                <span class="detail-value">{{ appointment.type }}</span>
+            </div>
+            {% endif %}
+            {% if appointment.reschedule_reason %}
+            <div class="detail-row">
+                <span class="detail-label">Reason for Reschedule:</span>
+                <span class="detail-value">{{ appointment.reschedule_reason }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <p><strong>{{ patient_name }} should have received their own rescheduling notification.</strong></p>
+            <p>You may want to check in with them to ensure they're aware of the new appointment time.</p>
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #495057; margin-top: 0;">💡 How You Can Help:</h4>
+            <ul style="color: #6c757d; margin: 0;">
+                <li>Remind {{ patient_name }} about the new appointment date and time</li>
+                <li>Help them update their calendar or schedule</li>
+                <li>Confirm transportation arrangements for the new time</li>
+                <li>Ensure they're still prepared with necessary documents</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated notification sent to emergency contacts.</p>
+            <p>If you have concerns about {{ patient_name }}'s rescheduled appointment, please contact them directly or reach out to our clinic.</p>
+            <p style="margin-top: 20px;">
+                <strong>MediRemind Healthcare</strong><br>
+                📞 Support: {{ support_phone | default:"(555) 123-4567" }}<br>
+                📧 Email: {{ support_email | default:"support@mediremind.com" }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

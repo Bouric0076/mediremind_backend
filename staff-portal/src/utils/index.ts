@@ -172,7 +172,16 @@ export const slugify = (text: string): string => {
     .replace(/^-+|-+$/g, '');
 };
 
-export const generateInitials = (firstName: string, lastName: string): string => {
+export const generateInitials = (fullName: string): string => {
+  const names = fullName.trim().split(' ');
+  if (names.length === 1) {
+    return names[0].charAt(0).toUpperCase();
+  }
+  return `${names[0].charAt(0)}${names[names.length - 1].charAt(0)}`.toUpperCase();
+};
+
+// Legacy function for backward compatibility
+export const generateInitialsFromNames = (firstName: string, lastName: string): string => {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 };
 
@@ -289,7 +298,14 @@ export const deepClone = <T>(obj: T): T => {
 
 // User and Role Utilities
 export const getFullName = (user: User | Patient): string => {
-  return `${user.firstName} ${user.lastName}`.trim();
+  // Handle both new full_name format and legacy firstName/lastName format
+  if ('full_name' in user && user.full_name) {
+    return user.full_name.trim();
+  }
+  if ('firstName' in user && 'lastName' in user) {
+    return `${user.firstName} ${user.lastName}`.trim();
+  }
+  return '';
 };
 
 export const hasPermission = (userRole: UserRole, permission: string): boolean => {
@@ -329,6 +345,7 @@ export const getPriorityColor = (priority: Priority): string => {
     medium: '#ff9800',
     high: '#f44336',
     urgent: '#9c27b0',
+    emergency: '#d32f2f',
   };
   return colors[priority] || '#9e9e9e';
 };

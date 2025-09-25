@@ -7,6 +7,7 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { SessionMonitor } from './components/auth/SessionMonitor';
 import { Layout } from './components/layout/Layout';
 import { LoginPage } from './pages/auth/LoginPage';
+import { HospitalRegistrationPage } from './pages/auth/HospitalRegistrationPage';
 import LandingPage from './pages/landing/LandingPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { PatientsPage } from './pages/patients/PatientsPage';
@@ -52,6 +53,7 @@ function App() {
               {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<HospitalRegistrationPage />} />
               
               {/* Protected routes */}
               <Route

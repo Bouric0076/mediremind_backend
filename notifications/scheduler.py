@@ -167,7 +167,7 @@ class NotificationScheduler:
                     'doctor_name': doctor['full_name'],
                     'appointment_date': appointment['date'],
                     'appointment_time': appointment['time'],
-                    'location': appointment.get('location_text', 'Clinic'),
+                    'location': appointment.get('location', 'Clinic'),
                     'reminder_type': reminder_type
                 }
             )
@@ -221,6 +221,85 @@ class NotificationScheduler:
         except Exception as e:
             logger.error(f"Failed to cancel task {task_id}: {str(e)}")
             return False
+
+    def cancel_appointment_reminders(self, appointment_id: str) -> int:
+        """
+        Cancel all pending reminders for a specific appointment.
+        
+        Args:
+            appointment_id: UUID of the appointment to cancel reminders for
+            
+        Returns:
+            int: Number of reminders cancelled
+        """
+        try:
+            # Cancel in database
+            result = admin_client.table("appointment_reminders").update({
+                "status": "cancelled",
+                "cancelled_at": datetime.now().isoformat()
+            }).eq("appointment_id", appointment_id).in_("status", ["pending", "retrying"]).execute()
+            
+            cancelled_count = len(result.data) if result.data else 0
+            
+            # Remove from in-memory queues
+            # Note: This is a simplified approach. In a production system,
+            # you might want to implement a more sophisticated queue management
+            temp_queue = PriorityQueue()
+            removed_count = 0
+            
+            # Remove from main task queue
+            while not self.task_queue.empty():
+                try:
+                    task = self.task_queue.get_nowait()
+                    if task.appointment_id != appointment_id:
+                        temp_queue.put(task)
+                    else:
+                        removed_count += 1
+                        task.status = TaskStatus.CANCELLED
+                except Empty:
+                    break
+            
+            # Put remaining tasks back
+            while not temp_queue.empty():
+                self.task_queue.put(temp_queue.get())
+            
+            # Remove from processing queue
+            temp_processing = PriorityQueue()
+            while not self.processing_queue.empty():
+                try:
+                    task = self.processing_queue.get_nowait()
+                    if task.appointment_id != appointment_id:
+                        temp_processing.put(task)
+                    else:
+                        removed_count += 1
+                        task.status = TaskStatus.CANCELLED
+                except Empty:
+                    break
+            
+            # Put remaining tasks back
+            while not temp_processing.empty():
+                self.processing_queue.put(temp_processing.get())
+            
+            # Remove from active tasks
+            active_to_remove = []
+            for task_id, task in self.active_tasks.items():
+                if task.appointment_id == appointment_id:
+                    active_to_remove.append(task_id)
+                    task.status = TaskStatus.CANCELLED
+            
+            for task_id in active_to_remove:
+                self.active_tasks.pop(task_id, None)
+                removed_count += 1
+            
+            # Update stats
+            self.stats['cancelled'] += removed_count
+            
+            logger.info(f"Cancelled {cancelled_count} database reminders and {removed_count} in-memory tasks for appointment {appointment_id}")
+            return max(cancelled_count, removed_count)
+            
+        except Exception as e:
+            logger.error(f"Failed to cancel reminders for appointment {appointment_id}: {str(e)}")
+            return 0
 
     def get_queue_status(self) -> Dict:
         """Get current queue status and statistics"""
@@ -491,7 +570,7 @@ class NotificationScheduler:
                         'doctor_name': doctor['full_name'],
                         'appointment_date': appointment['date'],
                         'appointment_time': appointment['time'],
-                        'location': appointment.get('location_text', 'Clinic'),
+                        'location': appointment.get('location', 'Clinic'),
                         'reminder_type': reminder['reminder_type']
                     },
                     retry_count=reminder.get('retry_count', 0)

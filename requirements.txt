@@ -37,6 +37,12 @@ hiredis
 # Background tasks
 celery
 
+# Google Calendar Integration
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+
 # Email
 sendgrid
 

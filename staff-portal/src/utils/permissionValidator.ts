@@ -3,7 +3,8 @@
  * Ensures consistency between frontend and backend permission systems
  */
 
-import { permissionChecker, UserRole, Permission, DetailedPermissions } from './permissionUtils';
+import { permissionChecker } from './permissionUtils';
+import type { UserRole, Permission, DetailedPermissions } from './permissionUtils';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -13,9 +14,9 @@ export interface ValidationResult {
 }
 
 export interface PermissionSyncData {
-  permissions: Permission[];
+  permissions: string[];
   roles: UserRole[];
-  rolePermissions: Record<UserRole, Permission[]>;
+  rolePermissions: Record<UserRole, string[]>;
   detailedPermissions: Record<UserRole, DetailedPermissions>;
 }
 
@@ -43,7 +44,7 @@ export class PermissionValidator {
 
     try {
       // Fetch permission data from backend API
-      const response = await fetch('/api/permissions/sync/', {
+      const response = await fetch('/api/auth/permissions/sync/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ export class PermissionValidator {
   /**
    * Validate user permissions against their role
    */
-  public validateUserPermissions(userRole: UserRole, userPermissions: Permission[]): ValidationResult {
+  public validateUserPermissions(userRole: UserRole, userPermissions: string[]): ValidationResult {
     const result: ValidationResult = {
       isValid: true,
       errors: [],
@@ -406,8 +407,8 @@ export class PermissionValidator {
     const frontendRoleSet = new Set(frontendRoles);
     const backendRoleSet = new Set(backendRoles);
 
-    const missingRoles = backendRoles.filter(role => !frontendRoleSet.has(role));
-    const extraRoles = frontendRoles.filter(role => !backendRoleSet.has(role));
+    const missingRoles = backendRoles.filter((role: UserRole) => !frontendRoleSet.has(role));
+    const extraRoles = frontendRoles.filter((role: UserRole) => !backendRoleSet.has(role));
 
     if (missingRoles.length > 0) {
       result.errors.push(`Roles missing in frontend: ${missingRoles.join(', ')}`);
@@ -450,7 +451,7 @@ export const permissionValidator = PermissionValidator.getInstance();
 // Utility functions for easy access
 export const validatePermissions = () => permissionValidator.runFullValidation();
 export const syncPermissions = () => permissionValidator.syncWithBackend();
-export const validateUserPermissions = (role: UserRole, permissions: Permission[]) => 
+export const validateUserPermissions = (role: UserRole, permissions: string[]) => 
   permissionValidator.validateUserPermissions(role, permissions);
 export const generateValidationReport = (result: ValidationResult) => 
   permissionValidator.generateReport(result);

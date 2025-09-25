@@ -52,3 +52,8 @@ db.sqlite3-journal
 media 
 
 mediremind_backend/vapid_keys.json
+vapid_keys.json
+*.key
+*.pem
+.env.local
+.env.production.local

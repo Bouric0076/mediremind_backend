@@ -128,11 +128,11 @@ export const PatientDetailPage: React.FC = () => {
                     fontSize: '1.5rem'
                   }}
                 >
-                  {getInitials(patient.name || '')}
+                  {getInitials(patient.fullName || '')}
                 </Avatar>
                 <Box flex={1}>
                   <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
-                    {patient?.name || 'Unknown Patient'}
+                    {patient?.fullName || 'Unknown Patient'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Patient ID: {patient.id}
@@ -193,13 +193,13 @@ export const PatientDetailPage: React.FC = () => {
                       <Typography variant="body1">
                         {patient?.address ? (
                           <>
-                            {formatEncryptedField(patient.address.line1)}<br />
-                            {patient.address.line2 && (
+                            {formatEncryptedField(patient.address.street)}<br />
+                            {formatEncryptedField(patient.address.city)}, {formatEncryptedField(patient.address.state)} {formatEncryptedField(patient.address.zipCode)}
+                            {patient.address.country && (
                               <>
-                                {formatEncryptedField(patient.address.line2)}<br />
+                                <br />{formatEncryptedField(patient.address.country)}
                               </>
                             )}
-                            {formatEncryptedField(patient.address.city)}, {formatEncryptedField(patient.address.state)} {formatEncryptedField(patient.address.zip_code)}
                           </>
                         ) : (
                           'Not provided'
@@ -217,7 +217,7 @@ export const PatientDetailPage: React.FC = () => {
                         Date of Birth
                       </Typography>
                       <Typography variant="body1">
-                        {formatDate(patient.date_of_birth)}
+                        {formatDate(patient.dateOfBirth)}
                       </Typography>
                     </Box>
                   </Box>
@@ -243,7 +243,7 @@ export const PatientDetailPage: React.FC = () => {
                         Blood Type
                       </Typography>
                       <Typography variant="body1">
-                      {patient?.blood_type || 'Not specified'}
+                      {patient?.medicalInfo?.bloodType || 'Not specified'}
                     </Typography>
                     </Box>
                   </Box>
@@ -258,7 +258,7 @@ export const PatientDetailPage: React.FC = () => {
                     Allergies
                   </Typography>
                   <Typography variant="body1">
-                    {formatEncryptedField(patient?.medical_info?.allergies, 'No known allergies')}
+                    {formatEncryptedField(patient?.medicalInfo?.allergies, 'No known allergies')}
                   </Typography>
                 </CardContent>
               </Card>
@@ -288,7 +288,7 @@ export const PatientDetailPage: React.FC = () => {
                         Policy Number
                       </Typography>
                       <Typography variant="body1">
-                        {formatEncryptedField(patient?.insurance?.policy_number, 'Not provided')}
+                        {formatEncryptedField(patient?.insurance?.policyNumber, 'Not provided')}
                       </Typography>
                     </Box>
                   </Box>

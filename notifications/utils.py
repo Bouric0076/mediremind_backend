@@ -6,8 +6,10 @@ import pytz
 from .email_client import email_client
 from .beem_client import beem_client
 import logging
+from .logging_config import NotificationLogger, LogCategory
 
 logger = logging.getLogger(__name__)
+notification_logger = NotificationLogger('notification_utils')
 
 def format_appointment_time(date_str, time_str):
     """Format appointment date and time for messages"""
@@ -44,7 +46,7 @@ def get_appointment_details(appointment_id):
             "appointment_time": formatted_time,  # Formatted for messages
             "type": appointment["type"],
             "status": appointment["status"],
-            "location": appointment.get("location_text", "Main Hospital"),
+            "location": appointment.get("location", "Main Hospital"),
             "patient_name": patient.get("full_name"),
             "patient_phone": patient.get("phone"),
             "doctor_name": doctor.get("full_name"),
@@ -52,59 +54,69 @@ def get_appointment_details(appointment_id):
             "doctor_id": doctor.get("user_id")  # For push notifications
         }
     except Exception as e:
-        print(f"Error getting appointment details: {str(e)}")
+        notification_logger.error(
+            LogCategory.DATABASE,
+            "Error retrieving appointment details from Supabase",
+            "appointment_data_fetcher",
+            appointment_id=appointment_id,
+            error_details=str(e)
+        )
         return None
 
 def get_appointment_data(appointment_id):
     """Get formatted appointment data for notifications"""
     try:
-        # Get the appointment details
-        result = admin_client.table("appointments").select(
-            "*"
-        ).eq("id", appointment_id).single().execute()
+        # Import Django models here to avoid circular imports
+        from appointments.models import Appointment
+        from accounts.models import EnhancedPatient, EnhancedStaffProfile
         
-        if not result.data:
+        # Get the appointment from Django database
+        try:
+            appointment = Appointment.objects.select_related(
+                'patient__user', 'provider__user', 'appointment_type', 'room'
+            ).get(id=appointment_id)
+        except Appointment.DoesNotExist:
             return None, "Appointment not found"
+        
+        # Format location from room information
+        location = "Main Hospital"
+        if appointment.room:
+            location_parts = []
+            if appointment.room.name:
+                location_parts.append(appointment.room.name)
+            if appointment.room.room_number:
+                location_parts.append(f"Room {appointment.room.room_number}")
+            if appointment.room.floor:
+                location_parts.append(f"Floor {appointment.room.floor}")
+            if appointment.room.building:
+                location_parts.append(appointment.room.building)
             
-        appointment = result.data
+            if location_parts:
+                location = ", ".join(location_parts)
         
-        # Get doctor details from users table via staff_profiles
-        doctor_result = admin_client.table("staff_profiles").select(
-            "user_id",
-            "users!inner(full_name)"
-        ).eq("user_id", appointment["doctor_id"]).single().execute()
-        
-        # Get patient details from users table via enhanced_patients
-        patient_result = admin_client.table("enhanced_patients").select(
-            "user_id",
-            "users!inner(full_name, phone)"
-        ).eq("user_id", appointment["patient_id"]).single().execute()
-        
-        if not doctor_result.data or not patient_result.data:
-            return None, "Could not find doctor or patient details"
-            
-        doctor_data = doctor_result.data.get("users", {})
-        patient_data = patient_result.data.get("users", {})
-        
+        # Format the data
         formatted_data = {
-            "id": appointment["id"],
-            "doctor_name": doctor_data.get("full_name", "Unknown Doctor"),
-            "patient_name": patient_data.get("full_name", "Unknown Patient"),
-            "patient_phone": patient_data.get("phone"),
-            "patient_id": appointment["patient_id"],
-            "doctor_id": appointment["doctor_id"],
-            "appointment_time": f"{appointment['date']} {appointment['time']}",
-            "location": appointment.get("location_text", "Main Hospital"),
-            "type": appointment.get("type", "consultation"),
-            "status": appointment.get("status", "scheduled")
+            "id": str(appointment.id),
+            "doctor_name": appointment.provider.user.get_full_name(),
+            "patient_name": appointment.patient.user.get_full_name(),
+            "patient_phone": getattr(appointment.patient.user, 'phone', ''),
+            "patient_id": str(appointment.patient.user.id),
+            "doctor_id": str(appointment.provider.user.id),
+            "appointment_time": f"{appointment.appointment_date} {appointment.start_time}",
+            "location": location,
+            "type": appointment.appointment_type.name if appointment.appointment_type else "consultation",
+            "status": appointment.status
         }
         
-        if not formatted_data["patient_id"]:
-            return None, "Patient ID not found"
-            
         return formatted_data, None
     except Exception as e:
-        print(f"Error in get_appointment_data: {str(e)}")  # Add debug logging
+        notification_logger.error(
+            LogCategory.DATABASE,
+            "Error retrieving appointment data from Django models",
+            "appointment_data_processor",
+            appointment_id=appointment_id,
+            error_details=str(e)
+        )
         return None, str(e)
 
 def send_push_to_user(user_id, title, message, url=None, data=None):
@@ -384,10 +396,21 @@ def send_upcoming_appointment_reminders():
                 success_count += 1
             else:
                 fail_count += 1
-                print(f"Failed to send reminder for appointment {appointment['id']}: {message}")
+                notification_logger.error(
+                    LogCategory.NOTIFICATION,
+                    "Failed to send appointment reminder",
+                    "reminder_scheduler",
+                    appointment_id=appointment['id'],
+                    error_message=message
+                )
         
         return True, f"Sent {success_count} reminders, {fail_count} failed"
         
     except Exception as e:
-        print(f"Error sending upcoming reminders: {str(e)}")
+        notification_logger.error(
+            LogCategory.NOTIFICATION,
+            "Error sending upcoming appointment reminders",
+            "reminder_scheduler",
+            error_details=str(e)
+        )
         return False, str(e)

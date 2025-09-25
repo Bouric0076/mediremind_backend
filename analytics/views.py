@@ -26,52 +26,69 @@ User = get_user_model()
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_overview(request):
-    """Get comprehensive dashboard overview with key metrics"""
+    """Get comprehensive dashboard overview with key metrics filtered by user's hospital"""
     try:
+        # Get current user's hospital
+        user = request.user
+        staff_profile = getattr(user, 'staff_profile', None)
+        if not staff_profile or not staff_profile.hospital:
+            return Response(
+                {'error': 'User must be associated with a hospital'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        hospital = staff_profile.hospital
+        
         today = timezone.now().date()
         last_30_days = today - timedelta(days=30)
         last_7_days = today - timedelta(days=7)
         
-        # User Statistics
-        total_users = User.objects.count()
-        active_users_30d = User.objects.filter(
+        # User Statistics - filtered by hospital
+        hospital_users = User.objects.filter(staff_profile__hospital__pk=hospital.pk)
+        total_users = hospital_users.count()
+        active_users_30d = hospital_users.filter(
             last_login__gte=timezone.now() - timedelta(days=30)
         ).count()
-        new_users_7d = User.objects.filter(
+        new_users_7d = hospital_users.filter(
             date_joined__gte=timezone.now() - timedelta(days=7)
         ).count()
         
-        # Appointment Statistics
-        total_appointments = Appointment.objects.count()
-        appointments_today = Appointment.objects.filter(
+        # Appointment Statistics - filtered by hospital
+        hospital_appointments = Appointment.objects.filter(hospital__pk=hospital.pk)
+        total_appointments = hospital_appointments.count()
+        appointments_today = hospital_appointments.filter(
             appointment_date=today
         ).count()
-        appointments_this_week = Appointment.objects.filter(
+        appointments_this_week = hospital_appointments.filter(
             appointment_date__gte=last_7_days
         ).count()
         
-        completed_appointments = Appointment.objects.filter(
+        completed_appointments = hospital_appointments.filter(
             status='completed'
         ).count()
         
-        pending_appointments = Appointment.objects.filter(
+        pending_appointments = hospital_appointments.filter(
             status='scheduled',
             appointment_date__gte=today
         ).count()
         
-        # Revenue Statistics (if billing app exists)
+        # Revenue Statistics (if billing app exists) - filtered by hospital
         try:
-            total_revenue = Invoice.objects.filter(
+            # Filter invoices by hospital through appointment relationship
+            hospital_invoices = Invoice.objects.filter(
+                appointment__hospital__pk=hospital.pk
+            )
+            total_revenue = hospital_invoices.filter(
                 status='paid'
             ).aggregate(total=Sum('total_amount'))['total'] or 0
             
-            revenue_this_month = Invoice.objects.filter(
+            revenue_this_month = hospital_invoices.filter(
                 status='paid',
                 created_at__month=today.month,
                 created_at__year=today.year
             ).aggregate(total=Sum('total_amount'))['total'] or 0
             
-            outstanding_payments = Invoice.objects.filter(
+            outstanding_payments = hospital_invoices.filter(
                 status__in=['pending', 'overdue']
             ).aggregate(total=Sum('total_amount'))['total'] or 0
         except:
@@ -79,22 +96,22 @@ def dashboard_overview(request):
             revenue_this_month = 0
             outstanding_payments = 0
         
-        # Department-wise appointment distribution
-        department_stats = Appointment.objects.values('provider__department').annotate(
+        # Department-wise appointment distribution - filtered by hospital
+        department_stats = hospital_appointments.values('provider__department').annotate(
             count=Count('id'),
             completed=Count('id', filter=Q(status='completed')),
             pending=Count('id', filter=Q(status='scheduled'))
         ).order_by('-count')[:6]
         
-        # Recent activity trends (last 7 days)
+        # Recent activity trends (last 7 days) - filtered by hospital
         activity_trends = []
         for i in range(7):
             date = today - timedelta(days=i)
-            appointments_count = Appointment.objects.filter(
+            appointments_count = hospital_appointments.filter(
                 appointment_date=date
             ).count()
             
-            new_users_count = User.objects.filter(
+            new_users_count = hospital_users.filter(
                 date_joined__date=date
             ).count()
             
@@ -104,17 +121,17 @@ def dashboard_overview(request):
                 'new_users': new_users_count
             })
         
-        # Top services/treatments
-        popular_services = Appointment.objects.values('appointment_type__name').annotate(
+        # Top services/treatments - filtered by hospital
+        popular_services = hospital_appointments.values('appointment_type__name').annotate(
             count=Count('id')
         ).order_by('-count')[:5]
         
-        # System health indicators
+        # System health indicators - filtered by hospital
         system_health = {
             'database_status': 'healthy',
             'api_response_time': '< 200ms',
             'uptime': '99.9%',
-            'active_sessions': User.objects.filter(
+            'active_sessions': hospital_users.filter(
                 last_login__gte=timezone.now() - timedelta(hours=1)
             ).count()
         }

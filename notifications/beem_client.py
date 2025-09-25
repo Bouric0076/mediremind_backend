@@ -28,9 +28,14 @@ class BeemClient:
     def send_sms(self, recipient, message):
         """Send SMS to the specified recipient"""
         try:
+            # Skip SMS sending in development mode
+            if settings.DEBUG:
+                logger.info(f"Development mode: SMS skipped. Would send to {recipient}: {message}")
+                return True, "SMS skipped - development mode"
+                
             if not all([self.api_key, self.secret_key, self.sender_id]):
-                logger.warning("Beem SMS settings not configured")
-                return False, "SMS settings not configured"
+                logger.warning("Beem SMS settings not configured - skipping SMS")
+                return True, "SMS skipped - not configured"
 
             if not recipient:
                 return False, "No recipient specified"
@@ -77,6 +82,11 @@ class BeemClient:
     def send_whatsapp(self, recipient, template_name, language_code="en", template_params=None):
         """Send WhatsApp message using Beem Africa API"""
         try:
+            # Skip WhatsApp sending in development mode
+            if settings.DEBUG:
+                logger.info(f"Development mode: WhatsApp skipped. Would send to {recipient} template: {template_name}")
+                return True, "WhatsApp skipped - development mode"
+                
             if not self.whatsapp_template_namespace:
                 raise ValueError("WhatsApp template namespace not configured")
                 
@@ -111,4 +121,4 @@ class BeemClient:
 # Create a singleton instance
 beem_client = BeemClient()
 
-__all__ = ['beem_client'] 
+__all__ = ['beem_client']

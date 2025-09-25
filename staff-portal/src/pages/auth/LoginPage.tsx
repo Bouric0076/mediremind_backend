@@ -58,6 +58,47 @@ export const LoginPage: React.FC = () => {
   
   const [login, { isLoading, error }] = useLoginMutation();
   
+  // Helper function to get user-friendly error message
+  const getErrorMessage = (err: any): string => {
+    // Handle network errors (no response from server)
+    if (!err.status && !err.data) {
+      return 'Unable to connect to the server. Please check your internet connection and try again.';
+    }
+    // Handle specific HTTP status codes
+    else if (err.status) {
+      switch (err.status) {
+        case 400:
+          return err.data?.error || 'Please check your input and try again.';
+        case 401:
+          return err.data?.error || 'Invalid email or password.';
+        case 429:
+          return err.data?.error || 'Too many login attempts. Please wait a few minutes before trying again.';
+        case 500:
+          return 'Server is temporarily unavailable. Please try again in a few moments.';
+        case 502:
+        case 503:
+        case 504:
+          return 'Service is temporarily unavailable. Please try again later.';
+        default:
+          return err.data?.error || 'An unexpected error occurred. Please try again.';
+      }
+    }
+    // Handle RTK Query errors (like FETCH_ERROR)
+    else if (err.error) {
+      if (err.error.includes('FETCH_ERROR') || err.error.includes('NetworkError')) {
+        return 'Unable to connect to the server. Please check your internet connection and try again.';
+      } else {
+        return 'A network error occurred. Please try again.';
+      }
+    }
+    // Use backend error message if available
+    else if (err.data?.error) {
+      return err.data.error;
+    }
+    
+    return 'Invalid email or password';
+  };
+  
   // Check for existing valid session on component mount
   useEffect(() => {
     if (token && !isSessionValid()) {
@@ -100,16 +141,18 @@ export const LoginPage: React.FC = () => {
       dispatch(addToast({
         type: 'success',
         title: 'Welcome back!',
-        message: `Logged in as ${result.user.firstName} ${result.user.lastName}`,
+        message: `Logged in as ${result.user.full_name}`,
       }));
       
       const from = (location.state as any)?.from?.pathname || getDefaultRedirectPath();
       navigate(from, { replace: true });
     } catch (err: any) {
+      const errorMessage = getErrorMessage(err);
+      
       dispatch(addToast({
         type: 'error',
         title: 'Login Failed',
-        message: err.data?.message || 'Invalid email or password',
+        message: errorMessage,
       }));
     }
   };
@@ -191,7 +234,7 @@ export const LoginPage: React.FC = () => {
             </Typography>
 
           {/* Error Alert */}
-          {error && 'data' in error && (
+          {error && (
             <Alert 
               severity="error" 
               sx={{ 
@@ -203,7 +246,7 @@ export const LoginPage: React.FC = () => {
                 },
               }}
             >
-              {(error.data as any)?.message || 'Login failed. Please try again.'}
+              {getErrorMessage(error)}
             </Alert>
           )}
 
@@ -401,6 +444,31 @@ export const LoginPage: React.FC = () => {
             <Typography variant="body2" sx={{ color: medicalColors.medical.textPrimary }}>
               <strong>Password:</strong> TestAdmin123!
             </Typography>
+          </Box>
+
+          {/* Registration Link */}
+          <Divider sx={{ my: 3, width: '100%' }} />
+          <Box sx={{ textAlign: 'center', width: '100%' }}>
+            <Typography variant="body2" sx={{ color: medicalColors.medical.textSecondary, mb: 1 }}>
+              Don't have an account?
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/register')}
+              sx={{
+                borderColor: medicalColors.primary.main,
+                color: medicalColors.primary.main,
+                '&:hover': {
+                  borderColor: medicalColors.primary.dark,
+                  backgroundColor: medicalColors.primary[50],
+                },
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Register Your Hospital
+            </Button>
           </Box>
         </Paper>
 

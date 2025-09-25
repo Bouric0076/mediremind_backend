@@ -41,8 +41,8 @@ if not settings.configured:
             },
         ],
         EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
-        FRONTEND_URL='http://localhost:3000',
-        SECRET_KEY='test-secret-key-for-testing-only'
+        FRONTEND_URL=os.getenv('FRONTEND_URL', 'http://localhost:3000'),
+        SECRET_KEY=os.getenv('TEST_SECRET_KEY', 'django-insecure-test-key-' + str(hash('test')))
     )
     django.setup()
 
@@ -398,9 +398,10 @@ class TestInteractiveEmailFeatures(unittest.TestCase):
     
     def setUp(self):
         """Set up test data for interactive features"""
+        self.base_url = os.getenv('BASE_URL', 'http://localhost:8000')
         self.interactive_service = InteractiveEmailService(
-            base_url='http://localhost:8000',
-            secret_key='test-secret-key'
+            base_url=self.base_url,
+            secret_key=os.getenv('TEST_INTERACTIVE_SECRET_KEY', 'test-secret-key-' + str(hash('interactive')))
         )
         self.status_service = RealTimeStatusService(
             redis_client=MagicMock()
@@ -415,7 +416,7 @@ class TestInteractiveEmailFeatures(unittest.TestCase):
         )
         
         self.assertIsInstance(url, str)
-        self.assertIn('http://localhost:8000', url)
+        self.assertIn(self.base_url, url)
         self.assertIn('confirm_appointment', url)
     
     def test_calendar_integration(self):

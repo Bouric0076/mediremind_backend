@@ -1,0 +1,80 @@
+[
+  {
+    "test": "Create Test Patient",
+    "status": "PASS",
+    "message": "Created patient John Doe",
+    "timestamp": "2025-09-23T10:15:30.563068"
+  },
+  {
+    "test": "Patient Model Fields",
+    "status": "PASS",
+    "message": "All emergency contact fields present and correctly set",
+    "timestamp": "2025-09-23T10:15:30.563376"
+  },
+  {
+    "test": "Template Existence",
+    "status": "PASS",
+    "message": "All 5 templates found",
+    "timestamp": "2025-09-23T10:15:30.564384"
+  },
+  {
+    "test": "Create Test Patient",
+    "status": "PASS",
+    "message": "Created patient John Doe",
+    "timestamp": "2025-09-23T10:15:44.340022"
+  },
+  {
+    "test": "Create Test Appointment",
+    "status": "PASS",
+    "message": "Created appointment 3777ba5c-8dba-4c13-8b25-24671020c339",
+    "timestamp": "2025-09-23T10:16:02.516075"
+  },
+  {
+    "test": "Emergency Contact Notification Sending",
+    "status": "PASS",
+    "message": "Notifications sent successfully",
+    "timestamp": "2025-09-23T10:16:02.766693"
+  },
+  {
+    "test": "Create Test Patient",
+    "status": "PASS",
+    "message": "Created patient John Doe",
+    "timestamp": "2025-09-23T10:16:18.903109"
+  },
+  {
+    "test": "Create Test Appointment",
+    "status": "PASS",
+    "message": "Created appointment 08f23b6f-489e-4a32-a28b-fd40bbadd934",
+    "timestamp": "2025-09-23T10:16:33.073914"
+  },
+  {
+    "test": "No-Show Alert",
+    "status": "PASS",
+    "message": "No-show alerts sent successfully",
+    "timestamp": "2025-09-23T10:16:33.787023"
+  },
+  {
+    "test": "Create Test Patient",
+    "status": "PASS",
+    "message": "Created patient John Doe",
+    "timestamp": "2025-09-23T10:16:48.399934"
+  },
+  {
+    "test": "Create Test Appointment",
+    "status": "PASS",
+    "message": "Created appointment 6c25156e-c321-4945-a83a-03f5b95b0992",
+    "timestamp": "2025-09-23T10:17:02.243135"
+  },
+  {
+    "test": "Notification Preferences Respected",
+    "status": "PASS",
+    "message": "Preferences correctly respected",
+    "timestamp": "2025-09-23T10:17:02.880765"
+  },
+  {
+    "test": "Cleanup Test Data",
+    "status": "PASS",
+    "message": "Test data cleaned up",
+    "timestamp": "2025-09-23T10:17:22.192090"
+  }
+]

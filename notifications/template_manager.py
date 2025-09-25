@@ -10,6 +10,7 @@ This module provides advanced template management capabilities including:
 
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
@@ -104,7 +105,7 @@ class TemplateManager:
         
         # Initialize interactive email services
         self.interactive_service = InteractiveEmailService(
-            base_url=getattr(settings, 'BASE_URL', 'http://localhost:8000'),
+            base_url=getattr(settings, 'BASE_URL', os.getenv('BASE_URL', 'https://api.mediremind.com')),
             secret_key=getattr(settings, 'INTERACTIVE_EMAIL_SECRET_KEY', 'default-secret-key')
         )
         self.status_service = RealTimeStatusService(
@@ -665,6 +666,152 @@ class TemplateManager:
                     "screen_reader_optimized": True,
                     "alt_text_images": True
                 }
+            ),
+            
+            # Emergency Contact Templates
+            "emergency_contact_appointment_confirmation": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CONFIRMATION,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="📅 Appointment Confirmed for {{ patient_name }} - {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_confirmation.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_reminder": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_REMINDER,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="⏰ Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_reminder.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_reminder_24h": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_REMINDER,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="⏰ 24hr Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_reminder.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_reminder_2h": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_REMINDER,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="⏰ 2hr Reminder: {{ patient_name }}'s Appointment Today - {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_reminder.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_reminder_30m": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_REMINDER,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="⏰ 30min Reminder: {{ patient_name }}'s Appointment Starting Soon - {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_reminder.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_reschedule": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_RESCHEDULE,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="🔄 {{ patient_name }}'s Appointment Rescheduled - New time: {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_reschedule.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_appointment_cancellation": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CANCELLATION,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="❌ {{ patient_name }}'s Appointment Cancelled - {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_appointment_cancellation.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_contact_no_show_alert": TemplateConfig(
+                template_type=TemplateType.PATIENT_NO_SHOW_ALERT,
+                recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
+                subject_template="⚠️ Alert: {{ patient_name }} Missed Appointment - {{ appointment.date }} at {{ appointment.time }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_contact_v1",
+                        template_path="notifications/email/emergency_contact_no_show_alert.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
             )
         }
         return configs
@@ -764,20 +911,57 @@ class TemplateManager:
     def _generate_calendar_link(self, appointment: Dict[str, Any]) -> str:
         """Generate calendar link for appointment using interactive email service"""
         try:
+            from appointments.datetime_utils import DateTimeValidator
+            
+            # Parse and validate datetime fields
+            start_time = appointment.get('start_time')
+            end_time = appointment.get('end_time')
+            
+            # Handle different datetime formats using the comprehensive validator
+            if isinstance(start_time, str):
+                start_time = DateTimeValidator.parse_datetime(start_time)
+                if not start_time:
+                    # Try parsing date and time separately
+                    date_str = appointment.get('date') or appointment.get('appointment_date')
+                    time_str = appointment.get('time') or appointment.get('start_time')
+                    if date_str and time_str:
+                        start_time = DateTimeValidator.create_appointment_datetime(date_str, time_str)
+            elif not isinstance(start_time, datetime):
+                start_time = DateTimeValidator.parse_datetime(str(start_time)) if start_time else None
+            
+            if isinstance(end_time, str):
+                end_time = DateTimeValidator.parse_datetime(end_time)
+            elif not isinstance(end_time, datetime) and end_time:
+                end_time = DateTimeValidator.parse_datetime(str(end_time))
+            
+            # If no end_time, calculate from duration or assume 1 hour
+            if not end_time and start_time:
+                duration_minutes = appointment.get('duration', 60)
+                if isinstance(duration_minutes, str):
+                    try:
+                        duration_minutes = int(duration_minutes)
+                    except ValueError:
+                        duration_minutes = 60
+                end_time = DateTimeValidator.add_duration_to_datetime(start_time, duration_minutes)
+            
+            # Skip calendar link generation if we don't have valid times
+            if not start_time or not end_time:
+                logger.warning(f"Invalid datetime for appointment {appointment.get('id')}: start_time={start_time}, end_time={end_time}")
+                return '#'
+            
             # Create calendar event object
             calendar_event = CalendarEvent(
                 title=f"Appointment with {appointment.get('doctor_name', 'Doctor')}",
-                start_time=appointment.get('start_time'),
-                end_time=appointment.get('end_time'),
+                start_time=start_time,
+                end_time=end_time,
                 description=appointment.get('notes', f"Location: {appointment.get('location', 'TBD')}"),
                 location=appointment.get('location', '')
             )
             
-            # Use interactive service to generate calendar link
-            return self.interactive_service.generate_calendar_link(
-                event=calendar_event,
-                provider='google'  # Default to Google Calendar
-            )
+            # Use interactive service to generate calendar links
+            calendar_links = self.interactive_service.generate_calendar_links(calendar_event)
+            # Return Google Calendar link as default
+            return calendar_links.get('google', '#')
             
         except Exception as e:
             logger.error(f"Error generating calendar link: {e}")

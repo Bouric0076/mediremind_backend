@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import uuid
 import time
 from datetime import datetime, timedelta
@@ -60,10 +61,10 @@ class ServiceMessage:
 
 @dataclass
 class ServiceConfig:
-    """Configuration for a microservice."""
+    """Configuration for microservices."""
     service_name: str
     service_type: ServiceType
-    host: str = "localhost"
+    host: str = field(default_factory=lambda: os.getenv('SERVICE_HOST', 'localhost'))
     port: int = 8000
     health_check_endpoint: str = "/health"
     metrics_endpoint: str = "/metrics"

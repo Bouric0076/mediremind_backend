@@ -5,10 +5,23 @@ from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from django.db import transaction, models
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from authentication.utils import get_authenticated_user
 from authentication.middleware import api_csrf_exempt, get_request_user
-from .models import Appointment, AppointmentType, Room, Equipment
+from .models import Appointment, AppointmentType, Room, Equipment, AppointmentWaitlist
 from accounts.models import EnhancedPatient, EnhancedStaffProfile
+from .serializers import (
+    AppointmentSerializer, AppointmentCreateSerializer, AppointmentUpdateSerializer,
+    AppointmentListSerializer, AppointmentTypeSerializer,
+    AppointmentWaitlistSerializer, TimeSlotSerializer
+)
+from .forms import (
+    AppointmentForm, AppointmentUpdateForm, AppointmentCancelForm,
+    AppointmentSearchForm, AvailabilityCheckForm
+)
 from .utils import (
     validate_appointment_datetime,
     check_doctor_availability,
@@ -41,205 +54,191 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
             message = f"Appointment {action} for {appointment_data['date']} at {appointment_data['time']}"
         
         # Send notifications using the notification system
-        send_appointment_confirmation(patient_email, appointment_data)
-        send_appointment_update(doctor_email, appointment_data, action)
+        send_appointment_confirmation(appointment_data['id'], patient_email, doctor_email)
+        send_appointment_update(appointment_data, action, patient_email, doctor_email)
         logger.info(f"Notification sent: {message} to {patient_email} and {doctor_email}")
         
     except Exception as e:
         logger.error(f"Failed to send notification: {str(e)}")
 
 
-@api_csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_appointment(request):
     """Create a new appointment - accessible by both staff and patients"""
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    # Verify authentication
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
-        data = json.loads(request.body)
+        user_role = getattr(request.user, 'role', 'patient')
+        user_hospital = None
         
-        # Validate required fields
-        required_fields = ['patient_id', 'provider_id', 'appointment_type_id', 'date', 'time']
-        for field in required_fields:
-            if field not in data:
-                return JsonResponse({"error": f"Missing required field: {field}"}, status=400)
-
-        # Validate and get related objects
-        try:
-            patient = EnhancedPatient.objects.get(id=data['patient_id'])
-            provider = EnhancedStaffProfile.objects.get(id=data['provider_id'], role='doctor')
-            appointment_type = AppointmentType.objects.get(id=data['appointment_type_id'])
-        except (EnhancedPatient.DoesNotExist, EnhancedStaffProfile.DoesNotExist, AppointmentType.DoesNotExist) as e:
-            return JsonResponse({"error": f"Invalid reference: {str(e)}"}, status=400)
-
-        # Validate date and time
-        valid, error_msg = validate_appointment_datetime(data['date'], data['time'])
-        if not valid:
-            return JsonResponse({"error": error_msg}, status=400)
-
-        # Check availability
-        valid, error_msg = check_doctor_availability(provider.id, data['date'], data['time'])
-        if not valid:
-            return JsonResponse({"error": error_msg}, status=409)
-
-        valid, error_msg = check_patient_availability(patient.id, data['date'], data['time'])
-        if not valid:
-            return JsonResponse({"error": error_msg}, status=409)
-
-        # Create appointment with transaction
-        with transaction.atomic():
-            appointment = Appointment.objects.create(
-                patient=patient,
-                provider=provider,
-                appointment_type=appointment_type,
-                date=data['date'],
-                time=data['time'],
-                title=data.get('title', f"{appointment_type.name} - {patient.user.get_full_name()}"),
-                reason=data.get('reason', ''),
-                notes=data.get('notes', ''),
-                status='pending',
-                priority=data.get('priority', 'medium'),
-                created_by=user
-            )
-
-            # Send notifications
-            appointment_data = {
-                'id': appointment.id,
-                'date': appointment.date,
-                'time': appointment.time,
-                'type': appointment.appointment_type.name,
-                'patient': patient.user.get_full_name(),
-                'provider': provider.user.get_full_name()
-            }
-            
-            send_appointment_notification(
-                appointment_data, 
-                'created',
-                patient.user.email,
-                provider.user.email
-            )
-
-            # Schedule reminder
-            appointment_reminder_service.schedule_reminder(appointment.id)
-
-        return JsonResponse({
-            "message": "Appointment created successfully",
-            "appointment_id": appointment.id
-        }, status=201)
-
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
-    except Exception as e:
-        logger.error(f"Create appointment error: {str(e)}")
-        return JsonResponse({"error": "Failed to create appointment"}, status=500)
-
-
-@api_csrf_exempt
-def update_appointment(request, appointment_id):
-    """Update an existing appointment"""
-    if request.method != "PUT":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
-    try:
-        appointment = get_object_or_404(Appointment, id=appointment_id)
+        # Get user's hospital if staff/admin
+        if user_role != 'patient':
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+                user_hospital = staff_profile.hospital
+                if not user_hospital:
+                    return Response({
+                        "error": "Hospital association not found"
+                    }, status=status.HTTP_403_FORBIDDEN)
+            except EnhancedStaffProfile.DoesNotExist:
+                return Response({
+                    "error": "Staff profile not found"
+                }, status=status.HTTP_404_NOT_FOUND)
         
-        # Check permissions
-        user_role = getattr(user, 'role', 'patient')
-        if user_role == 'patient' and appointment.patient.user != user:
-            return JsonResponse({"error": "Permission denied"}, status=403)
-        elif user_role == 'doctor' and appointment.provider.user != user:
-            return JsonResponse({"error": "Permission denied"}, status=403)
-
-        data = json.loads(request.body)
+        # Use serializer for validation and creation
+        serializer = AppointmentCreateSerializer(
+            data=request.data, 
+            context={'request': request, 'user': request.user, 'hospital': user_hospital}
+        )
         
-        # Track changes for notifications
-        changes = {}
-        
-        # Update allowed fields based on user role
-        if user_role in ['admin', 'staff']:
-            updatable_fields = ['date', 'time', 'status', 'priority', 'notes', 'reason', 'title']
-        elif user_role == 'doctor':
-            updatable_fields = ['status', 'notes', 'date', 'time']
-        else:  # patient
-            updatable_fields = ['notes', 'reason']
-
-        with transaction.atomic():
-            for field in updatable_fields:
-                if field in data:
-                    old_value = getattr(appointment, field)
-                    new_value = data[field]
-                    
-                    if field in ['date', 'time'] and old_value != new_value:
-                        # Validate new date/time
-                        date_val = data.get('date', appointment.date)
-                        time_val = data.get('time', appointment.time)
-                        
-                        valid, error_msg = validate_appointment_datetime(date_val, time_val)
-                        if not valid:
-                            return JsonResponse({"error": error_msg}, status=400)
-
-                        # Check availability (excluding current appointment)
-                        valid, error_msg = check_doctor_availability(
-                            appointment.provider.id, date_val, time_val, appointment_id
-                        )
-                        if not valid:
-                            return JsonResponse({"error": error_msg}, status=409)
-
-                        valid, error_msg = check_patient_availability(
-                            appointment.patient.id, date_val, time_val, appointment_id
-                        )
-                        if not valid:
-                            return JsonResponse({"error": error_msg}, status=409)
-
-                    if field == 'status':
-                        valid, error_msg = validate_appointment_status(new_value, user_role == 'doctor')
-                        if not valid:
-                            return JsonResponse({"error": error_msg}, status=400)
-
-                    if old_value != new_value:
-                        changes[field] = {'old': old_value, 'new': new_value}
-                        setattr(appointment, field, new_value)
-
-            if changes:
-                appointment.save()
+        if serializer.is_valid():
+            with transaction.atomic():
+                appointment = serializer.save()
                 
-                # Send update notifications
+                # If staff/admin, ensure the appointment is linked to their hospital
+                if user_role != 'patient' and user_hospital:
+                    # Update patient's hospital if not set
+                    if not appointment.patient.hospital:
+                        appointment.patient.hospital = user_hospital
+                        appointment.patient.save()
+                    
+                    # Update provider's hospital if not set
+                    if not appointment.provider.hospital:
+                        appointment.provider.hospital = user_hospital
+                        appointment.provider.save()
+                
+                # Send notifications
                 appointment_data = {
                     'id': appointment.id,
-                    'date': appointment.date,
-                    'time': appointment.time,
+                    'date': appointment.appointment_date,
+                    'time': appointment.start_time,
                     'type': appointment.appointment_type.name,
                     'patient': appointment.patient.user.get_full_name(),
-                    'provider': appointment.provider.user.get_full_name(),
-                    'changes': changes
+                    'provider': appointment.provider.user.get_full_name()
                 }
                 
                 send_appointment_notification(
-                    appointment_data,
-                    'updated',
+                    appointment_data, 
+                    'created',
                     appointment.patient.user.email,
                     appointment.provider.user.email
                 )
 
-        return JsonResponse({
-            "message": "Appointment updated successfully",
-            "changes": changes
-        }, status=200)
+                # Schedule reminder
+                appointment_reminder_service.schedule_appointment_reminders(appointment)
+                
+                # Return detailed appointment data
+                response_serializer = AppointmentSerializer(appointment)
+                return Response({
+                    "message": "Appointment created successfully",
+                    "appointment": response_serializer.data
+                }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            "error": "Validation failed",
+            "details": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+    except Exception as e:
+        logger.error(f"Create appointment error: {str(e)}")
+        return Response({
+            "error": "Failed to create appointment"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_appointment(request, appointment_id):
+    """Update an existing appointment"""
+    try:
+        # Get user's hospital if staff/admin
+        user_role = getattr(request.user, 'role', 'patient')
+        user_hospital = None
+        
+        if user_role != 'patient':
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+                user_hospital = staff_profile.hospital
+            except EnhancedStaffProfile.DoesNotExist:
+                return Response({
+                    "error": "Staff profile not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        appointment = get_object_or_404(Appointment, id=appointment_id)
+        
+        # Check permissions
+        if user_role == 'patient' and appointment.patient.user != request.user:
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        elif user_role == 'doctor' and appointment.provider.user != request.user:
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        elif user_role not in ['patient', 'doctor']:
+            # For admin/staff, check hospital association
+            if user_hospital:
+                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                provider_hospital = getattr(appointment.provider, 'hospital', None)
+                
+                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                    return Response({"error": "Permission denied - hospital mismatch"}, 
+                                   status=status.HTTP_403_FORBIDDEN)
+            else:
+                return Response({"error": "Hospital association not found"}, 
+                               status=status.HTTP_403_FORBIDDEN)
+
+        # Use serializer for validation and update
+        serializer = AppointmentUpdateSerializer(
+            appointment, 
+            data=request.data, 
+            partial=(request.method == 'PATCH'),
+            context={'request': request, 'user': request.user, 'hospital': user_hospital}
+        )
+        
+        if serializer.is_valid():
+            with transaction.atomic():
+                # Track changes for notifications
+                old_data = AppointmentSerializer(appointment).data
+                updated_appointment = serializer.save()
+                new_data = AppointmentSerializer(updated_appointment).data
+                
+                # Identify changes
+                changes = {}
+                for key in ['appointment_date', 'start_time', 'status', 'priority']:
+                    if old_data.get(key) != new_data.get(key):
+                        changes[key] = {'old': old_data.get(key), 'new': new_data.get(key)}
+                
+                if changes:
+                    # Send update notifications
+                    appointment_data = {
+                        'id': updated_appointment.id,
+                        'date': updated_appointment.appointment_date,
+                        'time': updated_appointment.start_time,
+                        'type': updated_appointment.appointment_type.name,
+                        'patient': updated_appointment.patient.user.get_full_name(),
+                        'provider': updated_appointment.provider.user.get_full_name(),
+                        'changes': changes
+                    }
+                    
+                    send_appointment_notification(
+                        appointment_data,
+                        'updated',
+                        updated_appointment.patient.user.email,
+                        updated_appointment.provider.user.email
+                    )
+
+                return Response({
+                    "message": "Appointment updated successfully",
+                    "appointment": AppointmentSerializer(updated_appointment).data,
+                    "changes": changes
+                }, status=status.HTTP_200_OK)
+        
+        return Response({
+            "error": "Validation failed",
+            "details": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
     except Exception as e:
         logger.error(f"Update appointment error: {str(e)}")
-        return JsonResponse({"error": "Failed to update appointment"}, status=500)
+        return Response({
+            "error": "Failed to update appointment"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_csrf_exempt
@@ -253,14 +252,36 @@ def cancel_appointment(request, appointment_id):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
+        # Get user's hospital if staff/admin
+        user_role = getattr(user, 'role', 'patient')
+        user_hospital = None
+        
+        if user_role != 'patient':
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                user_hospital = staff_profile.hospital
+            except EnhancedStaffProfile.DoesNotExist:
+                return JsonResponse({
+                    "error": "Staff profile not found"
+                }, status=404)
+        
         appointment = get_object_or_404(Appointment, id=appointment_id)
         
         # Check permissions
-        user_role = getattr(user, 'role', 'patient')
         if user_role == 'patient' and appointment.patient.user != user:
             return JsonResponse({"error": "Permission denied"}, status=403)
         elif user_role == 'doctor' and appointment.provider.user != user:
             return JsonResponse({"error": "Permission denied"}, status=403)
+        elif user_role not in ['patient', 'doctor']:
+            # For admin/staff, check hospital association
+            if user_hospital:
+                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                provider_hospital = getattr(appointment.provider, 'hospital', None)
+                
+                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                    return JsonResponse({"error": "Permission denied - hospital mismatch"}, status=403)
+            else:
+                return JsonResponse({"error": "Hospital association not found"}, status=403)
 
         # Check if appointment can be cancelled
         if appointment.status in ['completed', 'cancelled']:
@@ -305,140 +326,142 @@ def cancel_appointment(request, appointment_id):
         return JsonResponse({"error": "Failed to cancel appointment"}, status=500)
 
 
-@api_csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_appointment_detail(request, appointment_id):
     """Get detailed information about a specific appointment"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
-        appointment = get_object_or_404(Appointment, id=appointment_id)
+        # Get user's hospital if staff/admin
+        user_role = getattr(request.user, 'role', 'patient')
+        user_hospital = None
+        
+        if user_role != 'patient':
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+                user_hospital = staff_profile.hospital
+            except EnhancedStaffProfile.DoesNotExist:
+                return Response({
+                    "error": "Staff profile not found"
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get the appointment
+        appointment = get_object_or_404(
+            Appointment.objects.select_related(
+                'patient__user', 'provider__user', 'appointment_type', 'room'
+            ).prefetch_related('equipment'),
+            id=appointment_id
+        )
         
         # Check permissions
-        user_role = getattr(user, 'role', 'patient')
-        if user_role == 'patient' and appointment.patient.user != user:
-            return JsonResponse({"error": "Permission denied"}, status=403)
-        elif user_role == 'doctor' and appointment.provider.user != user:
-            return JsonResponse({"error": "Permission denied"}, status=403)
+        if user_role == 'patient' and appointment.patient.user != request.user:
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        elif user_role == 'doctor' and appointment.provider.user != request.user:
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        elif user_role not in ['patient', 'doctor']:
+            # For admin/staff, check hospital association
+            if user_hospital:
+                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                provider_hospital = getattr(appointment.provider, 'hospital', None)
+                
+                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                    return Response({"error": "Permission denied - hospital mismatch"}, 
+                                   status=status.HTTP_403_FORBIDDEN)
+            else:
+                return Response({"error": "Hospital association not found"}, 
+                               status=status.HTTP_403_FORBIDDEN)
 
-        appointment_data = {
-            'id': appointment.id,
-            'patient': {
-                'id': appointment.patient.id,
-                'name': appointment.patient.user.get_full_name(),
-                'email': appointment.patient.user.email,
-                'phone': appointment.patient.phone_number
-            },
-            'provider': {
-                'id': appointment.provider.id,
-                'name': appointment.provider.user.get_full_name(),
-                'email': appointment.provider.user.email,
-                'specialization': appointment.provider.specialization
-            },
-            'appointment_type': {
-                'id': appointment.appointment_type.id,
-                'name': appointment.appointment_type.name,
-                'duration': appointment.appointment_type.duration_minutes,
-                'price': str(appointment.appointment_type.price)
-            },
-            'date': appointment.date,
-            'time': appointment.time,
-            'duration': appointment.duration_minutes,
-            'title': appointment.title,
-            'reason': appointment.reason,
-            'notes': appointment.notes,
-            'status': appointment.status,
-            'priority': appointment.priority,
-            'estimated_cost': str(appointment.estimated_cost),
-            'actual_cost': str(appointment.actual_cost) if appointment.actual_cost else None,
-            'room': appointment.room.name if appointment.room else None,
-            'equipment': [eq.name for eq in appointment.equipment.all()],
-            'created_at': appointment.created_at,
-            'updated_at': appointment.updated_at,
-            'is_recurring': appointment.is_recurring,
-            'recurrence_pattern': appointment.recurrence_pattern if appointment.is_recurring else None
-        }
+        # Serialize appointment data
+        serializer = AppointmentSerializer(appointment)
 
-        return JsonResponse({
+        return Response({
             "message": "Appointment details retrieved successfully",
-            "appointment": appointment_data
-        }, status=200)
+            "appointment": serializer.data
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Get appointment detail error: {str(e)}")
-        return JsonResponse({"error": "Failed to retrieve appointment details"}, status=500)
+        return Response({
+            "error": "Failed to retrieve appointment details"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_appointments(request):
     """List appointments with filtering and pagination"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
-        user_role = getattr(user, 'role', 'patient')
+        user_role = getattr(request.user, 'role', 'patient')
+        
+        # Get user's hospital
+        user_hospital = None
+        if user_role != 'patient':
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+                user_hospital = staff_profile.hospital
+            except EnhancedStaffProfile.DoesNotExist:
+                return Response({
+                    "error": "Staff profile not found"
+                }, status=status.HTTP_404_NOT_FOUND)
         
         # Base queryset based on user role
         if user_role == 'patient':
-            queryset = Appointment.objects.filter(patient__user=user)
+            queryset = Appointment.objects.filter(patient__user=request.user)
         elif user_role == 'doctor':
-            queryset = Appointment.objects.filter(provider__user=user)
+            queryset = Appointment.objects.filter(provider__user=request.user)
         else:  # admin/staff
-            queryset = Appointment.objects.all()
+            if user_hospital:
+                # Filter appointments by hospital
+                queryset = Appointment.objects.filter(
+                    models.Q(patient__hospital=user_hospital) | 
+                    models.Q(provider__hospital=user_hospital)
+                )
+            else:
+                return Response({
+                    "error": "Hospital association not found"
+                }, status=status.HTTP_403_FORBIDDEN)
 
-        # Apply filters
-        status = request.GET.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-
-        date_from = request.GET.get('date_from')
-        if date_from:
-            queryset = queryset.filter(date__gte=date_from)
-
-        date_to = request.GET.get('date_to')
-        if date_to:
-            queryset = queryset.filter(date__lte=date_to)
-
-        priority = request.GET.get('priority')
-        if priority:
-            queryset = queryset.filter(priority=priority)
+        # Use search form for validation
+        search_form = AppointmentSearchForm(request.GET)
+        if search_form.is_valid():
+            # Apply filters
+            if search_form.cleaned_data.get('status'):
+                queryset = queryset.filter(status=search_form.cleaned_data['status'])
+            
+            if search_form.cleaned_data.get('date_from'):
+                queryset = queryset.filter(appointment_date__gte=search_form.cleaned_data['date_from'])
+            
+            if search_form.cleaned_data.get('date_to'):
+                queryset = queryset.filter(appointment_date__lte=search_form.cleaned_data['date_to'])
+            
+            if search_form.cleaned_data.get('priority'):
+                queryset = queryset.filter(priority=search_form.cleaned_data['priority'])
+            
+            if search_form.cleaned_data.get('patient'):
+                queryset = queryset.filter(patient=search_form.cleaned_data['patient'])
+            
+            if search_form.cleaned_data.get('provider'):
+                queryset = queryset.filter(provider=search_form.cleaned_data['provider'])
+            
+            if search_form.cleaned_data.get('appointment_type'):
+                queryset = queryset.filter(appointment_type=search_form.cleaned_data['appointment_type'])
 
         # Ordering
-        queryset = queryset.order_by('date', 'time')
+        queryset = queryset.select_related(
+            'patient__user', 'provider__user', 'appointment_type', 'room'
+        ).order_by('appointment_date', 'start_time')
 
         # Pagination
         page = int(request.GET.get('page', 1))
-        per_page = int(request.GET.get('per_page', 20))
+        per_page = min(int(request.GET.get('per_page', 20)), 100)  # Max 100 per page
         paginator = Paginator(queryset, per_page)
         appointments_page = paginator.get_page(page)
 
-        appointments_data = []
-        for appointment in appointments_page:
-            appointments_data.append({
-                'id': appointment.id,
-                'patient_name': appointment.patient.user.get_full_name(),
-                'provider_name': appointment.provider.user.get_full_name(),
-                'appointment_type': appointment.appointment_type.name,
-                'date': appointment.date,
-                'time': appointment.time,
-                'duration': appointment.duration_minutes,
-                'status': appointment.status,
-                'priority': appointment.priority,
-                'title': appointment.title,
-                'room': appointment.room.name if appointment.room else None
-            })
+        # Serialize data
+        serializer = AppointmentListSerializer(appointments_page, many=True)
 
-        return JsonResponse({
+        return Response({
             "message": "Appointments retrieved successfully",
-            "appointments": appointments_data,
+            "appointments": serializer.data,
             "pagination": {
                 "current_page": page,
                 "total_pages": paginator.num_pages,
@@ -447,181 +470,297 @@ def list_appointments(request):
                 "has_next": appointments_page.has_next(),
                 "has_previous": appointments_page.has_previous()
             }
-        }, status=200)
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"List appointments error: {str(e)}")
-        return JsonResponse({"error": "Failed to retrieve appointments"}, status=500)
+        return Response({
+            "error": "Failed to retrieve appointments"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def check_availability(request):
-    """Check availability for a specific date, time, and provider"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
+    """Check provider availability for a specific date and time"""
     try:
-        provider_id = request.GET.get('provider_id')
-        date_str = request.GET.get('date')
-        time_str = request.GET.get('time')
-        duration = int(request.GET.get('duration', 30))
+        # Use form for validation
+        form = AvailabilityCheckForm(request.data)
+        if not form.is_valid():
+            return Response({
+                "error": "Validation failed",
+                "details": form.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        if not all([provider_id, date_str, time_str]):
-            return JsonResponse({"error": "Missing required parameters"}, status=400)
+        provider_id = form.cleaned_data['provider_id']
+        date = form.cleaned_data['date']
+        time = form.cleaned_data['time']
+        duration = form.cleaned_data.get('duration', 30)
 
         # Validate provider
         try:
             provider = EnhancedStaffProfile.objects.get(id=provider_id, role='doctor')
         except EnhancedStaffProfile.DoesNotExist:
-            return JsonResponse({"error": "Provider not found"}, status=404)
+            return Response({"error": "Provider not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check availability
-        valid, error_msg = check_doctor_availability(provider_id, date_str, time_str)
-        
-        return JsonResponse({
-            "available": valid,
-            "message": "Available" if valid else error_msg,
+        # Parse date and time
+        appointment_datetime = datetime.combine(date, time)
+        end_datetime = appointment_datetime + timedelta(minutes=duration)
+
+        # Check for conflicts
+        conflicts = Appointment.objects.filter(
+            provider=provider,
+            appointment_date=date,
+            status__in=['pending', 'confirmed']
+        ).exclude(
+            models.Q(start_time__gte=end_datetime.time()) | 
+            models.Q(start_time__lt=time)
+        )
+
+        is_available = not conflicts.exists()
+
+        return Response({
+            "available": is_available,
+            "conflicts": list(conflicts.values('id', 'start_time', 'default_duration')) if conflicts.exists() else [],
             "provider": provider.user.get_full_name(),
-            "date": date_str,
-            "time": time_str,
+            "date": date,
+            "time": time,
             "duration": duration
-        }, status=200)
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Check availability error: {str(e)}")
-        return JsonResponse({"error": "Failed to check availability"}, status=500)
+        return Response({
+            "error": "Failed to check availability"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_appointment_statistics(request):
     """Get appointment statistics for dashboard"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
-        user_role = getattr(user, 'role', 'patient')
+        user_role = getattr(request.user, 'role', 'patient')
         today = timezone.now().date()
         
-        # Base queryset based on user role
         if user_role == 'patient':
-            queryset = Appointment.objects.filter(patient__user=user)
-        elif user_role == 'doctor':
-            queryset = Appointment.objects.filter(provider__user=user)
-        else:  # admin/staff
-            queryset = Appointment.objects.all()
+            # Patient statistics
+            try:
+                patient = EnhancedPatient.objects.get(user=request.user)
+            except EnhancedPatient.DoesNotExist:
+                return Response({"error": "Patient profile not found"}, status=status.HTTP_404_NOT_FOUND)
+                
+            stats = {
+                'total_appointments': Appointment.objects.filter(patient=patient).count(),
+                'upcoming_appointments': Appointment.objects.filter(
+                    patient=patient,
+                    appointment_date__gte=today,
+                    status__in=['pending', 'confirmed']
+                ).count(),
+                'completed_appointments': Appointment.objects.filter(
+                    patient=patient,
+                    status='completed'
+                ).count(),
+                'cancelled_appointments': Appointment.objects.filter(
+                    patient=patient,
+                    status='cancelled'
+                ).count(),
+                'this_month_appointments': Appointment.objects.filter(
+                    patient=patient,
+                    appointment_date__year=today.year,
+                    appointment_date__month=today.month
+                ).count()
+            }
+        else:
+            # Doctor/Admin statistics
+            if user_role == 'doctor':
+                try:
+                    provider = EnhancedStaffProfile.objects.get(user=request.user, role='doctor')
+                    base_filter = {'provider': provider}
+                except EnhancedStaffProfile.DoesNotExist:
+                    return Response({"error": "Provider profile not found"}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                base_filter = {}
+            
+            stats = {
+                'total_appointments': Appointment.objects.filter(**base_filter).count(),
+                'today_appointments': Appointment.objects.filter(
+                    appointment_date=today,
+                    **base_filter
+                ).count(),
+                'upcoming_appointments': Appointment.objects.filter(
+                    appointment_date__gte=today,
+                    status__in=['pending', 'confirmed'],
+                    **base_filter
+                ).count(),
+                'completed_appointments': Appointment.objects.filter(
+                    status='completed',
+                    **base_filter
+                ).count(),
+                'cancelled_appointments': Appointment.objects.filter(
+                    status='cancelled',
+                    **base_filter
+                ).count(),
+                'pending_appointments': Appointment.objects.filter(
+                    status='pending',
+                    **base_filter
+                ).count()
+            }
 
-        # Calculate statistics
-        total = queryset.count()
-        pending = queryset.filter(status='pending').count()
-        confirmed = queryset.filter(status='confirmed').count()
-        completed = queryset.filter(status='completed').count()
-        cancelled = queryset.filter(status='cancelled').count()
-        today_count = queryset.filter(date=today).count()
-        
-        # Week and month calculations
-        week_start = today - timedelta(days=today.weekday())
-        month_start = today.replace(day=1)
-        
-        this_week = queryset.filter(date__gte=week_start).count()
-        this_month = queryset.filter(date__gte=month_start).count()
-
-        stats = {
-            "total": total,
-            "pending": pending,
-            "confirmed": confirmed,
-            "completed": completed,
-            "cancelled": cancelled,
-            "today": today_count,
-            "this_week": this_week,
-            "this_month": this_month
-        }
-
-        return JsonResponse({
+        return Response({
             "message": "Statistics retrieved successfully",
-            "stats": stats
-        }, status=200)
+            "statistics": stats
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Get statistics error: {str(e)}")
-        return JsonResponse({"error": "Failed to retrieve statistics"}, status=500)
+        return Response({
+            "error": "Failed to retrieve statistics"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_available_time_slots(request):
-    """Get available time slots for a provider on a specific date"""
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    user = get_request_user(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
+    """Get available time slots for a provider on a specific date with enhanced conflict detection"""
     try:
         provider_id = request.GET.get('provider_id')
         date_str = request.GET.get('date')
         duration = int(request.GET.get('duration', 30))
+        exclude_appointment_id = request.GET.get('exclude_appointment_id')  # For editing appointments
 
         if not all([provider_id, date_str]):
-            return JsonResponse({"error": "Missing required parameters"}, status=400)
+            return Response({"error": "Provider ID and date are required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate provider
         try:
             provider = EnhancedStaffProfile.objects.get(id=provider_id, role='doctor')
         except EnhancedStaffProfile.DoesNotExist:
-            return JsonResponse({"error": "Provider not found"}, status=404)
+            return Response({"error": "Provider not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get existing appointments for the date
-        existing_appointments = Appointment.objects.filter(
+        # Parse date
+        try:
+            appointment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get existing appointments for the provider on this date
+        existing_appointments_query = Appointment.objects.filter(
             provider=provider,
-            date=date_str,
-            status__in=['pending', 'confirmed']
-        ).values_list('time', 'duration_minutes')
+            appointment_date=appointment_date,
+            status__in=['scheduled', 'confirmed', 'pending', 'checked_in', 'in_progress']
+        )
+        
+        # Exclude current appointment if editing
+        if exclude_appointment_id:
+            existing_appointments_query = existing_appointments_query.exclude(id=exclude_appointment_id)
+        
+        existing_appointments = existing_appointments_query.values_list('start_time', 'end_time', 'duration')
 
-        # Generate time slots (9 AM to 5 PM, 30-minute intervals)
+        # Generate time slots (8 AM to 6 PM, 15-minute intervals for better granularity)
+        start_time = time(8, 0)
+        end_time = time(18, 0)
+        slot_interval = timedelta(minutes=15)  # Check every 15 minutes for better availability
+        
         available_slots = []
-        start_time = time(9, 0)  # 9:00 AM
-        end_time = time(17, 0)   # 5:00 PM
-        
-        current_time = datetime.combine(date.today(), start_time)
-        end_datetime = datetime.combine(date.today(), end_time)
-        
-        while current_time < end_datetime:
+        unavailable_slots = []
+        current_time = datetime.combine(appointment_date, start_time)
+        end_datetime = datetime.combine(appointment_date, end_time)
+
+        while current_time + timedelta(minutes=duration) <= end_datetime:
             slot_time = current_time.time()
+            slot_end_time = (current_time + timedelta(minutes=duration)).time()
             
             # Check if this slot conflicts with existing appointments
             is_available = True
-            for app_time, app_duration in existing_appointments:
-                app_start = datetime.combine(date.today(), app_time)
-                app_end = app_start + timedelta(minutes=app_duration)
-                slot_start = current_time
-                slot_end = current_time + timedelta(minutes=duration)
+            conflict_reason = None
+            
+            for appt_start_time, appt_end_time, appt_duration in existing_appointments:
+                # Use end_time if available, otherwise calculate from start_time + duration
+                if appt_end_time:
+                    calculated_end_time = appt_end_time
+                else:
+                    calculated_end_time = (datetime.combine(appointment_date, appt_start_time) + 
+                                         timedelta(minutes=appt_duration)).time()
                 
-                # Check for overlap
-                if not (slot_end <= app_start or slot_start >= app_end):
+                # Check for overlap: appointments overlap if one starts before the other ends
+                if not (slot_end_time <= appt_start_time or slot_time >= calculated_end_time):
                     is_available = False
+                    conflict_reason = f"Conflicts with appointment from {appt_start_time.strftime('%H:%M')} to {calculated_end_time.strftime('%H:%M')}"
                     break
             
-            if is_available:
-                available_slots.append(slot_time.strftime('%H:%M'))
+            # Check if slot is in the past (for today's appointments)
+            if appointment_date == date.today():
+                now = datetime.now().time()
+                if slot_time <= now:
+                    is_available = False
+                    conflict_reason = "Time has passed"
             
-            current_time += timedelta(minutes=30)
+            slot_data = {
+                'time': slot_time.strftime('%H:%M'),
+                'end_time': slot_end_time.strftime('%H:%M'),
+                'duration': duration,
+                'available': is_available
+            }
+            
+            if is_available:
+                available_slots.append(slot_data)
+            else:
+                slot_data['reason'] = conflict_reason
+                unavailable_slots.append(slot_data)
+            
+            current_time += slot_interval
 
-        return JsonResponse({
+        # Group slots by time periods for better UX
+        time_periods = {
+            'morning': {'label': 'Morning (8:00 AM - 12:00 PM)', 'slots': []},
+            'afternoon': {'label': 'Afternoon (12:00 PM - 5:00 PM)', 'slots': []},
+            'evening': {'label': 'Evening (5:00 PM - 6:00 PM)', 'slots': []}
+        }
+        
+        for slot in available_slots:
+            slot_hour = int(slot['time'].split(':')[0])
+            if slot_hour < 12:
+                time_periods['morning']['slots'].append(slot)
+            elif slot_hour < 17:
+                time_periods['afternoon']['slots'].append(slot)
+            else:
+                time_periods['evening']['slots'].append(slot)
+
+        return Response({
             "message": "Available time slots retrieved successfully",
-            "provider": provider.user.get_full_name(),
             "date": date_str,
-            "duration": duration,
-            "available_slots": available_slots
-        }, status=200)
+            "provider": provider.user.get_full_name(),
+            "provider_id": provider_id,
+            "requested_duration": duration,
+            "total_available_slots": len(available_slots),
+            "available_slots": available_slots,
+            "unavailable_slots": unavailable_slots[:10],  # Limit for performance
+            "time_periods": time_periods,
+            "working_hours": {
+                "start": "08:00",
+                "end": "18:00"
+            }
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Get available time slots error: {str(e)}")
-        return JsonResponse({"error": "Failed to retrieve available time slots"}, status=500)
+        return Response({"error": "Failed to retrieve available time slots"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_appointment_types(request):
+    """List all active appointment types"""
+    try:
+        appointment_types = AppointmentType.objects.filter(is_active=True).order_by('name')
+        serializer = AppointmentTypeSerializer(appointment_types, many=True)
+        
+        return Response({
+            "message": "Appointment types retrieved successfully",
+            "appointment_types": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"List appointment types error: {str(e)}")
+        return Response({"error": "Failed to retrieve appointment types"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

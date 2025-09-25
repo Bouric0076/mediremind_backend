@@ -5,8 +5,7 @@ import { permissionChecker, type UserRole, type DetailedPermissions } from '../.
 export interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  full_name: string;
   role: UserRole;
   permissions: string[];
   avatar?: string;
@@ -15,6 +14,13 @@ export interface User {
   phone?: string;
   session_expires?: string;
   detailedPermissions?: DetailedPermissions;
+  profile?: {
+    type: string;
+    id: string;
+    specialization?: string;
+    license_number?: string;
+    department?: string;
+  };
 }
 
 interface AuthState {

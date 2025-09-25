@@ -1,8 +1,9 @@
 from django.conf import settings
-# from pywebpush import webpush, WebPushException  # Commented out - not compatible with Python 3.13
+from pywebpush import webpush, WebPushException  # Re-enabled - pywebpush is compatible with Python 3.13
 import json
 from pathlib import Path
 from supabase_client import admin_client
+from .logging_config import NotificationLogger, LogCategory
 import base64
 from io import BytesIO
 
@@ -11,35 +12,112 @@ class PushNotificationHandler:
     
     def __init__(self):
         """Initialize with VAPID keys from settings"""
-        self.vapid_private_key = settings.WEBPUSH_SETTINGS.get('VAPID_PRIVATE_KEY')
-        self.vapid_public_key = settings.WEBPUSH_SETTINGS.get('VAPID_PUBLIC_KEY')
-        self.vapid_claims = {
-            "sub": f"mailto:{settings.WEBPUSH_SETTINGS.get('VAPID_ADMIN_EMAIL', 'admin@mediremind.com')}",
-            "aud": "https://fcm.googleapis.com"  # Required for Chrome/Firefox
-        }
+        self.logger = NotificationLogger('push_notifications')
+        try:
+            webpush_settings = getattr(settings, 'WEBPUSH_SETTINGS', {})
+            self.vapid_private_key = webpush_settings.get('VAPID_PRIVATE_KEY')
+            self.vapid_public_key = webpush_settings.get('VAPID_PUBLIC_KEY')
+            self.vapid_claims = {
+                "sub": f"mailto:{webpush_settings.get('VAPID_ADMIN_EMAIL', 'admin@mediremind.com')}",
+                "aud": "https://fcm.googleapis.com"  # Required for Chrome/Firefox
+            }
+        except:
+            # Fallback for when Django settings are not configured (e.g., during testing)
+            self.vapid_private_key = None
+            self.vapid_public_key = None
+            self.vapid_claims = {
+                "sub": "mailto:admin@mediremind.com",
+                "aud": "https://fcm.googleapis.com"
+            }
         
-        # Web push functionality temporarily disabled due to Python 3.13 compatibility issues
         if not self.vapid_private_key or not self.vapid_public_key:
-            print("Warning: VAPID keys not properly configured. Web push notifications disabled.")
+            self.logger.warning(
+                LogCategory.NOTIFICATION,
+                "VAPID keys not properly configured. Web push notifications disabled.",
+                "push_notification_manager",
+                metadata={'vapid_configured': False}
+            )
     
     def send_push_notification(self, subscription_info, title, message, url=None, data=None):
         """Send a push notification to a subscription"""
-        # Web push functionality temporarily disabled due to Python 3.13 compatibility issues
-        print(f"Web push notification disabled: {title} - {message}")
-        print("Web push functionality temporarily disabled due to Python 3.13 compatibility issues")
-        return False, "Web push functionality temporarily disabled"
+        if not self.vapid_private_key or not self.vapid_public_key:
+            self.logger.warning(
+                LogCategory.NOTIFICATION,
+                "VAPID keys not configured for push notification",
+                "push_notification_sender",
+                metadata={'title': title, 'vapid_configured': False}
+            )
+            return False, "VAPID keys not configured"
+        
+        try:
+            payload = {
+                "title": title,
+                "body": message,
+                "icon": "/static/icons/notification-icon.png",
+                "badge": "/static/icons/badge-icon.png",
+                "data": data or {}
+            }
+            
+            if url:
+                payload["data"]["url"] = url
+            
+            response = webpush(
+                subscription_info=subscription_info,
+                data=json.dumps(payload),
+                vapid_private_key=self.vapid_private_key,
+                vapid_claims={
+                    "sub": f"mailto:{self.vapid_email}",
+                    "aud": f"{subscription_info['endpoint'].split('/')[2]}"
+                }
+            )
+            
+            self.logger.info(
+                LogCategory.NOTIFICATION,
+                f"Push notification sent successfully: {title}",
+                "push_notification_sender",
+                metadata={'title': title, 'endpoint': subscription_info.get('endpoint', 'unknown')}
+            )
+            return True, "Notification sent successfully"
+            
+        except WebPushException as e:
+            self.logger.error(
+                LogCategory.NOTIFICATION,
+                f"Failed to send push notification: {title}",
+                "push_notification_sender",
+                metadata={'title': title, 'error_type': 'WebPushException'},
+                error_details=str(e)
+            )
+            return False, f"WebPush error: {str(e)}"
+        except Exception as e:
+            self.logger.error(
+                LogCategory.NOTIFICATION,
+                f"Unexpected error sending push notification: {title}",
+                "push_notification_sender",
+                metadata={'title': title, 'error_type': type(e).__name__},
+                error_details=str(e)
+            )
+            return False, f"Unexpected error: {str(e)}"
     
     def get_user_subscriptions(self, user_id):
         """Get all push subscriptions for a user from Supabase"""
         try:
             if not user_id:
-                print("No user ID provided")
+                self.logger.warning(
+                    LogCategory.NOTIFICATION,
+                    "No user ID provided for subscription lookup",
+                    "push_subscription_manager"
+                )
                 return []
 
             result = admin_client.table("push_subscriptions").select("*").eq("user_id", user_id).execute()
             
             if not result.data:
-                print(f"No subscriptions found for user {user_id}")
+                self.logger.info(
+                    LogCategory.NOTIFICATION,
+                    f"No push subscriptions found for user",
+                    "push_subscription_manager",
+                    user_id=user_id
+                )
                 return []
                 
             subscriptions = []
@@ -55,7 +133,13 @@ class PushNotificationHandler:
                 
             return subscriptions
         except Exception as e:
-            print(f"Error getting user subscriptions: {str(e)}")
+            self.logger.error(
+                LogCategory.DATABASE,
+                "Error retrieving user push subscriptions",
+                "push_subscription_manager",
+                user_id=user_id,
+                error_details=str(e)
+            )
             return []
     
     def send_to_user(self, user_id, title, message, url=None, data=None):

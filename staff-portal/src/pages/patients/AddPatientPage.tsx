@@ -68,6 +68,11 @@ interface PatientFormData {
     policyNumber: string;
     groupNumber: string;
   };
+  notificationPreferences: {
+    emergencyContactNotifications: boolean;
+    emergencyContactEmail: boolean;
+    emergencyContactSms: boolean;
+  };
   account: {
     password: string;
     confirmPassword: string;
@@ -87,7 +92,7 @@ const initialFormData: PatientFormData = {
     city: '',
     state: '',
     zipCode: '',
-    country: 'USA',
+    country: 'Kenya',
   },
   emergencyContact: {
     name: '',
@@ -104,6 +109,11 @@ const initialFormData: PatientFormData = {
     provider: '',
     policyNumber: '',
     groupNumber: '',
+  },
+  notificationPreferences: {
+    emergencyContactNotifications: true, // Default to enabled as per user request
+    emergencyContactEmail: true,
+    emergencyContactSms: true,
   },
   account: {
     password: '',
@@ -280,7 +290,7 @@ export const AddPatientPage: React.FC = () => {
         headers['Authorization'] = `Token ${token}`;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/accounts/create/`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/accounts/patients/create/`, {
         method: 'POST',
         headers,
         credentials: 'include', // Include cookies for session authentication
@@ -498,6 +508,78 @@ export const AddPatientPage: React.FC = () => {
                       onChange={(e) => handleInputChange('emergencyContact.phone', e.target.value)}
                     />
                   </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Notification Preferences */}
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <EmailIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  <Typography variant="h6">Emergency Contact Notifications</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Configure when the emergency contact should receive appointment notifications. 
+                  By default, emergency contacts will be notified of all appointment activities.
+                </Typography>
+                
+                <Grid container spacing={2}>
+                  <Grid size={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.notificationPreferences.emergencyContactNotifications}
+                          onChange={(e) => handleInputChange('notificationPreferences.emergencyContactNotifications', e.target.checked.toString())}
+                          color="primary"
+                        />
+                      }
+                      label="Enable emergency contact notifications"
+                      sx={{ mb: 2 }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ ml: 4, mb: 2 }}>
+                      When enabled, the emergency contact will receive notifications about appointment confirmations, 
+                      reminders, changes, and no-show alerts.
+                    </Typography>
+                  </Grid>
+                  
+                  {formData.notificationPreferences.emergencyContactNotifications && (
+                    <>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={formData.notificationPreferences.emergencyContactEmail}
+                              onChange={(e) => handleInputChange('notificationPreferences.emergencyContactEmail', e.target.checked.toString())}
+                              color="primary"
+                            />
+                          }
+                          label="Email notifications"
+                        />
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                          Send detailed email notifications to emergency contact
+                        </Typography>
+                      </Grid>
+                      
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={formData.notificationPreferences.emergencyContactSms}
+                              onChange={(e) => handleInputChange('notificationPreferences.emergencyContactSms', e.target.checked.toString())}
+                              color="primary"
+                            />
+                          }
+                          label="SMS notifications"
+                        />
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                          Send SMS alerts to emergency contact's phone
+                        </Typography>
+                      </Grid>
+                    </>
+                  )}
                 </Grid>
               </CardContent>
             </Card>

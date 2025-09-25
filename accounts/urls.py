@@ -7,6 +7,9 @@ urlpatterns = [
     # Test endpoint for debugging
     path('test-auth/', views.test_auth, name='test-auth'),  # GET/POST /accounts/test-auth/
     
+    # Hospital registration
+    path('register-hospital/', views.register_hospital, name='register-hospital'),  # POST /accounts/register-hospital/
+    
     # User profile
     path('profile/', views.get_user_profile, name='user-profile'),  # GET /accounts/profile/
     

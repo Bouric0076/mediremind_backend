@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Reminder for {{ patient_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #ffc107;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #ffc107;
+            margin: 0;
+            font-size: 28px;
+        }
+        .appointment-details {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffeaa7;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #856404;
+        }
+        .detail-value {
+            color: #212529;
+        }
+        .emergency-notice {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .emergency-notice h3 {
+            color: #004085;
+            margin-top: 0;
+        }
+        .reminder-urgency {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .reminder-urgency h3 {
+            color: #856404;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #ffc107;
+            color: #212529;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #e0a800;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+            .detail-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏰ Appointment Reminder</h1>
+            <p>Emergency Contact Notification</p>
+        </div>
+
+        <div class="emergency-notice">
+            <h3>📞 Emergency Contact Notification</h3>
+            <p>Hello {{ emergency_contact_name }},</p>
+            <p>You are receiving this reminder as the <strong>{{ emergency_contact_relationship }}</strong> for <strong>{{ patient_name }}</strong>. They have an upcoming appointment.</p>
+        </div>
+
+        <div class="reminder-urgency">
+            <h3>🕐 Upcoming Appointment</h3>
+            <p style="font-size: 18px; margin: 0;"><strong>{{ patient_name }}</strong> has an appointment coming up!</p>
+        </div>
+
+        <div class="appointment-details">
+            <h3>📅 Appointment Details</h3>
+            <div class="detail-row">
+                <span class="detail-label">Patient:</span>
+                <span class="detail-value">{{ patient_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Doctor:</span>
+                <span class="detail-value">Dr. {{ appointment.doctor_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Date:</span>
+                <span class="detail-value">{{ appointment.date }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Time:</span>
+                <span class="detail-value">{{ appointment.time }}</span>
+            </div>
+            {% if appointment.location %}
+            <div class="detail-row">
+                <span class="detail-label">Location:</span>
+                <span class="detail-value">{{ appointment.location }}</span>
+            </div>
+            {% endif %}
+            {% if appointment.type %}
+            <div class="detail-row">
+                <span class="detail-label">Appointment Type:</span>
+                <span class="detail-value">{{ appointment.type }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <p><strong>{{ patient_name }} should have received their own reminder notification.</strong></p>
+            <p>You may want to check in with them to ensure they're prepared for their appointment.</p>
+            
+            {% if appointment.preparation_instructions %}
+            <div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff; margin: 20px 0; text-align: left;">
+                <strong>Preparation Instructions for {{ patient_name }}:</strong><br>
+                {{ appointment.preparation_instructions }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #495057; margin-top: 0;">💡 How You Can Help:</h4>
+            <ul style="color: #6c757d; margin: 0;">
+                <li>Remind {{ patient_name }} about their appointment</li>
+                <li>Help them prepare any necessary documents or medications</li>
+                <li>Offer transportation assistance if needed</li>
+                <li>Ensure they have their insurance card and ID</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated reminder sent to emergency contacts.</p>
+            <p>If you have concerns about {{ patient_name }}'s appointment, please contact them directly or reach out to our clinic.</p>
+            <p style="margin-top: 20px;">
+                <strong>MediRemind Healthcare</strong><br>
+                📞 Support: {{ support_phone | default:"(555) 123-4567" }}<br>
+                📧 Email: {{ support_email | default:"support@mediremind.com" }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

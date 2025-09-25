@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>No-Show Alert for {{ patient_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #fd7e14;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #fd7e14;
+            margin: 0;
+            font-size: 28px;
+        }
+        .appointment-details {
+            background-color: #fff3cd;
+            border-left: 4px solid #fd7e14;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffeaa7;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #856404;
+        }
+        .detail-value {
+            color: #212529;
+        }
+        .emergency-notice {
+            background-color: #f8d7da;
+            border: 1px solid #f1b0b7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .emergency-notice h3 {
+            color: #721c24;
+            margin-top: 0;
+        }
+        .alert-notice {
+            background-color: #fff3cd;
+            border: 2px solid #fd7e14;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .alert-notice h3 {
+            color: #856404;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        .action-needed {
+            background-color: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .action-needed h4 {
+            color: #721c24;
+            margin-top: 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #fd7e14;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #e8690b;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+            .detail-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ No-Show Alert</h1>
+            <p>Emergency Contact Notification</p>
+        </div>
+
+        <div class="emergency-notice">
+            <h3>🚨 Emergency Contact Alert</h3>
+            <p>Hello {{ emergency_contact_name }},</p>
+            <p>You are receiving this alert as the <strong>{{ emergency_contact_relationship }}</strong> for <strong>{{ patient_name }}</strong>. They did not attend their scheduled appointment.</p>
+        </div>
+
+        <div class="alert-notice">
+            <h3>📅 Missed Appointment</h3>
+            <p style="font-size: 18px; margin: 0;"><strong>{{ patient_name }}</strong> did not show up for their scheduled appointment.</p>
+        </div>
+
+        <div class="appointment-details">
+            <h3>📋 Missed Appointment Details</h3>
+            <div class="detail-row">
+                <span class="detail-label">Patient:</span>
+                <span class="detail-value">{{ patient_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Doctor:</span>
+                <span class="detail-value">Dr. {{ appointment.doctor_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Date:</span>
+                <span class="detail-value">{{ appointment.date }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Time:</span>
+                <span class="detail-value">{{ appointment.time }}</span>
+            </div>
+            {% if appointment.location %}
+            <div class="detail-row">
+                <span class="detail-label">Location:</span>
+                <span class="detail-value">{{ appointment.location }}</span>
+            </div>
+            {% endif %}
+            {% if appointment.type %}
+            <div class="detail-row">
+                <span class="detail-label">Appointment Type:</span>
+                <span class="detail-value">{{ appointment.type }}</span>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+                <span class="detail-label">Status:</span>
+                <span class="detail-value" style="color: #dc3545; font-weight: bold;">No-Show</span>
+            </div>
+        </div>
+
+        <div class="action-needed">
+            <h4>🔍 Action Needed</h4>
+            <p style="margin: 0; color: #721c24;">
+                <strong>Please check on {{ patient_name }}</strong> to ensure they are safe and well. 
+                They may have forgotten about the appointment, encountered an emergency, or faced transportation issues.
+            </p>
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #495057; margin-top: 0;">💡 Recommended Actions:</h4>
+            <ul style="color: #6c757d; margin: 0;">
+                <li><strong>Contact {{ patient_name }}</strong> to check on their wellbeing</li>
+                <li>Ask if they need help rescheduling the appointment</li>
+                <li>Inquire if they experienced any emergency or transportation issues</li>
+                <li>Remind them about the importance of their healthcare appointments</li>
+                <li>Offer assistance with future appointment scheduling or transportation</li>
+            </ul>
+        </div>
+
+        <div style="background-color: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #004085; margin-top: 0;">📞 Next Steps</h4>
+            <p style="color: #004085; margin: 0;">
+                The healthcare provider will attempt to contact {{ patient_name }} directly. 
+                However, as their emergency contact, your check-in could be valuable, especially if they are elderly or have health conditions that require regular monitoring.
+            </p>
+        </div>
+
+        {% if appointment.urgent or appointment.follow_up_needed %}
+        <div style="background-color: #f8d7da; border: 2px solid #dc3545; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #721c24; margin-top: 0;">🚨 High Priority</h4>
+            <p style="color: #721c24; margin: 0;">
+                {% if appointment.urgent %}
+                This was an urgent appointment. Please prioritize checking on {{ patient_name }} and help them reschedule immediately.
+                {% endif %}
+                {% if appointment.follow_up_needed %}
+                This was an important follow-up appointment. Missing this could impact {{ patient_name }}'s ongoing care.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin: 30px 0;">
+            <p><strong>If you cannot reach {{ patient_name }} or have concerns about their safety, please contact emergency services or our clinic immediately.</strong></p>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated alert sent to emergency contacts when patients miss appointments.</p>
+            <p>If this is a recurring issue or you have concerns about {{ patient_name }}'s health management, please discuss with our care team.</p>
+            <p style="margin-top: 20px;">
+                <strong>MediRemind Healthcare</strong><br>
+                📞 Emergency Line: {{ emergency_phone | default:"(555) 911-HELP" }}<br>
+                📞 Support: {{ support_phone | default:"(555) 123-4567" }}<br>
+                📧 Email: {{ support_email | default:"support@mediremind.com" }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -16,7 +16,8 @@ from redis_config import test_redis_connection, REDIS_CONFIGS
 # Import all notification system components
 from .logging_config import NotificationLogger
 from .monitoring import SystemMonitor, AlertManager
-from .scheduler import NotificationScheduler, ScheduleConfig
+from .persistent_scheduler import PersistentNotificationScheduler
+from .scheduler import ScheduleConfig
 from .queue_manager import QueueManager, QueueConfig
 from .failsafe_delivery import FailsafeDeliveryManager, DeliveryConfig
 from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig
@@ -157,7 +158,7 @@ class ApplicationState:
             batch_size=50,
             max_concurrent_jobs=20
         )
-        self.scheduler = NotificationScheduler(schedule_config)
+        self.scheduler = PersistentNotificationScheduler()
     
     async def _initialize_performance_components(self):
         """Initialize performance optimization components."""

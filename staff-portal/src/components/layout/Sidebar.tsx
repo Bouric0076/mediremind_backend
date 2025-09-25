@@ -579,7 +579,7 @@ export const Sidebar: React.FC = () => {
           <Stack direction="row" alignItems="center" spacing={2} sx={{ position: 'relative', zIndex: 1 }}>
             <Avatar
               src={user?.avatar}
-              alt={`${user?.firstName} ${user?.lastName}`}
+              alt={user?.full_name || 'User'}
               sx={{ 
                 width: 48, 
                 height: 48,
@@ -587,11 +587,11 @@ export const Sidebar: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               }}
             >
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
+              {user?.full_name ? user.full_name.split(' ').map(name => name[0]).join('').slice(0, 2).toUpperCase() : ''}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, mb: 0.5 }}>
-                {user?.firstName} {user?.lastName}
+                {user?.full_name}
               </Typography>
               <Chip
                 label={user?.role}
@@ -616,7 +616,7 @@ export const Sidebar: React.FC = () => {
         <Box sx={{ p: 1, display: 'flex', justifyContent: 'center' }}>
           <Avatar
             src={user?.avatar}
-            alt={`${user?.firstName} ${user?.lastName}`}
+            alt={user?.full_name || 'User'}
             sx={{ 
               width: 40, 
               height: 40,
@@ -624,7 +624,7 @@ export const Sidebar: React.FC = () => {
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             }}
           >
-            {user?.firstName?.[0]}{user?.lastName?.[0]}
+            {user?.full_name ? user.full_name.split(' ').map(name => name[0]).join('').slice(0, 2).toUpperCase() : ''}
           </Avatar>
         </Box>
       )}

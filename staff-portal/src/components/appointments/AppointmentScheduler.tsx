@@ -64,15 +64,26 @@ interface Provider {
 interface AppointmentType {
   id: string;
   name: string;
-  duration: number;
   description: string;
-  color: string;
+  code: string;
+  default_duration: number;
+  buffer_time: number;
+  base_cost: string;
+  requires_preparation: boolean;
+  preparation_instructions: string;
+  requires_fasting: boolean;
+  is_active: boolean;
+  color_code: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface TimeSlot {
   time: string;
   available: boolean;
   reason?: string;
+  end_time?: string;
+  duration?: number;
 }
 
 interface AppointmentFormData {
@@ -101,6 +112,7 @@ interface AppointmentSchedulerProps {
   providers: Provider[];
   appointmentTypes: AppointmentType[];
   loading?: boolean;
+  selectedDate?: Date | null;
 }
 
 const defaultFormData: AppointmentFormData = {
@@ -129,6 +141,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   providers,
   appointmentTypes,
   loading: externalLoading = false,
+  selectedDate,
 }) => {
   const [formData, setFormData] = useState<AppointmentFormData>(defaultFormData);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
@@ -164,6 +177,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       setSubmitError('');
     }
   }, [open, editingAppointment]);
+
+  // Auto-set date when selectedDate is provided from calendar click
+  useEffect(() => {
+    if (selectedDate && open && !editingAppointment) {
+      setFormData(prev => ({
+        ...prev,
+        date: selectedDate,
+      }));
+    }
+  }, [selectedDate, open, editingAppointment]);
 
   // Check availability when provider, date, or duration changes
   useEffect(() => {
@@ -225,8 +248,9 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     setCheckingAvailability(true);
     try {
       const dateStr = format(formData.date, 'yyyy-MM-dd');
+      const excludeParam = editingAppointment ? `&exclude_appointment_id=${editingAppointment.id}` : '';
       const response = await fetch(
-        `/api/appointments/check-availability/?provider_id=${formData.providerId}&date=${dateStr}&duration=${formData.duration}`,
+        `/api/appointments/time-slots/?provider_id=${formData.providerId}&date=${dateStr}&duration=${formData.duration}${excludeParam}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -236,7 +260,26 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        setAvailableSlots(data.available_slots || []);
+        // Transform the enhanced API response to match our TimeSlot interface
+        const transformedSlots = data.available_slots?.map((slot: any) => ({
+          time: slot.time,
+          available: slot.available,
+          reason: slot.reason,
+          end_time: slot.end_time,
+          duration: slot.duration
+        })) || [];
+        
+        setAvailableSlots(transformedSlots);
+        
+        // Store additional data for better UX
+        if (data.time_periods) {
+          // Could use this for better grouping in the future
+          console.log('Time periods available:', data.time_periods);
+        }
+        
+        if (data.unavailable_slots && data.unavailable_slots.length > 0) {
+          console.log('Unavailable slots:', data.unavailable_slots);
+        }
       } else {
         console.error('Failed to check availability');
         // Fallback to generated slots if API fails
@@ -444,16 +487,19 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     }}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="body1">{option.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {option.email} • {option.phone}
-                      </Typography>
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps}>
+                      <Box>
+                        <Typography variant="body1">{option.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {option.email} • {option.phone}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  );
+                }}
               />
             </Grid>
 
@@ -472,16 +518,19 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     helperText={errors.providerId}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="body1">Dr. {option.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {option.specialization}
-                      </Typography>
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps}>
+                      <Box>
+                        <Typography variant="body1">Dr. {option.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {option.specialization}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  );
+                }}
               />
             </Grid>
 
@@ -495,22 +544,38 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     const selectedType = appointmentTypes.find(t => t.id === e.target.value);
                     handleInputChange('appointmentTypeId', e.target.value);
                     if (selectedType) {
-                      handleInputChange('duration', selectedType.duration);
+                      handleInputChange('duration', selectedType.default_duration);
                     }
                   }}
                   label="Appointment Type"
                 >
                   {appointmentTypes.map((type) => (
                     <MenuItem key={type.id} value={type.id}>
-                      <Box display="flex" alignItems="center" gap={1}>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Box
+                            sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              backgroundColor: type.color_code,
+                              border: '1px solid rgba(0,0,0,0.1)'
+                            }}
+                          />
+                          <Typography variant="body1" fontWeight="medium">
+                            {type.name}
+                          </Typography>
+                        </Box>
                         <Chip
-                          size="small"
-                          label={type.name}
-                          sx={{ backgroundColor: type.color, color: 'white' }}
-                        />
-                        <Typography variant="body2" color="text.secondary">
-                          ({type.duration} min)
-                        </Typography>
+                           size="small"
+                           label={`${type.default_duration} mins`}
+                           sx={{ 
+                             backgroundColor: type.color_code + '20',
+                             color: type.color_code,
+                             fontWeight: 'medium',
+                             border: `1px solid ${type.color_code}40`
+                           }}
+                         />
                       </Box>
                     </MenuItem>
                   ))}
@@ -629,36 +694,81 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                                 {period.label}
                               </Typography>
                               <Grid container spacing={1}>
-                                {periodSlots.map((slot) => (
-                                  <Grid key={slot.time}>
-                                    <Tooltip
-                                      title={slot.available ? 'Available' : slot.reason || 'Not available'}
-                                      arrow
-                                    >
-                                      <Chip
-                                        label={format(new Date(`2000-01-01T${slot.time}`), 'h:mm a')}
-                                        onClick={() => {
-                                          if (slot.available) {
-                                            const timeDate = new Date(`2000-01-01T${slot.time}`);
-                                            handleInputChange('time', timeDate);
-                                          }
-                                        }}
-                                        color={slot.available ? 'primary' : 'default'}
-                                        variant={
-                                          formData.time && format(formData.time, 'HH:mm') === slot.time
-                                            ? 'filled'
-                                            : 'outlined'
+                                {periodSlots.map((slot) => {
+                                  const isSelected = formData.time && format(formData.time, 'HH:mm') === slot.time;
+                                  const startTime = format(new Date(`2000-01-01T${slot.time}`), 'h:mm a');
+                                  const endTime = slot.end_time ? format(new Date(`2000-01-01T${slot.end_time}`), 'h:mm a') : '';
+                                  const duration = slot.duration || formData.duration;
+                                  
+                                  return (
+                                    <Grid key={slot.time}>
+                                      <Tooltip
+                                        title={
+                                          <Box>
+                                            <Typography variant="body2">
+                                              {slot.available ? 'Available' : slot.reason || 'Not available'}
+                                            </Typography>
+                                            {slot.available && (
+                                              <Typography variant="caption" display="block">
+                                                Duration: {duration} minutes
+                                                {endTime && ` (until ${endTime})`}
+                                              </Typography>
+                                            )}
+                                          </Box>
                                         }
-                                        disabled={!slot.available}
-                                        icon={slot.available ? <CheckIcon /> : <WarningIcon />}
-                                        sx={{
-                                          cursor: slot.available ? 'pointer' : 'not-allowed',
-                                          opacity: slot.available ? 1 : 0.5,
-                                        }}
-                                      />
-                                    </Tooltip>
-                                  </Grid>
-                                ))}
+                                        arrow
+                                      >
+                                        <Chip
+                                          label={
+                                            <Box sx={{ textAlign: 'center' }}>
+                                              <Typography variant="body2" component="div">
+                                                {startTime}
+                                              </Typography>
+                                              {slot.available && duration && (
+                                                <Typography variant="caption" color="text.secondary">
+                                                  {duration}min
+                                                </Typography>
+                                              )}
+                                            </Box>
+                                          }
+                                          onClick={() => {
+                                            if (slot.available) {
+                                              const timeDate = new Date(`2000-01-01T${slot.time}`);
+                                              handleInputChange('time', timeDate);
+                                            }
+                                          }}
+                                          color={slot.available ? (isSelected ? 'success' : 'primary') : 'default'}
+                                          variant={isSelected ? 'filled' : 'outlined'}
+                                          disabled={!slot.available}
+                                          icon={
+                                            slot.available 
+                                              ? (isSelected ? <CheckIcon /> : undefined)
+                                              : <WarningIcon />
+                                          }
+                                          sx={{
+                                            cursor: slot.available ? 'pointer' : 'not-allowed',
+                                            opacity: slot.available ? 1 : 0.5,
+                                            minWidth: '80px',
+                                            height: 'auto',
+                                            '& .MuiChip-label': {
+                                              padding: '8px 12px',
+                                            },
+                                            ...(isSelected && {
+                                              boxShadow: 2,
+                                              transform: 'scale(1.05)',
+                                            }),
+                                            ...(slot.available && !isSelected && {
+                                              '&:hover': {
+                                                transform: 'scale(1.02)',
+                                                boxShadow: 1,
+                                              },
+                                            }),
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    </Grid>
+                                  );
+                                })}
                               </Grid>
                             </Box>
                           );

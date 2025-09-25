@@ -18,6 +18,7 @@ import {
   Fab,
   Tooltip,
   Badge,
+  keyframes,
 } from '@mui/material';
 
 
@@ -31,9 +32,25 @@ import {
 } from '@mui/icons-material';
 
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
-import { useGetAppointmentsQuery, useGetPatientsQuery, useGetStaffQuery, useCreateAppointmentMutation } from '../../store/api/apiSlice';
+import { useGetAppointmentsQuery, useGetPatientsQuery, useGetStaffQuery, useGetAppointmentTypesQuery, useCreateAppointmentMutation } from '../../store/api/apiSlice';
 import AppointmentScheduler from '../../components/appointments/AppointmentScheduler';
 import AppointmentCalendar from '../../components/appointments/AppointmentCalendar';
+
+// Define the pulse animation
+const pulseAnimation = keyframes`
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+`;
 
 interface Appointment {
   id: string;
@@ -111,15 +128,6 @@ const transformStaffData = (staff: any[]) => {
   })) || [];
 };
 
-const mockAppointmentTypes = [
-  { id: '1', name: 'Consultation', duration: 30, description: 'Initial consultation', color: '#2196F3' },
-  { id: '2', name: 'Follow-up', duration: 20, description: 'Follow-up appointment', color: '#4CAF50' },
-  { id: '3', name: 'Check-up', duration: 45, description: 'Regular check-up', color: '#FF9800' },
-  { id: '4', name: 'Emergency', duration: 60, description: 'Emergency consultation', color: '#F44336' },
-];
-
-
-
 export const AppointmentsPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -131,18 +139,22 @@ export const AppointmentsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [schedulerOpen, setSchedulerOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<Date | null>(null);
 
   const { data: appointmentsData, isLoading, error, refetch } = useGetAppointmentsQuery({
     date: selectedDate,
   });
 
   // Fetch patients and staff data
-  const { data: patientsData, isLoading: patientsLoading } = useGetPatientsQuery({
+  const { data: patientsData } = useGetPatientsQuery({
     page: 1,
     limit: 1000, // Get all patients for selection
   });
   
-  const { data: staffData, isLoading: staffLoading } = useGetStaffQuery();
+  const { data: staffData } = useGetStaffQuery();
+  
+  // Fetch appointment types
+  const { data: appointmentTypesData } = useGetAppointmentTypesQuery();
   
   const [createAppointment, { isLoading: isCreating }] = useCreateAppointmentMutation();
 
@@ -228,8 +240,23 @@ export const AppointmentsPage: React.FC = () => {
   };
 
   // Handlers for the new components
-  const handleNewAppointment = () => {
+  const handleNewAppointment = (selectedDate?: Date) => {
     setEditingAppointment(null);
+    // Only set the date if it's today or in the future
+    if (selectedDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const clickedDate = new Date(selectedDate);
+      clickedDate.setHours(0, 0, 0, 0);
+      
+      if (clickedDate >= today) {
+        setSelectedAppointmentDate(selectedDate);
+      } else {
+        setSelectedAppointmentDate(null);
+      }
+    } else {
+      setSelectedAppointmentDate(null);
+    }
     setSchedulerOpen(true);
   };
 
@@ -257,19 +284,18 @@ export const AppointmentsPage: React.FC = () => {
 
   const handleAppointmentSubmit = async (appointmentData: any) => {
     try {
-      // Transform the appointment data to match API expectations
+      // Transform the appointment data to match Django API expectations
       const apiData = {
         patient_id: appointmentData.patientId,
         provider_id: appointmentData.providerId,
-        appointment_type: appointmentData.appointmentType,
-        date: appointmentData.date,
-        time: appointmentData.time,
-        duration: appointmentData.duration,
-        location: appointmentData.location,
+        appointment_type_id: appointmentData.appointmentTypeId,
+        appointment_date: appointmentData.date ? appointmentData.date.toISOString().split('T')[0] : '',
+        start_time: appointmentData.time ? appointmentData.time.toTimeString().split(' ')[0].substring(0, 5) : '',
+        duration: appointmentData.duration || 30, // Include dynamic duration
+        reason: appointmentData.notes || 'General appointment',
         priority: appointmentData.priority || 'medium',
-        notes: appointmentData.notes,
-        status: 'scheduled' as const,
-        reminder_preferences: appointmentData.reminderPreferences,
+        notes: appointmentData.notes || '',
+        title: appointmentData.title || '',
       };
 
       if (editingAppointment) {
@@ -492,9 +518,14 @@ export const AppointmentsPage: React.FC = () => {
             Today's Appointments ({isLoading ? '...' : getTodayAppointments().length})
           </Typography>
           {isLoading ? (
-            <Typography textAlign="center" sx={{ py: 4 }}>
-              Loading appointments...
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Box sx={{ width: 40, height: 40, animation: `${pulseAnimation} 1.5s infinite ease-in-out`, borderRadius: '50%', bgcolor: 'primary.light' }} />
+              </Box>
+              <Typography variant="body1" color="text.secondary">
+                Loading appointments...
+              </Typography>
+            </Box>
           ) : error ? (
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
@@ -519,9 +550,14 @@ export const AppointmentsPage: React.FC = () => {
             Upcoming Appointments ({isLoading ? '...' : getUpcomingAppointments().length})
           </Typography>
           {isLoading ? (
-            <Typography textAlign="center" sx={{ py: 4 }}>
-              Loading appointments...
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Box sx={{ width: 40, height: 40, animation: 'pulse 1.5s infinite ease-in-out', borderRadius: '50%', bgcolor: 'primary.light' }} />
+              </Box>
+              <Typography variant="body1" color="text.secondary">
+                Loading appointments...
+              </Typography>
+            </Box>
           ) : error ? (
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
@@ -542,9 +578,14 @@ export const AppointmentsPage: React.FC = () => {
 
       <TabPanel value={tabValue} index={2}>
         {isLoading ? (
-          <Typography textAlign="center" sx={{ py: 4 }}>
-            Loading appointments...
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <Box sx={{ width: 40, height: 40, animation: 'pulse 1.5s infinite ease-in-out', borderRadius: '50%', bgcolor: 'primary.light' }} />
+            </Box>
+            <Typography variant="body1" color="text.secondary">
+              Loading appointments...
+            </Typography>
+          </Box>
         ) : error ? (
           <Typography color="error" textAlign="center" sx={{ py: 4 }}>
             Error loading appointments
@@ -582,9 +623,14 @@ export const AppointmentsPage: React.FC = () => {
             All Appointments ({isLoading ? '...' : appointments.length})
           </Typography>
           {isLoading ? (
-            <Typography textAlign="center" sx={{ py: 4 }}>
-              Loading appointments...
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <Box sx={{ width: 40, height: 40, animation: 'pulse 1.5s infinite ease-in-out', borderRadius: '50%', bgcolor: 'primary.light' }} />
+              </Box>
+              <Typography variant="body1" color="text.secondary">
+                Loading appointments...
+              </Typography>
+            </Box>
           ) : error ? (
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
@@ -606,13 +652,17 @@ export const AppointmentsPage: React.FC = () => {
       {/* Appointment Scheduler */}
       <AppointmentScheduler
         open={schedulerOpen}
-        onClose={() => setSchedulerOpen(false)}
+        onClose={() => {
+          setSchedulerOpen(false);
+          setSelectedAppointmentDate(null);
+        }}
         onSubmit={handleAppointmentSubmit}
         patients={transformPatientData(patientsData?.patients || [])}
         providers={transformStaffData(staffData || [])}
-        appointmentTypes={mockAppointmentTypes}
+        appointmentTypes={appointmentTypesData?.appointment_types || []}
         editingAppointment={editingAppointment}
         loading={isCreating}
+        selectedDate={selectedAppointmentDate}
       />
 
       {/* Floating Action Button */}

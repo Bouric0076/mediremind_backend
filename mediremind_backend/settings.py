@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',  # Add token authentication
-    # 'webpush',  # Removed - package not compatible with Python 3.13
+    'webpush',  # Re-enabled - pywebpush is compatible with Python 3.13
     'corsheaders',
 
     # Local apps
@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'billing',
     'prescriptions',
     'analytics',  # Analytics and dashboard system
+    'calendar_integrations',  # Calendar integration system
 ]
 
 MIDDLEWARE = [
@@ -186,11 +187,11 @@ CORS_ALLOW_CREDENTIALS = True
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
+        os.getenv('FRONTEND_URL', 'http://localhost:3000'),
+        os.getenv('VITE_DEV_URL', 'http://localhost:5173'),  # Vite default port
+        os.getenv('FLUTTER_WEB_URL', 'http://localhost:8080'),  # Flutter web app port
         "http://127.0.0.1:3000",
-        "http://localhost:5173",  # Vite default port
         "http://127.0.0.1:5173",
-        "http://localhost:8080",  # Flutter web app port
         "http://127.0.0.1:8080",
     ]
 else:
@@ -232,11 +233,11 @@ CORS_PREFLIGHT_MAX_AGE = 86400
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
+    os.getenv('FRONTEND_URL', 'http://localhost:3000'),
+    os.getenv('VITE_DEV_URL', 'http://localhost:5173'),
+    os.getenv('FLUTTER_WEB_URL', 'http://localhost:8080'),  # Flutter web app port
     "http://127.0.0.1:3000",
-    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:8080",  # Flutter web app port
     "http://127.0.0.1:8080",
 ]
 
@@ -253,38 +254,42 @@ CSRF_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for CSRF token
 
-# Web Push settings - Temporarily disabled due to Python 3.13 compatibility issues
-# WEBPUSH_SETTINGS = {
-#     "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY"),
-#     "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY"),
-#     "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
-# }
-
-# Validate VAPID settings
-# if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
-#     print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
-
-# Temporary placeholder for webpush settings
+# Web Push settings
 WEBPUSH_SETTINGS = {
-    "VAPID_PUBLIC_KEY": "",
-    "VAPID_PRIVATE_KEY": "",
-    "VAPID_ADMIN_EMAIL": "admin@mediremind.com"
+    "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY", ""),
+    "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY", ""),
+    "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
 }
 
-# Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False  # Don't use SSL when using TLS
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
-EMAIL_TIMEOUT = 10  # Add timeout setting
+# Validate VAPID settings
+if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
+    print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
+    print("Generate VAPID keys using: python notifications/generate_vapid_keys.py")
 
-# Validate email settings
-if not all([EMAIL_HOST_USER, EMAIL_HOST_PASSWORD]):
-    print("Warning: Email settings not properly configured. Email notifications will not work.")
+# Email settings
+if DEBUG:
+    # In development mode, print emails to console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("Development mode: Emails will be printed to console")
+else:
+    # In production mode, use SMTP
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = True
+    EMAIL_USE_SSL = False  # Don't use SSL when using TLS
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    EMAIL_TIMEOUT = 10  # Add timeout setting
+    
+    # Validate email settings
+    if not all([EMAIL_HOST_USER, EMAIL_HOST_PASSWORD]):
+        print("Warning: Email settings not properly configured. Email notifications will not work.")
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
+
+# Frontend URL setting for email templates
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 
 # Beem SMS Settings
 BEEM_API_KEY = os.getenv('BEEM_API_KEY')

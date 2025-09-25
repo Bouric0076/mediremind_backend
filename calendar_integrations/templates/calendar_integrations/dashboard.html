@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Integration Dashboard - MediRemind</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            padding: 40px;
+        }
+        
+        .integration-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .integration-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .integration-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #4facfe;
+        }
+        
+        .integration-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #8b4513;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #721c24;
+        }
+        
+        .features-section {
+            margin-top: 40px;
+            padding-top: 40px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+        }
+        
+        .feature-card {
+            text-align: center;
+            padding: 25px;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: scale(1.05);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .feature-card p {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+        
+        .api-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .api-endpoint {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4facfe;
+        }
+        
+        .api-endpoint code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .dashboard {
+                padding: 20px;
+            }
+            
+            .integration-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Calendar Integration Dashboard</h1>
+            <p>Seamlessly connect your medical practice with external calendars</p>
+        </div>
+        
+        <div class="dashboard">
+            <div class="integration-grid">
+                <div class="integration-card">
+                    <h3>🔗 Google Calendar</h3>
+                    <span class="status-badge status-disconnected">Not Connected</span>
+                    <p>Connect your Google Calendar to sync appointments and availability automatically.</p>
+                    <br>
+                    <a href="/calendar/oauth/google/" class="btn">Connect Google Calendar</a>
+                    <button class="btn btn-secondary" onclick="testSync('google')">Test Sync</button>
+                </div>
+                
+                <div class="integration-card">
+                    <h3>📊 Microsoft Outlook</h3>
+                    <span class="status-badge status-disconnected">Not Connected</span>
+                    <p>Integrate with Microsoft Outlook for comprehensive calendar management.</p>
+                    <br>
+                    <a href="/calendar/oauth/outlook/" class="btn">Connect Outlook</a>
+                    <button class="btn btn-secondary" onclick="testSync('outlook')">Test Sync</button>
+                </div>
+                
+                <div class="integration-card">
+                    <h3>⚡ Sync Status</h3>
+                    <span class="status-badge status-connected">Active</span>
+                    <p>Monitor and manage your calendar synchronization status.</p>
+                    <br>
+                    <button class="btn" onclick="checkSyncStatus()">Check Status</button>
+                    <button class="btn btn-secondary" onclick="forceSyncAll()">Force Sync</button>
+                </div>
+            </div>
+            
+            <div class="features-section">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #2c3e50;">🚀 Key Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h4>Real-time Sync</h4>
+                        <p>Automatic bidirectional synchronization between your practice and external calendars</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">⚠️</div>
+                        <h4>Conflict Detection</h4>
+                        <p>Intelligent detection and resolution of scheduling conflicts across platforms</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">📈</div>
+                        <h4>Availability Tracking</h4>
+                        <p>Smart availability calculation based on all connected calendar sources</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>Secure Integration</h4>
+                        <p>Enterprise-grade security with OAuth 2.0 and encrypted data transmission</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="api-section">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">🔧 API Endpoints</h3>
+                <div class="api-endpoint">
+                    <strong>GET</strong> <code>/calendar/integrations/</code> - List all calendar integrations
+                </div>
+                <div class="api-endpoint">
+                    <strong>POST</strong> <code>/calendar/sync/{integration_id}/</code> - Trigger manual sync
+                </div>
+                <div class="api-endpoint">
+                    <strong>GET</strong> <code>/calendar/conflicts/</code> - View scheduling conflicts
+                </div>
+                <div class="api-endpoint">
+                    <strong>GET</strong> <code>/calendar/availability/</code> - Check availability
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function testSync(provider) {
+            alert(`Testing ${provider} calendar sync...`);
+            // In a real implementation, this would make an API call
+            console.log(`Initiating sync test for ${provider}`);
+        }
+        
+        function checkSyncStatus() {
+            alert('Checking synchronization status...');
+            // In a real implementation, this would fetch actual sync status
+            console.log('Fetching sync status from API');
+        }
+        
+        function forceSyncAll() {
+            if (confirm('Are you sure you want to force sync all calendars? This may take a few minutes.')) {
+                alert('Force sync initiated for all connected calendars.');
+                // In a real implementation, this would trigger sync for all integrations
+                console.log('Force sync initiated');
+            }
+        }
+        
+        // Simulate loading calendar integrations
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Calendar Integration Dashboard loaded');
+            // In a real implementation, this would fetch user's integrations from the API
+        });
+    </script>
+</body>
+</html>

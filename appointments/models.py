@@ -10,9 +10,14 @@ class AppointmentType(models.Model):
     """Different types of appointments (consultation, follow-up, procedure, etc.)"""
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100, unique=True)
+    hospital = models.ForeignKey(
+        'accounts.Hospital',
+        on_delete=models.CASCADE,
+        related_name='appointment_types'
+    )
+    name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    code = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=20)
     
     # Duration and Scheduling
     default_duration = models.PositiveIntegerField(
@@ -51,7 +56,12 @@ class AppointmentType(models.Model):
     class Meta:
         db_table = 'appointment_types'
         ordering = ['name']
+        unique_together = [
+            ('hospital', 'name'),
+            ('hospital', 'code'),
+        ]
         indexes = [
+            models.Index(fields=['hospital']),
             models.Index(fields=['code']),
             models.Index(fields=['is_active']),
         ]
@@ -76,7 +86,7 @@ class Appointment(models.Model):
     
     PRIORITY_CHOICES = [
         ('low', 'Low'),
-        ('normal', 'Normal'),
+        ('medium', 'Medium'),
         ('high', 'High'),
         ('urgent', 'Urgent'),
         ('emergency', 'Emergency'),
@@ -100,6 +110,11 @@ class Appointment(models.Model):
     )
     provider = models.ForeignKey(
         'accounts.EnhancedStaffProfile',
+        on_delete=models.CASCADE,
+        related_name='appointments'
+    )
+    hospital = models.ForeignKey(
+        'accounts.Hospital',
         on_delete=models.CASCADE,
         related_name='appointments'
     )
@@ -131,7 +146,7 @@ class Appointment(models.Model):
     priority = models.CharField(
         max_length=20,
         choices=PRIORITY_CHOICES,
-        default='normal'
+        default='medium'
     )
     
     # Recurring Appointments
@@ -209,9 +224,11 @@ class Appointment(models.Model):
     class Meta:
         db_table = 'appointments'
         indexes = [
+            models.Index(fields=['hospital']),
             models.Index(fields=['appointment_date', 'start_time']),
             models.Index(fields=['patient', 'appointment_date']),
             models.Index(fields=['provider', 'appointment_date']),
+            models.Index(fields=['hospital', 'appointment_date']),
             models.Index(fields=['status']),
             models.Index(fields=['priority']),
             models.Index(fields=['room', 'appointment_date']),
@@ -219,34 +236,76 @@ class Appointment(models.Model):
         unique_together = [['provider', 'appointment_date', 'start_time']]
     
     def clean(self):
-        # Validate appointment times
-        if self.start_time >= self.end_time:
-            raise ValidationError("Start time must be before end time")
+        # Validate hospital consistency
+        if self.patient and self.provider and self.hospital:
+            if self.patient.hospital != self.hospital:
+                raise ValidationError("Patient must belong to the same hospital")
+            if self.provider.hospital != self.hospital:
+                raise ValidationError("Provider must belong to the same hospital")
+        
+        # Validate appointment type belongs to the same hospital
+        if self.appointment_type and self.hospital:
+            if self.appointment_type.hospital != self.hospital:
+                raise ValidationError("Appointment type must belong to the same hospital")
         
         # Validate appointment date is not in the past
         if self.appointment_date < timezone.now().date():
             raise ValidationError("Appointment date cannot be in the past")
         
-        # Validate duration matches time difference
-        start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
-        end_datetime = timezone.datetime.combine(self.appointment_date, self.end_time)
-        calculated_duration = int((end_datetime - start_datetime).total_seconds() / 60)
+        # Auto-calculate end_time if not provided but duration and start_time are available
+        if not self.end_time and self.duration and self.start_time:
+            # Calculate end_time from start_time + duration
+            start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+            end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
+            self.end_time = end_datetime.time()
         
-        if abs(self.duration - calculated_duration) > 1:  # Allow 1 minute tolerance
-            raise ValidationError("Duration must match the time difference")
-    
-    def save(self, *args, **kwargs):
-        # Auto-calculate duration if not provided
-        if not self.duration:
+        # If duration is not provided, use appointment type's default duration as fallback
+        if not self.duration and self.appointment_type:
+            self.duration = self.appointment_type.default_duration
+            # Recalculate end_time with the default duration
+            if self.start_time:
+                start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+                end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
+                self.end_time = end_datetime.time()
+        
+        # Validate appointment times (only if both are set)
+        if self.start_time and self.end_time:
+            if self.start_time >= self.end_time:
+                raise ValidationError("Start time must be before end time")
+            
+            # Validate duration matches time difference
             start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
             end_datetime = timezone.datetime.combine(self.appointment_date, self.end_time)
-            self.duration = int((end_datetime - start_datetime).total_seconds() / 60)
+            calculated_duration = int((end_datetime - start_datetime).total_seconds() / 60)
+            
+            if abs(self.duration - calculated_duration) > 1:  # Allow 1 minute tolerance
+                raise ValidationError("Duration must match the time difference")
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate end_time if not provided but duration and start_time are available
+        if not self.end_time and self.duration and self.start_time:
+            # Calculate end_time from start_time + duration
+            start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+            end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
+            self.end_time = end_datetime.time()
+        
+        # If duration is not provided, use appointment type's default duration as fallback
+        if not self.duration and self.appointment_type:
+            self.duration = self.appointment_type.default_duration
+            # Recalculate end_time with the default duration
+            if self.start_time:
+                start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+                end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
+                self.end_time = end_datetime.time()
         
         # Set estimated cost from appointment type if not provided
         if not self.estimated_cost and self.appointment_type.base_cost:
             self.estimated_cost = self.appointment_type.base_cost
         
         super().save(*args, **kwargs)
+        
+        # Automatically create or update HospitalPatient relationship
+        self._ensure_hospital_patient_relationship()
     
     def __str__(self):
         return f"{self.patient.user.full_name} - {self.provider.user.full_name} ({self.appointment_date} {self.start_time})"
@@ -262,6 +321,33 @@ class Appointment(models.Model):
         now = timezone.now()
         appointment_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
         return appointment_datetime > now
+    
+    def _ensure_hospital_patient_relationship(self):
+        """Ensure HospitalPatient relationship exists for this appointment"""
+        from accounts.models import HospitalPatient
+        from django.utils import timezone
+        
+        # Get or create the hospital-patient relationship
+        hospital_patient, created = HospitalPatient.objects.get_or_create(
+            hospital=self.hospital,
+            patient=self.patient,
+            defaults={
+                'relationship_type': 'appointment',
+                'status': 'active',
+                'first_visit_date': timezone.now(),
+                'last_visit_date': timezone.now(),
+            }
+        )
+        
+        # Update last visit date if relationship already exists
+        if not created:
+            hospital_patient.update_last_visit(timezone.now())
+            
+            # Update relationship type to recurring if patient has multiple appointments
+            appointment_count = self.patient.appointments.filter(hospital=self.hospital).count()
+            if appointment_count > 1 and hospital_patient.relationship_type == 'appointment':
+                hospital_patient.relationship_type = 'recurring'
+                hospital_patient.save(update_fields=['relationship_type', 'updated_at'])
     
     @property
     def time_until_appointment(self):

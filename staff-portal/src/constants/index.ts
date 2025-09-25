@@ -10,130 +10,130 @@ export const API_CONFIG = {
 export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
-    LOGIN: '/auth/login/',
-    LOGOUT: '/auth/logout/',
-    REFRESH: '/auth/refresh/',
-    ME: '/auth/me/',
-    PROFILE: '/auth/profile/',
-    CHANGE_PASSWORD: '/auth/change-password/',
-    FORGOT_PASSWORD: '/auth/forgot-password/',
-    RESET_PASSWORD: '/auth/reset-password/',
+    LOGIN: '/api/auth/login/',
+    LOGOUT: '/api/auth/logout/',
+    REFRESH: '/api/auth/refresh/',
+    ME: '/api/auth/me/',
+    PROFILE: '/api/auth/profile/',
+    CHANGE_PASSWORD: '/api/auth/change-password/',
+    FORGOT_PASSWORD: '/api/auth/forgot-password/',
+    RESET_PASSWORD: '/api/auth/reset-password/',
   },
   
   // Users
   USERS: {
-    LIST: '/users',
-    CREATE: '/users',
-    GET: (id: string) => `/users/${id}`,
-    UPDATE: (id: string) => `/users/${id}`,
-    DELETE: (id: string) => `/users/${id}`,
-    ACTIVATE: (id: string) => `/users/${id}/activate`,
-    DEACTIVATE: (id: string) => `/users/${id}/deactivate`,
+    LIST: '/api/users',
+    CREATE: '/api/users',
+    GET: (id: string) => `/api/users/${id}`,
+    UPDATE: (id: string) => `/api/users/${id}`,
+    DELETE: (id: string) => `/api/users/${id}`,
+    ACTIVATE: (id: string) => `/api/users/${id}/activate`,
+    DEACTIVATE: (id: string) => `/api/users/${id}/deactivate`,
   },
   
   // Patients
   PATIENTS: {
-    LIST: '/accounts/patients/',
-    CREATE: '/accounts/patients/create/',
-    GET: (id: string) => `/accounts/patients/${id}/`,
-    UPDATE: (id: string) => `/accounts/patients/${id}/update/`,
-    DELETE: (id: string) => `/accounts/patients/${id}/delete/`,
-    SEARCH: '/accounts/patients/search/',
-    MEDICAL_HISTORY: (id: string) => `/accounts/patients/${id}/medical-history/`,
-    APPOINTMENTS: (id: string) => `/accounts/patients/${id}/appointments/`,
+    LIST: '/api/accounts/patients/',
+    CREATE: '/api/accounts/patients/create/',
+    GET: (id: string) => `/api/accounts/patients/${id}/`,
+    UPDATE: (id: string) => `/api/accounts/patients/${id}/update/`,
+    DELETE: (id: string) => `/api/accounts/patients/${id}/delete/`,
+    SEARCH: '/api/accounts/patients/search/',
+    MEDICAL_HISTORY: (id: string) => `/api/accounts/patients/${id}/medical-history/`,
+    APPOINTMENTS: (id: string) => `/api/accounts/patients/${id}/appointments/`,
   },
   
   // Appointments
   APPOINTMENTS: {
-    LIST: '/appointments',
-    CREATE: '/appointments',
-    GET: (id: string) => `/appointments/${id}`,
-    UPDATE: (id: string) => `/appointments/${id}`,
-    DELETE: (id: string) => `/appointments/${id}`,
-    CANCEL: (id: string) => `/appointments/${id}/cancel`,
-    RESCHEDULE: (id: string) => `/appointments/${id}/reschedule`,
-    CONFIRM: (id: string) => `/appointments/${id}/confirm`,
-    CHECK_IN: (id: string) => `/appointments/${id}/check-in`,
-    COMPLETE: (id: string) => `/appointments/${id}/complete`,
-    TODAY: '/appointments/today',
-    UPCOMING: '/appointments/upcoming',
-    CALENDAR: '/appointments/calendar',
+    LIST: '/api/appointments',
+    CREATE: '/api/appointments',
+    GET: (id: string) => `/api/appointments/${id}`,
+    UPDATE: (id: string) => `/api/appointments/${id}`,
+    DELETE: (id: string) => `/api/appointments/${id}`,
+    CANCEL: (id: string) => `/api/appointments/${id}/cancel`,
+    RESCHEDULE: (id: string) => `/api/appointments/${id}/reschedule`,
+    CONFIRM: (id: string) => `/api/appointments/${id}/confirm`,
+    CHECK_IN: (id: string) => `/api/appointments/${id}/check-in`,
+    COMPLETE: (id: string) => `/api/appointments/${id}/complete`,
+    TODAY: '/api/appointments/today',
+    UPCOMING: '/api/appointments/upcoming',
+    CALENDAR: '/api/appointments/calendar',
   },
   
   // Notifications
   NOTIFICATIONS: {
-    LIST: '/notifications',
-    CREATE: '/notifications',
-    GET: (id: string) => `/notifications/${id}`,
-    UPDATE: (id: string) => `/notifications/${id}`,
-    DELETE: (id: string) => `/notifications/${id}`,
-    SEND: (id: string) => `/notifications/${id}/send`,
-    MARK_READ: (id: string) => `/notifications/${id}/read`,
-    MARK_UNREAD: (id: string) => `/notifications/${id}/unread`,
-    BULK_SEND: '/notifications/bulk-send',
-    STATS: '/notifications/stats',
-    TEMPLATES: '/notifications/templates',
+    LIST: '/api/notifications',
+    CREATE: '/api/notifications',
+    GET: (id: string) => `/api/notifications/${id}`,
+    UPDATE: (id: string) => `/api/notifications/${id}`,
+    DELETE: (id: string) => `/api/notifications/${id}`,
+    SEND: (id: string) => `/api/notifications/${id}/send`,
+    MARK_READ: (id: string) => `/api/notifications/${id}/read`,
+    MARK_UNREAD: (id: string) => `/api/notifications/${id}/unread`,
+    BULK_SEND: '/api/notifications/bulk-send',
+    STATS: '/api/notifications/stats',
+    TEMPLATES: '/api/notifications/templates',
   },
   
   // Medical Records
   MEDICAL_RECORDS: {
-    LIST: '/medical-records',
-    CREATE: '/medical-records',
-    GET: (id: string) => `/medical-records/${id}`,
-    UPDATE: (id: string) => `/medical-records/${id}`,
-    DELETE: (id: string) => `/medical-records/${id}`,
-    BY_PATIENT: (patientId: string) => `/medical-records/patient/${patientId}`,
+    LIST: '/api/medical-records',
+    CREATE: '/api/medical-records',
+    GET: (id: string) => `/api/medical-records/${id}`,
+    UPDATE: (id: string) => `/api/medical-records/${id}`,
+    DELETE: (id: string) => `/api/medical-records/${id}`,
+    BY_PATIENT: (patientId: string) => `/api/medical-records/patient/${patientId}`,
   },
   
   // Prescriptions
   PRESCRIPTIONS: {
-    LIST: '/prescriptions',
-    CREATE: '/prescriptions',
-    GET: (id: string) => `/prescriptions/${id}`,
-    UPDATE: (id: string) => `/prescriptions/${id}`,
-    DELETE: (id: string) => `/prescriptions/${id}`,
-    BY_PATIENT: (patientId: string) => `/prescriptions/patient/${patientId}`,
+    LIST: '/api/prescriptions',
+    CREATE: '/api/prescriptions',
+    GET: (id: string) => `/api/prescriptions/${id}`,
+    UPDATE: (id: string) => `/api/prescriptions/${id}`,
+    DELETE: (id: string) => `/api/prescriptions/${id}`,
+    BY_PATIENT: (patientId: string) => `/api/prescriptions/patient/${patientId}`,
   },
   
   // Analytics
   ANALYTICS: {
-    DASHBOARD: '/analytics/dashboard/',
-    APPOINTMENTS: '/analytics/appointments/',
-    REVENUE: '/analytics/revenue/',
-    USERS: '/analytics/users/',
-    PERFORMANCE: '/analytics/performance/',
+    DASHBOARD: '/api/analytics/dashboard/',
+    APPOINTMENTS: '/api/analytics/appointments/',
+    REVENUE: '/api/analytics/revenue/',
+    USERS: '/api/analytics/users/',
+    PERFORMANCE: '/api/analytics/performance/',
   },
   
   // File Upload
   UPLOAD: {
-    SINGLE: '/upload/single',
-    MULTIPLE: '/upload/multiple',
-    AVATAR: '/upload/avatar',
-    MEDICAL_DOCUMENT: '/upload/medical-document',
+    SINGLE: '/api/upload/single',
+    MULTIPLE: '/api/upload/multiple',
+    AVATAR: '/api/upload/avatar',
+    MEDICAL_DOCUMENT: '/api/upload/medical-document',
   },
   
   // Staff Management
   STAFF: {
-    LIST: '/accounts/staff/',
-    CREATE: '/accounts/staff/create/',
-    GET: (id: string) => `/accounts/staff/${id}/`,
-    UPDATE: (id: string) => `/accounts/staff/${id}/update/`,
-    DELETE: (id: string) => `/accounts/staff/${id}/delete/`,
+    LIST: '/api/accounts/staff/',
+    CREATE: '/api/accounts/staff/create/',
+    GET: (id: string) => `/api/accounts/staff/${id}/`,
+    UPDATE: (id: string) => `/api/accounts/staff/${id}/update/`,
+    DELETE: (id: string) => `/api/accounts/staff/${id}/delete/`,
   },
   
   // Care Teams
   CARE_TEAMS: {
-    LIST: '/accounts/care-teams/',
-    CREATE: '/accounts/care-teams/create/',
-    GET: (id: string) => `/accounts/care-teams/${id}/`,
-    UPDATE: (id: string) => `/accounts/care-teams/${id}/update/`,
-    DELETE: (id: string) => `/accounts/care-teams/${id}/delete/`,
+    LIST: '/api/accounts/care-teams/',
+    CREATE: '/api/accounts/care-teams/create/',
+    GET: (id: string) => `/api/accounts/care-teams/${id}/`,
+    UPDATE: (id: string) => `/api/accounts/care-teams/${id}/update/`,
+    DELETE: (id: string) => `/api/accounts/care-teams/${id}/delete/`,
   },
   
   // Staff Credentials
   STAFF_CREDENTIALS: {
-    LIST: (staffId: string) => `/accounts/staff/${staffId}/credentials/`,
-    GET: (id: string) => `/accounts/credentials/${id}/`,
+    LIST: (staffId: string) => `/api/accounts/staff/${staffId}/credentials/`,
+    GET: (id: string) => `/api/accounts/credentials/${id}/`,
   },
 } as const;
 
@@ -240,6 +240,7 @@ export const PRIORITY_LEVELS = {
   MEDIUM: 'medium',
   HIGH: 'high',
   URGENT: 'urgent',
+  EMERGENCY: 'emergency',
 } as const;
 
 export const PRIORITY_LABELS = {
@@ -247,6 +248,7 @@ export const PRIORITY_LABELS = {
   [PRIORITY_LEVELS.MEDIUM]: 'Medium',
   [PRIORITY_LEVELS.HIGH]: 'High',
   [PRIORITY_LEVELS.URGENT]: 'Urgent',
+  [PRIORITY_LEVELS.EMERGENCY]: 'Emergency',
 } as const;
 
 export const PRIORITY_COLORS = {
@@ -254,6 +256,7 @@ export const PRIORITY_COLORS = {
   [PRIORITY_LEVELS.MEDIUM]: '#ff9800',
   [PRIORITY_LEVELS.HIGH]: '#f44336',
   [PRIORITY_LEVELS.URGENT]: '#9c27b0',
+  [PRIORITY_LEVELS.EMERGENCY]: '#d32f2f',
 } as const;
 
 // Notification Types

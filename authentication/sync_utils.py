@@ -7,8 +7,8 @@ from django.conf import settings
 from django.utils import timezone
 from .models import AuditLog
 
-# Create dedicated logger for sync operations
-sync_logger = logging.getLogger('authentication.sync')
+# Create dedicated logger for authentication operations
+auth_logger = logging.getLogger('authentication.operations')
 
 
 def serialize_for_json(obj):
@@ -25,18 +25,18 @@ def serialize_for_json(obj):
         return obj
 
 
-class SyncErrorHandler:
-    """Comprehensive error handling for user synchronization operations"""
+class AuthErrorHandler:
+    """Comprehensive error handling for authentication operations"""
     
     @staticmethod
-    def log_sync_operation(operation: str, email: str, success: bool, 
+    def log_auth_operation(operation: str, email: str, success: bool, 
                           details: Dict[str, Any] = None, error: Exception = None):
         """
-        Log synchronization operations with comprehensive details
+        Log authentication operations with comprehensive details
         
         Args:
-            operation: Type of sync operation (e.g., 'user_creation', 'user_update')
-            email: User email being synchronized
+            operation: Type of auth operation (e.g., 'user_creation', 'user_login')
+            email: User email
             success: Whether the operation was successful
             details: Additional operation details
             error: Exception if operation failed
@@ -46,7 +46,7 @@ class SyncErrorHandler:
             
             # Create log message
             status = "SUCCESS" if success else "FAILED"
-            message = f"SYNC {status}: {operation} for {email}"
+            message = f"AUTH {status}: {operation} for {email}"
             
             if details:
                 message += f" | Details: {details}"
@@ -55,7 +55,7 @@ class SyncErrorHandler:
                 message += f" | Error: {str(error)}"
                 message += f" | Traceback: {traceback.format_exc()}"
             
-            sync_logger.log(log_level, message)
+            auth_logger.log(log_level, message)
             
             # Also create audit log in database
             try:
@@ -81,26 +81,26 @@ class SyncErrorHandler:
                     user=user,
                     user_role=user.groups.first().name if user and user.groups.exists() else 'unknown',
                     action='create' if 'create' in operation.lower() else 'update',
-                    resource_type='UserSync',
+                    resource_type='UserAuth',
                     resource_id=email,
                     description=message,
                     ip_address='127.0.0.1',  # System operation
-                    user_agent='System/Sync',
+                    user_agent='System/Auth',
                     risk_level='medium' if not success else 'low',
                     new_values=serialized_new_values
                 )
             except Exception as audit_error:
-                sync_logger.error(f"Failed to create audit log: {str(audit_error)}")
+                auth_logger.error(f"Failed to create audit log: {str(audit_error)}")
                 
         except Exception as log_error:
             # Fallback logging if our logging fails
-            print(f"SYNC LOGGING ERROR: {str(log_error)}")
+            print(f"AUTH LOGGING ERROR: {str(log_error)}")
             print(f"Original operation: {operation} for {email}, success: {success}")
     
     @staticmethod
-    def handle_supabase_error(operation: str, email: str, error: Exception) -> Dict[str, Any]:
+    def handle_auth_error(operation: str, email: str, error: Exception) -> Dict[str, Any]:
         """
-        Handle Supabase-specific errors with detailed categorization
+        Handle authentication-specific errors with detailed categorization
         
         Args:
             operation: The operation that failed
@@ -120,17 +120,17 @@ class SyncErrorHandler:
             'retry_recommended': False
         }
         
-        # Categorize common Supabase errors
-        if 'invalid login credentials' in error_str:
+        # Categorize common authentication errors
+        if 'invalid login credentials' in error_str or 'invalid password' in error_str:
             error_details.update({
                 'error_type': 'invalid_credentials',
-                'suggested_action': 'User should reset password',
+                'suggested_action': 'User should check credentials or reset password',
                 'retry_recommended': False
             })
         elif 'user already exists' in error_str or 'already registered' in error_str:
             error_details.update({
                 'error_type': 'user_exists',
-                'suggested_action': 'User already exists in Supabase',
+                'suggested_action': 'User already exists in system',
                 'retry_recommended': False
             })
         elif 'network' in error_str or 'connection' in error_str or 'timeout' in error_str:
@@ -148,11 +148,11 @@ class SyncErrorHandler:
         elif 'unauthorized' in error_str or 'forbidden' in error_str:
             error_details.update({
                 'error_type': 'authorization_error',
-                'suggested_action': 'Check Supabase API keys and permissions',
+                'suggested_action': 'Check user permissions',
                 'retry_recommended': False
             })
         
-        SyncErrorHandler.log_sync_operation(operation, email, False, error_details, error)
+        AuthErrorHandler.log_auth_operation(operation, email, False, error_details, error)
         return error_details
     
     @staticmethod
@@ -204,74 +204,57 @@ class SyncErrorHandler:
                 'retry_recommended': False
             })
         
-        SyncErrorHandler.log_sync_operation(operation, email, False, error_details, error)
+        AuthErrorHandler.log_auth_operation(operation, email, False, error_details, error)
         return error_details
 
 
-class SyncMetrics:
-    """Track synchronization metrics and health"""
+class AuthMetrics:
+    """Track authentication metrics and health"""
     
     @staticmethod
-    def get_sync_health_status() -> Dict[str, Any]:
+    def get_auth_health_status() -> Dict[str, Any]:
         """
-        Get overall synchronization health status
+        Get overall authentication system health status
         
         Returns:
-            Dict with sync health metrics
+            Dict with auth health metrics
         """
         try:
             from django.contrib.auth import get_user_model
-            from supabase_client import admin_client
             
             User = get_user_model()
             
-            # Get counts
-            django_count = User.objects.count()
+            # Get user counts
+            total_users = User.objects.count()
+            active_users = User.objects.filter(is_active=True).count()
+            staff_users = User.objects.filter(is_staff=True).count()
             
-            try:
-                supabase_users = admin_client.auth.admin.list_users()
-                supabase_count = len(supabase_users)
-                supabase_available = True
-            except Exception as e:
-                supabase_count = 0
-                supabase_available = False
-                sync_logger.error(f"Supabase unavailable for health check: {str(e)}")
-            
-            # Calculate sync ratio
-            if django_count > 0 and supabase_count > 0:
-                sync_ratio = min(django_count, supabase_count) / max(django_count, supabase_count)
-            else:
-                sync_ratio = 0.0
-            
-            # Determine health status
-            if not supabase_available:
-                health_status = 'critical'
-            elif sync_ratio >= 0.95:
-                health_status = 'healthy'
-            elif sync_ratio >= 0.80:
-                health_status = 'warning'
-            else:
-                health_status = 'critical'
-            
-            # Get recent sync errors
+            # Get recent auth errors
             recent_errors = AuditLog.objects.filter(
-                action__startswith='SYNC_',
+                action__startswith='AUTH_',
                 success=False,
                 timestamp__gte=timezone.now() - timezone.timedelta(hours=24)
             ).count()
             
+            # Determine health status based on error rate
+            if recent_errors == 0:
+                health_status = 'healthy'
+            elif recent_errors <= 5:
+                health_status = 'warning'
+            else:
+                health_status = 'critical'
+            
             return {
                 'health_status': health_status,
-                'django_users': django_count,
-                'supabase_users': supabase_count,
-                'sync_ratio': round(sync_ratio, 3),
-                'supabase_available': supabase_available,
+                'total_users': total_users,
+                'active_users': active_users,
+                'staff_users': staff_users,
                 'recent_errors_24h': recent_errors,
                 'last_checked': timezone.now().isoformat()
             }
             
         except Exception as e:
-            sync_logger.error(f"Error getting sync health status: {str(e)}")
+            auth_logger.error(f"Error getting auth health status: {str(e)}")
             return {
                 'health_status': 'unknown',
                 'error': str(e),
@@ -279,9 +262,9 @@ class SyncMetrics:
             }
 
 
-def safe_sync_operation(operation_name: str):
+def safe_auth_operation(operation_name: str):
     """
-    Decorator for safe synchronization operations with comprehensive error handling
+    Decorator for safe authentication operations with comprehensive error handling
     
     Args:
         operation_name: Name of the operation for logging
@@ -291,13 +274,13 @@ def safe_sync_operation(operation_name: str):
             email = kwargs.get('email', 'unknown')
             try:
                 result = func(*args, **kwargs)
-                SyncErrorHandler.log_sync_operation(
+                AuthErrorHandler.log_auth_operation(
                     operation_name, email, True, 
                     {'result': result if isinstance(result, dict) else 'success'}
                 )
                 return result
             except Exception as e:
-                error_details = SyncErrorHandler.handle_supabase_error(operation_name, email, e)
+                error_details = AuthErrorHandler.handle_auth_error(operation_name, email, e)
                 # Re-raise the exception after logging
                 raise e
         return wrapper

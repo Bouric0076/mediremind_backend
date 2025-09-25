@@ -15,6 +15,7 @@ urlpatterns = [
     path('availability/check/', views.check_availability, name='check_availability'),  # GET /appointments/availability/check/
     path('statistics/', views.get_appointment_statistics, name='appointment_statistics'),  # GET /appointments/statistics/
     path('time-slots/', views.get_available_time_slots, name='get_available_time_slots'),  # GET /appointments/time-slots/
+    path('types/', views.list_appointment_types, name='list_appointment_types'),  # GET /appointments/types/
     
     # Legacy endpoints (keeping for backward compatibility)
     path('list/', views.list_appointments, name='list_appointments'),

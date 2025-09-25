@@ -1,4 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""
+Debug script to test user creation functionality
+"""
+
 import os
 import sys
 import django
@@ -43,7 +47,7 @@ def test_user_creation():
         
         user2 = User.objects.create_user(
             email='debug2@test.com',
-            password='testpass123',
+            password=os.getenv('DEBUG_TEST_PASSWORD', 'temp_debug_pass_123'),
             full_name='Debug Test User 2',
             role='patient'
         )

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Confirmed for {{ patient_name }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #28a745;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #28a745;
+            margin: 0;
+            font-size: 28px;
+        }
+        .appointment-details {
+            background-color: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .detail-value {
+            color: #212529;
+        }
+        .emergency-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .emergency-notice h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #218838;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+            }
+            .detail-label {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ Appointment Confirmed</h1>
+            <p>Emergency Contact Notification</p>
+        </div>
+
+        <div class="emergency-notice">
+            <h3>📞 Emergency Contact Notification</h3>
+            <p>Hello {{ emergency_contact_name }},</p>
+            <p>You are receiving this notification as the <strong>{{ emergency_contact_relationship }}</strong> for <strong>{{ patient_name }}</strong>. Their upcoming appointment has been confirmed.</p>
+        </div>
+
+        <div class="appointment-details">
+            <h3>📅 Appointment Details</h3>
+            <div class="detail-row">
+                <span class="detail-label">Patient:</span>
+                <span class="detail-value">{{ patient_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Doctor:</span>
+                <span class="detail-value">Dr. {{ appointment.doctor_name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Date:</span>
+                <span class="detail-value">{{ appointment.date }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Time:</span>
+                <span class="detail-value">{{ appointment.time }}</span>
+            </div>
+            {% if appointment.location %}
+            <div class="detail-row">
+                <span class="detail-label">Location:</span>
+                <span class="detail-value">{{ appointment.location }}</span>
+            </div>
+            {% endif %}
+            {% if appointment.type %}
+            <div class="detail-row">
+                <span class="detail-label">Appointment Type:</span>
+                <span class="detail-value">{{ appointment.type }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <p><strong>The appointment has been successfully confirmed and {{ patient_name }} should have received their own confirmation.</strong></p>
+            {% if appointment.preparation_instructions %}
+            <p style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff;">
+                <strong>Preparation Instructions:</strong><br>
+                {{ appointment.preparation_instructions }}
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>This is an automated notification sent to emergency contacts.</p>
+            <p>If you have concerns about {{ patient_name }}'s appointment, please contact them directly or reach out to our clinic.</p>
+            <p style="margin-top: 20px;">
+                <strong>MediRemind Healthcare</strong><br>
+                📞 Support: {{ support_phone | default:"(555) 123-4567" }}<br>
+                📧 Email: {{ support_email | default:"support@mediremind.com" }}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

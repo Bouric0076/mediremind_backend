@@ -24,6 +24,7 @@ class LogCategory(Enum):
     DATABASE = "database"
     SYSTEM = "system"
     SECURITY = "security"
+    CACHE = "cache"
 
 @dataclass
 class LogEntry:

@@ -7,22 +7,26 @@
  */
 
 // Permission types that match backend configuration
-export enum PermissionLevel {
-  READ = 'read',
-  WRITE = 'write',
-  ADMIN = 'admin'
-}
+export const PermissionLevel = {
+  READ: 'read',
+  WRITE: 'write',
+  ADMIN: 'admin'
+} as const;
 
-export enum PermissionCategory {
-  PROFILE = 'profile',
-  PATIENTS = 'patients',
-  APPOINTMENTS = 'appointments',
-  MEDICAL_RECORDS = 'medical_records',
-  PRESCRIPTIONS = 'prescriptions',
-  ADMINISTRATION = 'administration',
-  BILLING = 'billing',
-  REPORTS = 'reports'
-}
+export type PermissionLevel = typeof PermissionLevel[keyof typeof PermissionLevel];
+
+export const PermissionCategory = {
+  PROFILE: 'profile',
+  PATIENTS: 'patients',
+  APPOINTMENTS: 'appointments',
+  MEDICAL_RECORDS: 'medical_records',
+  PRESCRIPTIONS: 'prescriptions',
+  ADMINISTRATION: 'administration',
+  BILLING: 'billing',
+  REPORTS: 'reports'
+} as const;
+
+export type PermissionCategory = typeof PermissionCategory[keyof typeof PermissionCategory];
 
 export interface Permission {
   code: string;
@@ -199,6 +203,58 @@ export class PermissionChecker {
    */
   hasRoleLevel(minimumLevel: number): boolean {
     return this.getRoleLevel() >= minimumLevel;
+  }
+
+  /**
+   * Get all available roles
+   */
+  getAllRoles(): UserRole[] {
+    return ROLE_CHOICES.map(role => role.value);
+  }
+
+  /**
+   * Get permissions for a specific role
+   */
+  getRolePermissions(role: UserRole): string[] {
+    // This would typically come from backend configuration
+    // For now, return empty array as this needs backend integration
+    if (!this.detailedPermissions) return [];
+    
+    // If we have detailed permissions for the current user's role and it matches
+    if (this.detailedPermissions.role === role) {
+      return this.detailedPermissions.permissions;
+    }
+    
+    // Otherwise return empty array - this should be populated from backend
+    return [];
+  }
+
+  /**
+   * Check if one role is higher or equal to another
+   */
+  isRoleHigherOrEqual(role1: UserRole, role2: UserRole): boolean {
+    const roleLevels: Record<string, number> = {
+      'patient': 1,
+      'patient_guardian': 2,
+      'receptionist': 10,
+      'medical_records_clerk': 15,
+      'billing_specialist': 20,
+      'technician': 25,
+      'nurse': 30,
+      'therapist': 35,
+      'physician_assistant': 40,
+      'nurse_practitioner': 45,
+      'physician': 50,
+      'practice_manager': 60,
+      'compliance_officer': 70,
+      'security_officer': 80,
+      'system_admin': 100
+    };
+    
+    const level1 = roleLevels[role1] || 0;
+    const level2 = roleLevels[role2] || 0;
+    
+    return level1 >= level2;
   }
 }
 

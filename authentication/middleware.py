@@ -24,7 +24,13 @@ class AuthenticationMiddleware(MiddlewareMixin):
     def process_request(self, request):
         """Process incoming request to authenticate user"""
         # Skip authentication for certain paths
-        skip_paths = ['/admin/', '/static/', '/media/', '/auth/login/', '/auth/register/']
+        skip_paths = [
+            '/admin/', '/static/', '/media/', 
+            '/auth/login/', '/auth/register/',
+            '/api/auth/login/', '/api/auth/register/',
+            '/accounts/register-hospital/', '/api/accounts/register-hospital/',
+            '/health/'
+        ]
         if any(request.path.startswith(path) for path in skip_paths):
             return None
         

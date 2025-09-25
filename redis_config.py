@@ -10,10 +10,10 @@ from typing import Optional
 from urllib.parse import urlparse
 
 # Redis Cloud Connection Details
-REDIS_HOST = "redis-12735.crce204.eu-west-2-3.ec2.redns.redis-cloud.com"
-REDIS_PORT = 12735
-REDIS_USERNAME = "default"
-REDIS_PASSWORD = "oE1Gh8TkVwGkuihbKt43XrQeZVTLbl4p"
+REDIS_HOST = os.getenv("REDIS_HOST", "redis-12735.crce204.eu-west-2-3.ec2.redns.redis-cloud.com")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "12735"))
+REDIS_USERNAME = os.getenv("REDIS_USERNAME", "default")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 
 # Redis URL for different databases
 # Note: Redis Cloud typically only supports database 0

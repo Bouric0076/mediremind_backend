@@ -10,6 +10,256 @@ from datetime import date, timedelta
 User = get_user_model()
 
 
+class Hospital(models.Model):
+    """Hospital/Clinic model for multi-tenant support"""
+    
+    HOSPITAL_TYPE_CHOICES = [
+        ('hospital', 'Hospital'),
+        ('clinic', 'Clinic'),
+        ('medical_center', 'Medical Center'),
+        ('urgent_care', 'Urgent Care'),
+        ('specialty_clinic', 'Specialty Clinic'),
+        ('dental_clinic', 'Dental Clinic'),
+        ('veterinary_clinic', 'Veterinary Clinic'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('suspended', 'Suspended'),
+        ('pending', 'Pending Approval'),
+    ]
+    
+    # Primary identification
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True)
+    hospital_type = models.CharField(max_length=50, choices=HOSPITAL_TYPE_CHOICES, default='clinic')
+    
+    # Contact Information
+    email = models.EmailField(validators=[EmailValidator()])
+    phone = models.CharField(
+        max_length=20,
+        validators=[RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )]
+    )
+    website = models.URLField(blank=True)
+    
+    # Address Information
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100, default='United States')
+    
+    # Business Information
+    license_number = EncryptedCharField(max_length=255, blank=True)
+    tax_id = EncryptedCharField(max_length=255, blank=True)
+    accreditation = models.JSONField(default=list, help_text="List of accreditations")
+    
+    # Settings and Configuration
+    timezone = models.CharField(max_length=50, default='UTC')
+    language = models.CharField(max_length=10, default='en')
+    currency = models.CharField(max_length=3, default='USD')
+    
+    # Operational Settings
+    operating_hours = models.JSONField(
+        default=dict,
+        help_text="Weekly operating hours in JSON format"
+    )
+    appointment_settings = models.JSONField(
+        default=dict,
+        help_text="Appointment booking settings and rules"
+    )
+    notification_settings = models.JSONField(
+        default=dict,
+        help_text="Hospital-specific notification preferences"
+    )
+    
+    # Branding
+    logo = models.ImageField(upload_to='hospital_logos/', blank=True, null=True)
+    primary_color = models.CharField(max_length=7, default='#007bff', help_text="Primary brand color (hex)")
+    secondary_color = models.CharField(max_length=7, default='#6c757d', help_text="Secondary brand color (hex)")
+    
+    # Status and Metadata
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    is_verified = models.BooleanField(default=False)
+    subscription_plan = models.CharField(max_length=50, default='basic')
+    max_staff = models.PositiveIntegerField(default=50, help_text="Maximum number of staff members")
+    max_patients = models.PositiveIntegerField(default=1000, help_text="Maximum number of patients")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hospitals'
+        verbose_name = 'Hospital/Clinic'
+        verbose_name_plural = 'Hospitals/Clinics'
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['status']),
+            models.Index(fields=['hospital_type']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_hospital_type_display()})"
+    
+    @property
+    def full_address(self):
+        """Return formatted full address"""
+        address_parts = [self.address_line_1]
+        if self.address_line_2:
+            address_parts.append(self.address_line_2)
+        address_parts.extend([self.city, self.state, self.postal_code])
+        return ', '.join(address_parts)
+    
+    @property
+    def staff_count(self):
+        """Return current number of staff members"""
+        return self.staff_members.filter(employment_status__in=['full_time', 'part_time', 'contract']).count()
+    
+    @property
+    def patient_count(self):
+        """Return current number of patients"""
+        return self.hospital_patients.filter(status='active').count()
+    
+    def can_add_staff(self):
+        """Check if hospital can add more staff members"""
+        return self.staff_count < self.max_staff
+    
+    def can_add_patients(self):
+        """Check if hospital can add more patients"""
+        return self.patient_count < self.max_patients
+
+
+class HospitalPatient(models.Model):
+    """Relationship model linking patients to hospitals while keeping patients global"""
+    
+    RELATIONSHIP_TYPE_CHOICES = [
+        ('appointment', 'Has Appointment'),
+        ('recurring', 'Recurring Patient'),
+        ('admin_added', 'Added by Admin'),
+        ('transferred', 'Transferred from Another Hospital'),
+        ('emergency', 'Emergency Visit'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('transferred', 'Transferred'),
+        ('discharged', 'Discharged'),
+    ]
+    
+    # Primary identification
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    hospital = models.ForeignKey(
+        'Hospital',
+        on_delete=models.CASCADE,
+        related_name='hospital_patients'
+    )
+    patient = models.ForeignKey(
+        'EnhancedPatient',
+        on_delete=models.CASCADE,
+        related_name='hospital_relationships'
+    )
+    
+    # Relationship details
+    relationship_type = models.CharField(
+        max_length=20,
+        choices=RELATIONSHIP_TYPE_CHOICES,
+        default='appointment'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
+    )
+    
+    # Metadata
+    added_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='added_hospital_patients',
+        help_text="Staff member who added this patient to the hospital"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Internal notes about this patient-hospital relationship"
+    )
+    
+    # Patient-specific settings for this hospital
+    preferred_language = models.CharField(max_length=10, blank=True)
+    communication_preferences = models.JSONField(
+        default=dict,
+        help_text="Hospital-specific communication preferences"
+    )
+    
+    # Timestamps
+    first_visit_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date of first appointment/visit at this hospital"
+    )
+    last_visit_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date of most recent appointment/visit"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hospital_patients'
+        unique_together = ['hospital', 'patient']
+        verbose_name = 'Hospital Patient Relationship'
+        verbose_name_plural = 'Hospital Patient Relationships'
+        indexes = [
+            models.Index(fields=['hospital', 'status']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['relationship_type']),
+            models.Index(fields=['first_visit_date']),
+            models.Index(fields=['last_visit_date']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.patient.user.full_name} at {self.hospital.name}"
+    
+    @property
+    def is_active(self):
+        """Check if this patient relationship is currently active"""
+        return self.status == 'active'
+    
+    @property
+    def visit_count(self):
+        """Return number of appointments this patient has had at this hospital"""
+        return self.patient.appointments.filter(hospital=self.hospital).count()
+    
+    def update_last_visit(self, visit_date=None):
+        """Update the last visit date"""
+        from django.utils import timezone
+        self.last_visit_date = visit_date or timezone.now()
+        self.save(update_fields=['last_visit_date', 'updated_at'])
+
+
+def default_emergency_notification_types():
+    """Default notification types for emergency contacts"""
+    return ['appointment_reminder', 'appointment_cancellation', 'appointment_rescheduled', 'no_show_alert']
+
+
+def default_emergency_notification_methods():
+    """Default notification methods for emergency contacts"""
+    return ['email', 'sms']
+
+
 class EnhancedPatient(models.Model):
     """Enhanced Patient model with comprehensive medical data management"""
     
@@ -137,6 +387,20 @@ class EnhancedPatient(models.Model):
     hipaa_authorization_date = models.DateTimeField(null=True, blank=True)
     marketing_consent = models.BooleanField(default=False)
     research_consent = models.BooleanField(default=False)
+    
+    # Emergency Contact Notification Preferences
+    notify_emergency_contact = models.BooleanField(
+        default=True,
+        help_text="Send appointment notifications to emergency contact"
+    )
+    emergency_contact_notification_types = models.JSONField(
+        default=default_emergency_notification_types,
+        help_text="Types of notifications to send to emergency contact"
+    )
+    emergency_contact_notification_methods = models.JSONField(
+        default=default_emergency_notification_methods,
+        help_text="Preferred notification methods for emergency contact (email, sms, phone)"
+    )
     
     # Care Team Assignments
     primary_care_physician = models.ForeignKey(
@@ -312,6 +576,7 @@ class EnhancedStaffProfile(models.Model):
     # Primary identification
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='staff_members')
     
     # Professional Information
     specialization = models.ForeignKey(
@@ -579,7 +844,10 @@ class StaffCredential(models.Model):
 
 # Export all models
 __all__ = [
+    'Hospital',
+    'HospitalPatient',
     'EnhancedPatient',
     'EnhancedStaffProfile', 
     'Specialization',
+    'StaffCredential',
 ]

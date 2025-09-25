@@ -21,11 +21,24 @@ from .health import health_check
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # API endpoints with /api/ prefix for frontend
+    path('api/auth/', include('authentication.urls')),
+    path('api/accounts/', include('accounts.urls')),
+    path('api/appointments/', include('appointments.urls')),
+    path('api/notifications/', include('notifications.urls')),
+    path('api/analytics/', include('analytics.urls')),
+    path('api/calendar/', include('calendar_integrations.urls')),
+    path('api/scheduler/', include(scheduler_api_urls)),
+    
+    # Legacy endpoints (keeping for backward compatibility)
     path('auth/', include('authentication.urls')),
     path('accounts/', include('accounts.urls')), 
     path('appointments/', include('appointments.urls')),
     path('notifications/', include('notifications.urls')),
     path('analytics/', include('analytics.urls')),
-    path('api/', include(scheduler_api_urls)),
+    path('calendar/', include('calendar_integrations.urls')),
+    
+    # Health check
     path('health/', health_check, name='health_check'),
 ]

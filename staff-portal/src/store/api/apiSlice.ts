@@ -17,10 +17,64 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-// Base query with re-authentication
+// Base query with re-authentication and network error handling
 const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
-  let result = await baseQuery(args, api, extraOptions);
+  // Maximum number of retries for network errors
+  const MAX_RETRIES = 3;
+  let retries = 0;
   
+  const executeQuery = async () => {
+    try {
+      return await baseQuery(args, api, extraOptions);
+    } catch (error) {
+      // Rethrow non-network errors
+      if (!(error instanceof Error) || 
+          !(error.message.includes('network') || 
+            error.message.includes('ERR_NETWORK_CHANGED') || 
+            error.message.includes('Failed to fetch'))) {
+        throw error;
+      }
+      
+      // For network errors, retry with exponential backoff if under max retries
+      if (retries < MAX_RETRIES) {
+        retries++;
+        const delay = Math.pow(2, retries) * 1000; // Exponential backoff: 2s, 4s, 8s
+        
+        // Check if network is available before retrying
+        if (navigator.onLine) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return executeQuery(); // Recursive retry
+        } else {
+          // Wait for online status before retrying
+          await new Promise(resolve => {
+            const handleOnline = () => {
+              window.removeEventListener('online', handleOnline);
+              setTimeout(resolve, 1000); // Small delay after coming back online
+            };
+            window.addEventListener('online', handleOnline);
+          });
+          return executeQuery();
+        }
+      }
+      
+      throw error; // Max retries exceeded
+    }
+  };
+  
+  let result;
+  try {
+    result = await executeQuery();
+  } catch (error) {
+    // Handle network errors that exceeded max retries
+    return {
+      error: {
+        status: 'NETWORK_ERROR',
+        data: { message: 'Network connection error. Please check your connection and try again.' }
+      }
+    };
+  }
+  
+  // Handle authentication errors
   if (result.error && result.error.status === 401) {
     // Try to get a new token
     const refreshResult = await baseQuery(
@@ -55,6 +109,7 @@ export const apiSlice = createApi({
     'User',
     'Patient',
     'Appointment',
+    'AppointmentType',
     'Notification',
     'Template',
     'Prescription',
@@ -95,6 +150,37 @@ export const apiSlice = createApi({
         url: API_ENDPOINTS.AUTH.REFRESH,
         method: 'POST',
         body,
+      }),
+    }),
+    
+    registerHospital: builder.mutation<
+      { message: string; hospital_id: string; admin_user_id: string },
+      {
+        hospital_name: string;
+        hospital_type: string;
+        hospital_email: string;
+        hospital_phone: string;
+        hospital_website?: string;
+        address_line_1: string;
+        address_line_2?: string;
+        city: string;
+        state: string;
+        postal_code: string;
+        country: string;
+        license_number?: string;
+        tax_id?: string;
+        timezone: string;
+        admin_first_name: string;
+        admin_last_name: string;
+        admin_email: string;
+        admin_password: string;
+        admin_phone?: string;
+      }
+    >({
+      query: (registrationData) => ({
+        url: '/api/accounts/register-hospital/',
+        method: 'POST',
+        body: registrationData,
       }),
     }),
     
@@ -177,7 +263,7 @@ export const apiSlice = createApi({
         Object.entries(params).forEach(([key, value]) => {
           if (value) searchParams.append(key, value);
         });
-        return `/appointments?${searchParams}`;
+        return `/appointments/?${searchParams}`;
       },
       providesTags: (result) =>
         result
@@ -196,17 +282,16 @@ export const apiSlice = createApi({
     createAppointment: builder.mutation<any, {
       patient_id: string;
       provider_id: string;
-      appointment_type: string;
-      date: string;
-      time: string;
-      duration: number;
-      location: string;
-      priority: 'low' | 'medium' | 'high' | 'urgent';
+      appointment_type_id: string;
+      appointment_date: string;
+      start_time: string;
+      reason: string;
+      priority?: 'low' | 'medium' | 'high' | 'urgent';
       notes?: string;
-      status?: 'scheduled' | 'confirmed' | 'cancelled' | 'completed';
+      title?: string;
     }>({
       query: (appointment) => ({
-        url: '/appointments',
+        url: '/api/appointments/create/',
         method: 'POST',
         body: appointment,
       }),
@@ -215,7 +300,7 @@ export const apiSlice = createApi({
     
     updateAppointment: builder.mutation<any, { id: string; updates: Partial<any> }>({
       query: ({ id, updates }) => ({
-        url: `/appointments/${id}`,
+        url: `/api/appointments/${id}`,
         method: 'PATCH',
         body: updates,
       }),
@@ -224,31 +309,39 @@ export const apiSlice = createApi({
     
     cancelAppointment: builder.mutation<any, { id: string; reason?: string }>({
       query: ({ id, reason }) => ({
-        url: `/appointments/${id}/cancel`,
+        url: `/api/appointments/${id}/cancel`,
         method: 'POST',
         body: { reason },
       }),
       invalidatesTags: (_, __, { id }) => [{ type: 'Appointment', id }],
     }),
     
+    getAppointmentTypes: builder.query<
+      { appointment_types: any[] },
+      void
+    >({
+      query: () => '/api/appointments/types/',
+      providesTags: ['AppointmentType'],
+    }),
+    
     // Notification endpoints
     getNotifications: builder.query<
-      { unread: any[]; history: any[] },
-      { page?: number; limit?: number; status?: string }
+      { notifications: any[]; pagination: any },
+      { page?: number; page_size?: number; status?: string; task_type?: string; delivery_method?: string }
     >({
       query: (params) => {
         const searchParams = new URLSearchParams();
         Object.entries(params).forEach(([key, value]) => {
           if (value) searchParams.append(key, value.toString());
         });
-        return `/notifications?${searchParams}`;
+        return `/api/notifications/list?${searchParams}`;
       },
       providesTags: ['Notification'],
     }),
     
     sendNotification: builder.mutation<any, any>({
       query: (notification) => ({
-        url: '/notifications/send',
+        url: '/api/notifications/send',
         method: 'POST',
         body: notification,
       }),
@@ -257,21 +350,21 @@ export const apiSlice = createApi({
     
     markNotificationAsRead: builder.mutation<void, string>({
       query: (id) => ({
-        url: `/notifications/${id}/read`,
+        url: `/api/notifications/${id}/read`,
         method: 'PATCH',
       }),
       invalidatesTags: ['Notification'],
     }),
     
     // Template endpoints
-    getTemplates: builder.query<any[], void>({
-      query: () => '/notifications/templates',
+    getTemplates: builder.query<{ templates: any[]; total_count: number }, void>({
+      query: () => '/api/notifications/templates',
       providesTags: ['Template'],
     }),
     
     createTemplate: builder.mutation<any, Partial<any>>({
       query: (template) => ({
-        url: '/notifications/templates',
+        url: '/api/notifications/templates',
         method: 'POST',
         body: template,
       }),
@@ -280,7 +373,7 @@ export const apiSlice = createApi({
     
     updateTemplate: builder.mutation<any, { id: string; updates: Partial<any> }>({
       query: ({ id, updates }) => ({
-        url: `/notifications/templates/${id}`,
+        url: `/api/notifications/templates/${id}`,
         method: 'PATCH',
         body: updates,
       }),
@@ -289,7 +382,7 @@ export const apiSlice = createApi({
     
     // Medical Records
     getMedicalRecords: builder.query<any[], string>({
-      query: (patientId) => `/patients/${patientId}/medical-records`,
+      query: (patientId) => `/api/accounts/patients/${patientId}/medical-records`,
       providesTags: (_, __, patientId) => [
         { type: 'MedicalRecord', id: patientId },
       ],
@@ -297,7 +390,7 @@ export const apiSlice = createApi({
     
     addMedicalRecord: builder.mutation<any, { patientId: string; record: any }>({
       query: ({ patientId, record }) => ({
-        url: `/patients/${patientId}/medical-records`,
+        url: `/api/accounts/patients/${patientId}/medical-records`,
         method: 'POST',
         body: record,
       }),
@@ -313,14 +406,14 @@ export const apiSlice = createApi({
         Object.entries(params).forEach(([key, value]) => {
           if (value) searchParams.append(key, value);
         });
-        return `/prescriptions?${searchParams}`;
+        return `/api/prescriptions?${searchParams}`;
       },
       providesTags: ['Prescription'],
     }),
     
     createPrescription: builder.mutation<any, any>({
       query: (prescription) => ({
-        url: '/prescriptions',
+        url: '/api/prescriptions',
         method: 'POST',
         body: prescription,
       }),
@@ -358,6 +451,10 @@ export const apiSlice = createApi({
     // Staff Management endpoints
     getStaff: builder.query<any[], void>({
       query: () => API_ENDPOINTS.STAFF.LIST,
+      transformResponse: (response: { staff: any[]; total: number }) => {
+        // Transform the API response to return just the staff array
+        return response.staff || [];
+      },
       providesTags: (result) =>
         result
           ? [
@@ -435,6 +532,7 @@ export const {
   useLoginMutation,
   useLogoutMutation,
   useRefreshTokenMutation,
+  useRegisterHospitalMutation,
   useGetCurrentUserQuery,
   useUpdateProfileMutation,
   useGetPatientsQuery,
@@ -447,6 +545,7 @@ export const {
   useCreateAppointmentMutation,
   useUpdateAppointmentMutation,
   useCancelAppointmentMutation,
+  useGetAppointmentTypesQuery,
   useGetNotificationsQuery,
   useSendNotificationMutation,
   useMarkNotificationAsReadMutation,

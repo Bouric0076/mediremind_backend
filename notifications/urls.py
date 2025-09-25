@@ -16,6 +16,11 @@ urlpatterns = [
     path('test-upcoming/', views.test_upcoming_reminders, name='test_upcoming_reminders'),
     path('check-subscriptions/', views.check_subscriptions, name='check_subscriptions'),
     
+    # New notification management endpoints
+    path('list/', views.get_notifications, name='get_notifications'),
+    path('templates/', views.get_notification_templates, name='get_notification_templates'),
+    path('send/', views.send_manual_notification, name='send_manual_notification'),
+    
     # Interactive email action endpoints
     path('interactive/<str:action_type>/<str:user_id>/<str:resource_id>/', 
          InteractiveEmailActionView.as_view(), 

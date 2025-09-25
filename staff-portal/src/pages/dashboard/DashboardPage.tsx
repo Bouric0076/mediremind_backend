@@ -26,21 +26,19 @@ import {
   CalendarToday as CalendarIcon,
   Notifications as NotificationsIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
   Refresh as RefreshIcon,
   ArrowForward as ArrowForwardIcon,
-  LocalHospital,
   Dashboard as DashboardIcon,
   Assessment as AssessmentIcon,
   EventNote as EventNoteIcon,
   Analytics as AnalyticsIcon,
   Error as ErrorIcon,
+  WifiOff as WifiOffIcon,
 } from '@mui/icons-material';
-import { Timeline } from '@mui/lab';
 import { useGetDashboardStatsQuery } from '../../store/api/apiSlice';
 import { setBreadcrumbs, setCurrentPage, addToast } from '../../store/slices/uiSlice';
 import { useNavigate } from 'react-router-dom';
@@ -217,25 +215,64 @@ export const DashboardPage: React.FC = () => {
   // Extract data from the API response
   const stats = dashboardData?.overview || {};
   const activityTrends = dashboardData?.activity_trends || [];
-  const departmentStats = dashboardData?.department_stats || [];
+  // Removed unused departmentStats variable
   const systemHealth = dashboardData?.system_health || {};
+  
+  // Calculate trends from API data if available
+  const calculateTrend = (current: number, previous: number): { value: number, isPositive: boolean } | undefined => {
+    if (previous === 0 || isNaN(previous) || isNaN(current)) return undefined;
+    const percentChange = Math.round(((current - previous) / previous) * 100);
+    return {
+      value: Math.abs(percentChange),
+      isPositive: percentChange >= 0
+    };
+  };
+  
+  // Calculate trends based on available data
+  const usersTrend = calculateTrend(stats.total_users, stats.total_users_previous);
+  const appointmentsTrend = calculateTrend(stats.appointments_today, stats.appointments_today_previous);
+  const completionRateTrend = calculateTrend(
+    stats.completed_appointments / (stats.total_appointments || 1),
+    stats.completed_appointments_previous / (stats.total_appointments_previous || 1)
+  );
 
   useEffect(() => {
     dispatch(setCurrentPage('dashboard'));
     dispatch(setBreadcrumbs([]));
   }, [dispatch]);
 
-  // Auto-retry logic for failed requests
+  // Enhanced auto-retry logic for failed requests with network error handling
   useEffect(() => {
     if (error && retryCount < 3) {
+      // Display network error message
+      if ('status' in error && error.status === 'NETWORK_ERROR') {
+        dispatch(addToast({
+          title: 'Network Error',
+          message: 'Connection issue detected. Retrying automatically...',
+          type: 'warning',
+          duration: 5000,
+        }));
+      }
+      
       const timer = setTimeout(() => {
-        setRetryCount(prev => prev + 1);
-        refetch();
+        // Only retry if we're online
+        if (navigator.onLine) {
+          setRetryCount(prev => prev + 1);
+          refetch();
+        } else {
+          // Wait for network to be available
+          const handleOnline = () => {
+            window.removeEventListener('online', handleOnline);
+            setRetryCount(prev => prev + 1);
+            refetch();
+          };
+          window.addEventListener('online', handleOnline);
+        }
       }, Math.pow(2, retryCount) * 1000); // Exponential backoff
       
       return () => clearTimeout(timer);
     }
-  }, [error, retryCount, refetch]);
+  }, [error, retryCount, refetch, dispatch]);
 
   // Enhanced refresh handler with feedback
   const handleRefresh = async () => {
@@ -268,38 +305,63 @@ export const DashboardPage: React.FC = () => {
     setRetryCount(0);
     refetch();
   };
+  
+  // Network error display component
+  const NetworkErrorDisplay = () => {
+    if (!error || !('status' in error) || error.status !== 'NETWORK_ERROR') return null;
+    
+    return (
+      <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
+        <Typography variant="h6" color="error.dark">
+          <WifiOffIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Network Connection Issue
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          We're having trouble connecting to the server. This might be due to network changes or server unavailability.
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<RefreshIcon />} 
+          onClick={handleRetry}
+          sx={{ mt: 2 }}
+        >
+          Retry Connection
+        </Button>
+      </Box>
+    );
+  };
 
-  // Use real data from activity trends for recent appointments
-  const todaysAppointments = activityTrends.length > 0 ? 
-    activityTrends.slice(0, 3).map((trend: any, index: number) => ({
-      id: `${index + 1}`,
-      patientName: `Patient ${index + 1}`,
-      time: `${9 + index * 2}:00 AM`,
-      type: index === 0 ? 'Consultation' : index === 1 ? 'Follow-up' : 'Check-up',
-      status: index % 2 === 0 ? 'confirmed' : 'pending',
-      date: trend.date,
-    })) : [];
+  // Use real data from API for today's appointments
+  const todaysAppointments = dashboardData?.upcoming_appointments?.slice(0, 3).map((appointment: any) => ({
+    id: appointment.id,
+    patientName: appointment.patient_name,
+    time: appointment.time,
+    type: appointment.appointment_type,
+    status: appointment.status,
+    date: appointment.date,
+  })) || [];
 
-  // Generate alerts based on system health and stats
+  // Generate alerts based on real system health and stats data
   const recentAlerts = [
-    {
+    ...(stats.pending_appointments > 0 ? [{
       id: '1',
       message: `${stats.pending_appointments || 0} appointments pending confirmation`,
       type: 'warning',
-      time: '5 minutes ago',
-    },
+      time: systemHealth.last_alert_time || 'Recently',
+    }] : []),
     {
       id: '2',
       message: `System uptime: ${systemHealth.uptime || '99.9%'}`,
       type: 'success',
-      time: '15 minutes ago',
+      time: systemHealth.last_health_check || 'Recently',
     },
-    {
+    ...(stats.new_users_7d > 0 ? [{
       id: '3',
       message: `${stats.new_users_7d || 0} new users this week`,
       type: 'info',
-      time: '1 hour ago',
-    },
+      time: systemHealth.last_user_alert || 'Recently',
+    }] : []),
   ];
 
   const getStatusColor = (status: string) => {
@@ -335,6 +397,9 @@ export const DashboardPage: React.FC = () => {
       default: return 'info';
     }
   };
+  
+  // Network error display component
+  // Removed duplicate NetworkErrorDisplay definition
 
   // Error state with retry option
   if (error && retryCount >= 3) {
@@ -388,6 +453,9 @@ export const DashboardPage: React.FC = () => {
         },
       }}
     >
+      {/* Network Error Display */}
+      <NetworkErrorDisplay />
+      
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
@@ -430,6 +498,9 @@ export const DashboardPage: React.FC = () => {
           <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.9rem', sm: '1rem' } }}>
             Welcome back! Here's what's happening today.
           </Typography>
+          
+          {/* Network error display */}
+          <NetworkErrorDisplay />
           {lastRefresh && (
             <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
               Last updated: {format(lastRefresh, 'HH:mm:ss')}
@@ -492,7 +563,7 @@ export const DashboardPage: React.FC = () => {
               value={stats.total_users?.toLocaleString() || '0'}
               icon={<PeopleIcon />}
               color="primary"
-              trend={{ value: 12, isPositive: true }}
+              trend={usersTrend}
               onClick={() => navigate('/patients')}
             />
           )}
@@ -512,7 +583,7 @@ export const DashboardPage: React.FC = () => {
               value={stats.appointments_today?.toLocaleString() || '0'}
               icon={<CalendarIcon />}
               color="success"
-              trend={{ value: 8, isPositive: true }}
+              trend={appointmentsTrend}
               onClick={() => navigate('/app/appointments')}
             />
           )}
@@ -553,10 +624,10 @@ export const DashboardPage: React.FC = () => {
           ) : (
             <StatCard
               title="Completion Rate"
-              value={`${Math.round((stats.completed_appointments / stats.total_appointments) * 100) || 0}%`}
+              value={`${Math.round((stats.completed_appointments / (stats.total_appointments || 1)) * 100) || 0}%`}
               icon={<AssessmentIcon />}
               color="info"
-              trend={{ value: 3, isPositive: true }}
+              trend={completionRateTrend}
             />
           )}
         </Grid>
@@ -1019,36 +1090,58 @@ export const DashboardPage: React.FC = () => {
 
       {/* Analytics Charts Section */}
       <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} sx={{ mt: { xs: 1, sm: 2 } }}>
-        {/* Activity Trends Chart */}
+        {/* Activity Trends Chart - Redesigned */}
         <Grid size={{ xs: 12, md: 12, lg: 8 }}>
           <Paper 
              sx={{ 
-               p: { xs: 2, sm: 3 }, 
+               p: { xs: 2.5, sm: 3.5 }, 
                height: { xs: '350px', sm: '400px' },
-               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+               background: 'linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%)',
                borderRadius: 3,
-               boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+               boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
                color: 'white',
+               position: 'relative',
+               overflow: 'hidden',
+               '&::before': {
+                 content: '""',
+                 position: 'absolute',
+                 top: 0,
+                 left: 0,
+                 right: 0,
+                 height: '100%',
+                 background: 'url("data:image/svg+xml,%3Csvg width=\'100%25\' height=\'100%25\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'smallGrid\' width=\'8\' height=\'8\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 8 0 L 0 0 0 8\' fill=\'none\' stroke=\'rgba(255,255,255,0.05)\' stroke-width=\'0.5\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'url(%23smallGrid)\'/%3E%3C/svg%3E")',
+                 opacity: 0.3,
+               }
              }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mb: 3,
+              position: 'relative',
+              zIndex: 2
+            }}>
               <Box
                 sx={{
                   background: 'rgba(255,255,255,0.2)',
                   borderRadius: '50%',
-                  p: 1,
+                  p: 1.2,
                   mr: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.3)',
                 }}
               >
-                <Timeline sx={{ color: 'white', fontSize: 24 }} />
+                <AnalyticsIcon sx={{ color: 'white', fontSize: 26 }} />
               </Box>
               <Typography 
                 sx={{ 
                   typography: { xs: 'h6', sm: 'h5' },
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}
               >
-                 Activity Trends (Last 7 Days)
+                 Activity Insights
                </Typography>
             </Box>
             
@@ -1057,69 +1150,167 @@ export const DashboardPage: React.FC = () => {
                 <Skeleton variant="rectangular" width="100%" height="200px" sx={{ borderRadius: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />
               </Box>
             ) : (
-              <Box sx={{ height: '300px', display: 'flex', alignItems: 'end', justifyContent: 'space-around', px: 2 }}>
-                {activityTrends && activityTrends.map((trend: any, index: number) => {
-                  const maxValue = Math.max(...activityTrends.map((t: any) => t.appointments));
-                  const height = (trend.appointments / maxValue) * 200;
-                  return (
-                    <Box key={index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                        {trend.appointments}
-                      </Typography>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: `${height}px`,
-                          background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
-                          borderRadius: '4px 4px 0 0',
-                          mb: 1,
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            background: 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.8) 100%)',
-                          },
-                        }}
-                      />
-                      <Typography variant="caption" sx={{ transform: 'rotate(-45deg)', fontSize: '0.7rem' }}>
-                        {format(new Date(trend.date), 'MMM dd')}
-                      </Typography>
-                    </Box>
-                  );
-                })}
+              <Box sx={{ 
+                height: '300px', 
+                display: 'flex', 
+                flexDirection: 'column',
+                position: 'relative',
+                zIndex: 2
+              }}>
+                <Typography variant="body2" sx={{ mb: 2, opacity: 0.9, fontWeight: 500 }}>
+                  Appointment activity for the last 7 days
+                </Typography>
+                <Box sx={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  alignItems: 'flex-end', 
+                  justifyContent: 'space-around', 
+                  px: 2,
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: 40,
+                    height: '1px',
+                    background: 'rgba(255,255,255,0.2)',
+                    zIndex: 1
+                  }
+                }}>
+                  {activityTrends && activityTrends.map((trend: any, index: number) => {
+                    const maxValue = Math.max(...activityTrends.map((t: any) => t.appointments));
+                    const height = (trend.appointments / maxValue) * 180;
+                    const isToday = index === activityTrends.length - 1;
+                    
+                    return (
+                      <Box key={index} sx={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center',
+                        position: 'relative',
+                        zIndex: 2,
+                        width: '14%'
+                      }}>
+                        <Typography variant="body2" sx={{ 
+                          mb: 1, 
+                          fontWeight: 600,
+                          color: isToday ? '#ffffff' : 'rgba(255,255,255,0.9)'
+                        }}>
+                          {trend.appointments}
+                        </Typography>
+                        <Box
+                          sx={{
+                            width: '60%',
+                            height: `${height}px`,
+                            background: isToday 
+                              ? 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 100%)' 
+                              : 'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 100%)',
+                            borderRadius: '6px 6px 0 0',
+                            mb: 1,
+                            transition: 'all 0.3s ease',
+                            boxShadow: isToday ? '0 0 15px rgba(255,255,255,0.5)' : 'none',
+                            position: 'relative',
+                            '&:hover': {
+                              transform: 'translateY(-5px)',
+                              boxShadow: '0 5px 15px rgba(255,255,255,0.3)',
+                            },
+                            '&::after': isToday ? {
+                              content: '""',
+                              position: 'absolute',
+                              top: -8,
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: '#ffffff',
+                              boxShadow: '0 0 10px rgba(255,255,255,0.8)'
+                            } : {}
+                          }}
+                        />
+                        <Box sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center',
+                          mt: 1
+                        }}>
+                          <Typography variant="caption" sx={{ 
+                            fontSize: '0.75rem',
+                            fontWeight: isToday ? 600 : 400,
+                            color: isToday ? '#ffffff' : 'rgba(255,255,255,0.8)'
+                          }}>
+                            {format(new Date(trend.date), 'EEE')}
+                          </Typography>
+                          <Typography variant="caption" sx={{ 
+                            fontSize: '0.7rem',
+                            color: 'rgba(255,255,255,0.7)',
+                            mt: 0.5
+                          }}>
+                            {format(new Date(trend.date), 'MMM d')}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
             )}
           </Paper>
         </Grid>
 
-        {/* Department Stats */}
+        {/* System Health & Performance */}
         <Grid size={{ xs: 12, md: 12, lg: 4 }}>
           <Paper 
              sx={{ 
-               p: { xs: 2, sm: 3 }, 
+               p: { xs: 2.5, sm: 3.5 }, 
                height: { xs: '350px', sm: '400px' },
-               background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+               background: 'linear-gradient(135deg, #2196f3 0%, #0d47a1 100%)',
                borderRadius: 3,
-               boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+               boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+               color: 'white',
+               position: 'relative',
+               overflow: 'hidden',
+               '&::before': {
+                 content: '""',
+                 position: 'absolute',
+                 top: 0,
+                 left: 0,
+                 right: 0,
+                 height: '100%',
+                 background: 'url("data:image/svg+xml,%3Csvg width=\'100%25\' height=\'100%25\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'smallGrid\' width=\'8\' height=\'8\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 8 0 L 0 0 0 8\' fill=\'none\' stroke=\'rgba(255,255,255,0.05)\' stroke-width=\'0.5\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'url(%23smallGrid)\'/%3E%3C/svg%3E")',
+                 opacity: 0.2,
+               }
              }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mb: 3,
+              position: 'relative',
+              zIndex: 2
+            }}>
               <Box
                 sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: 'rgba(255,255,255,0.2)',
                   borderRadius: '50%',
-                  p: 1,
+                  p: 1.2,
                   mr: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.3)',
                 }}
               >
-                <LocalHospital sx={{ color: 'white', fontSize: 24 }} />
+                <AssessmentIcon sx={{ color: 'white', fontSize: 26 }} />
               </Box>
               <Typography 
                 sx={{ 
                   typography: { xs: 'h6', sm: 'h5' },
                   fontWeight: 'bold',
-                  color: 'text.primary'
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}
               >
-                 Department Overview
+                 System Performance
                </Typography>
             </Box>
             
@@ -1127,69 +1318,165 @@ export const DashboardPage: React.FC = () => {
               <Stack spacing={3}>
                 {[1, 2, 3, 4].map((item) => (
                   <Box key={item}>
-                    <Skeleton variant="text" width="70%" height={24} />
-                    <Skeleton variant="rectangular" height={8} sx={{ borderRadius: 1, mt: 1 }} />
+                    <Skeleton variant="text" width="70%" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
+                    <Skeleton variant="rectangular" height={8} sx={{ borderRadius: 1, mt: 1, bgcolor: 'rgba(255,255,255,0.1)' }} />
                   </Box>
                 ))}
               </Stack>
             ) : (
-              <Box sx={{ height: '300px', overflow: 'auto' }}>
-                {departmentStats && departmentStats.map((dept: any, index: number) => {
-                  const maxAppointments = Math.max(...departmentStats.map((d: any) => d.appointments));
-                  const percentage = (dept.appointments / maxAppointments) * 100;
-                  const colors = [
-                    medicalColors.gradients.primary,
-                    medicalColors.gradients.secondary,
-                    medicalColors.gradients.success,
-                    medicalColors.gradients.warning,
-                    medicalColors.gradients.medicalAccent,
-                  ];
-                  return (
-                    <Box key={index} sx={{ mb: { xs: 3, sm: 4 } }}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        mb: { xs: 1, sm: 1.5 },
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        gap: { xs: 0.5, sm: 0 },
-                      }}>
-                        <Typography 
-                          variant="subtitle1" 
-                          fontWeight="600" 
-                          color={medicalColors.medical.textPrimary}
-                          sx={{ 
-                            fontSize: { xs: '0.95rem', sm: '1rem' },
-                            textAlign: { xs: 'center', sm: 'left' },
-                          }}
-                        >
-                          {dept.name}
-                        </Typography>
-                        <Typography 
-                          variant="body2" 
-                          color={medicalColors.medical.textSecondary} 
-                          fontWeight="500"
-                          sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
-                        >
-                          {dept.appointments} appointments
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={percentage}
-                        sx={{
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: 'rgba(0,0,0,0.1)',
-                          '& .MuiLinearProgress-bar': {
-                            background: `linear-gradient(90deg, hsl(${index * 60}, 70%, 60%) 0%, hsl(${index * 60 + 30}, 70%, 70%) 100%)`,
-                            borderRadius: 4,
-                          },
-                        }}
-                      />
-                    </Box>
-                  );
-                })}
+              <Box sx={{ height: '300px', overflow: 'auto', position: 'relative', zIndex: 2 }}>
+                {/* System Uptime */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    mb: 1.5,
+                  }}>
+                    <Typography 
+                      variant="subtitle1" 
+                      fontWeight="600" 
+                      color="white"
+                    >
+                      System Uptime
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="rgba(255,255,255,0.9)" 
+                      fontWeight="600"
+                      sx={{ 
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        borderRadius: '12px',
+                        px: 1.5,
+                        py: 0.5,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      {systemHealth.uptime || '99.9%'}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={parseFloat((systemHealth.uptime || '99.9').toString())}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      '& .MuiLinearProgress-bar': {
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.9) 100%)',
+                        borderRadius: 5,
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* Response Time */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    mb: 1.5,
+                  }}>
+                    <Typography 
+                      variant="subtitle1" 
+                      fontWeight="600" 
+                      color="white"
+                    >
+                      Response Time
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="rgba(255,255,255,0.9)" 
+                      fontWeight="600"
+                      sx={{ 
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        borderRadius: '12px',
+                        px: 1.5,
+                        py: 0.5,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      {systemHealth.response_time || '120ms'}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={90}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      '& .MuiLinearProgress-bar': {
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.9) 100%)',
+                        borderRadius: 5,
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* API Health */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    mb: 1.5,
+                  }}>
+                    <Typography 
+                      variant="subtitle1" 
+                      fontWeight="600" 
+                      color="white"
+                    >
+                      API Health
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="rgba(255,255,255,0.9)" 
+                      fontWeight="600"
+                      sx={{ 
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        borderRadius: '12px',
+                        px: 1.5,
+                        py: 0.5,
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      {systemHealth.api_health || 'Excellent'}
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={95}
+                    sx={{
+                      height: 10,
+                      borderRadius: 5,
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      '& .MuiLinearProgress-bar': {
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.9) 100%)',
+                        borderRadius: 5,
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* Last System Check */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  mt: 3,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  borderRadius: 2,
+                  p: 1.5,
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                }}>
+                  <AccessTimeIcon sx={{ fontSize: 18, mr: 1, color: 'rgba(255,255,255,0.8)' }} />
+                  <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                    Last check: {systemHealth.last_health_check || 'Recently'}
+                  </Typography>
+                </Box>
               </Box>
             )}
           </Paper>

@@ -41,12 +41,10 @@ class EmailClient:
             if not os.path.exists(cert_path):
                 logger.error(f"SSL certificate file not found at: {cert_path}")
 
-            # Create a more specific SSL context for Gmail
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
-            ssl_context.verify_mode = ssl.CERT_REQUIRED
-            ssl_context.check_hostname = True
-            ssl_context.load_verify_locations(cafile=cert_path)
-            ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')  # Allow more permissive ciphers
+            # Create a more permissive SSL context for development
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
 
             # Log email settings (excluding password)
             logger.debug(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
@@ -189,6 +187,8 @@ class EmailClient:
                 template_key = "appointment_reschedule_patient" if is_patient else "appointment_reschedule_doctor"
             elif update_type == "cancellation":
                 template_key = "appointment_cancellation_patient" if is_patient else "appointment_cancellation_doctor"
+            elif update_type == "created":
+                template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
             else:
                 logger.error(f"Invalid update_type: {update_type}")
                 return False, "Invalid update type"

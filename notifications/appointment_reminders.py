@@ -97,9 +97,9 @@ class AppointmentReminderService:
     def schedule_appointment_reminders(self, appointment: Appointment) -> bool:
         """Schedule all reminders for an appointment"""
         try:
-            appointment_datetime = timezone.make_aware(
-                datetime.combine(appointment.appointment_date, appointment.start_time)
-            )
+            appointment_datetime = datetime.combine(appointment.appointment_date, appointment.start_time)
+            if timezone.is_naive(appointment_datetime):
+                appointment_datetime = timezone.make_aware(appointment_datetime)
             
             # Get patient preferences
             patient_preferences = self._get_patient_notification_preferences(appointment.patient)
@@ -194,10 +194,16 @@ class AppointmentReminderService:
             
             appointment_data = self._prepare_appointment_data(appointment)
             
+            # Send to patient
             for channel in active_channels:
                 self._send_notification_via_channel(
                     channel, appointment_data, reminder_type, appointment
                 )
+            
+            # Send to emergency contact if enabled
+            self._send_emergency_contact_notification(
+                appointment, reminder_type, appointment_data
+            )
                 
         except Exception as e:
             logger.error(f"Error sending immediate reminder: {str(e)}")
@@ -229,11 +235,10 @@ class AppointmentReminderService:
             template_name = self._get_email_template_name(reminder_type)
             subject = self._get_email_subject(reminder_type, appointment_data)
             
-            email_client.send_appointment_email(
-                to_email=appointment.patient.user.email,
-                subject=subject,
-                template_name=template_name,
-                context=appointment_data
+            email_client.send_appointment_confirmation_email(
+                appointment_data=appointment_data,
+                recipient_email=appointment.patient.user.email,
+                is_patient=True
             )
             
         except Exception as e:
@@ -247,7 +252,7 @@ class AppointmentReminderService:
             
             if phone_number:
                 beem_client.send_sms(
-                    phone_number=phone_number,
+                    recipient=phone_number,
                     message=message
                 )
             else:
@@ -275,6 +280,183 @@ class AppointmentReminderService:
     def _send_whatsapp_notification(self, appointment_data: Dict, reminder_type: ReminderType, appointment: Appointment):
         """Send WhatsApp notification (placeholder for future implementation)"""
         logger.info(f"WhatsApp notification would be sent for appointment {appointment.id}")
+    
+    def _send_emergency_contact_notification(
+        self, 
+        appointment: Appointment, 
+        reminder_type: ReminderType, 
+        appointment_data: Dict
+    ):
+        """Send notification to emergency contact if enabled"""
+        try:
+            patient = appointment.patient
+            
+            # Check if emergency contact notifications are enabled
+            if not getattr(patient, 'notify_emergency_contact', False):
+                return
+            
+            # Check if this reminder type should be sent to emergency contact
+            notification_types = getattr(patient, 'emergency_contact_notification_types', [])
+            reminder_type_mapping = {
+                ReminderType.CONFIRMATION: 'appointment_confirmation',
+                ReminderType.REMINDER_24H: 'appointment_reminder',
+                ReminderType.REMINDER_2H: 'appointment_reminder',
+                ReminderType.REMINDER_30M: 'appointment_reminder',
+                ReminderType.CANCELLATION: 'appointment_cancellation',
+                ReminderType.RESCHEDULING: 'appointment_rescheduled',
+                ReminderType.FOLLOW_UP: 'follow_up'
+            }
+            
+            mapped_type = reminder_type_mapping.get(reminder_type)
+            if mapped_type not in notification_types:
+                return
+            
+            # Get emergency contact information
+            emergency_contact_name = getattr(patient, 'emergency_contact_name', '')
+            emergency_contact_phone = getattr(patient, 'emergency_contact_phone', '')
+            emergency_contact_email = getattr(patient, 'emergency_contact_email', '')
+            emergency_contact_relationship = getattr(patient, 'emergency_contact_relationship', '')
+            
+            if not emergency_contact_name:
+                logger.warning(f"No emergency contact name for patient {patient.id}")
+                return
+            
+            # Get preferred notification methods
+            notification_methods = getattr(patient, 'emergency_contact_notification_methods', ['email', 'sms'])
+            
+            # Prepare emergency contact appointment data
+            emergency_appointment_data = appointment_data.copy()
+            emergency_appointment_data.update({
+                'emergency_contact_name': emergency_contact_name,
+                'emergency_contact_relationship': emergency_contact_relationship,
+                'patient_name': f"{patient.user.first_name} {patient.user.last_name}",
+                'is_emergency_contact_notification': True
+            })
+            
+            # Send notifications via preferred methods
+            if 'email' in notification_methods and emergency_contact_email:
+                self._send_emergency_contact_email(
+                    emergency_appointment_data, reminder_type, emergency_contact_email
+                )
+            
+            if 'sms' in notification_methods and emergency_contact_phone:
+                self._send_emergency_contact_sms(
+                    emergency_appointment_data, reminder_type, emergency_contact_phone
+                )
+            
+            logger.info(f"Sent emergency contact notification for appointment {appointment.id} to {emergency_contact_name}")
+            
+        except Exception as e:
+            logger.error(f"Error sending emergency contact notification: {str(e)}")
+    
+    def _send_emergency_contact_email(
+        self, 
+        appointment_data: Dict, 
+        reminder_type: ReminderType, 
+        emergency_contact_email: str
+    ):
+        """Send email notification to emergency contact"""
+        try:
+            template_name = f"emergency_contact_{self._get_email_template_name(reminder_type)}"
+            subject = f"[Emergency Contact] {self._get_email_subject(reminder_type, appointment_data)}"
+            
+            email_client.send_appointment_confirmation_email(
+                appointment_data=appointment_data,
+                recipient_email=emergency_contact_email,
+                is_patient=False
+            )
+            
+        except Exception as e:
+            logger.error(f"Error sending emergency contact email: {str(e)}")
+    
+    def _send_emergency_contact_sms(
+        self, 
+        appointment_data: Dict, 
+        reminder_type: ReminderType, 
+        emergency_contact_phone: str
+    ):
+        """Send SMS notification to emergency contact"""
+        try:
+            message = self._get_emergency_contact_sms_message(reminder_type, appointment_data)
+            
+            beem_client.send_sms(
+                recipient=emergency_contact_phone,
+                message=message
+            )
+            
+        except Exception as e:
+            logger.error(f"Error sending emergency contact SMS: {str(e)}")
+    
+    def _get_emergency_contact_sms_message(self, reminder_type: ReminderType, appointment_data: Dict) -> str:
+        """Get SMS message for emergency contact notifications"""
+        patient_name = appointment_data.get('patient_name', 'Patient')
+        relationship = appointment_data.get('emergency_contact_relationship', 'Emergency Contact')
+        
+        messages = {
+            ReminderType.CONFIRMATION: f"Hello {appointment_data['emergency_contact_name']}, {patient_name}'s appointment with Dr. {appointment_data['provider_name']} is confirmed for {appointment_data['formatted_datetime']} at {appointment_data['location']}. You are receiving this as their {relationship}.",
+            ReminderType.REMINDER_24H: f"Reminder: {patient_name} has an appointment tomorrow at {appointment_data['appointment_time']} with Dr. {appointment_data['provider_name']}. You are receiving this as their {relationship}.",
+            ReminderType.REMINDER_2H: f"Reminder: {patient_name}'s appointment with Dr. {appointment_data['provider_name']} is in 2 hours at {appointment_data['appointment_time']}. You are receiving this as their {relationship}.",
+            ReminderType.REMINDER_30M: f"Reminder: {patient_name}'s appointment with Dr. {appointment_data['provider_name']} is in 30 minutes at {appointment_data['location']}. You are receiving this as their {relationship}.",
+            ReminderType.FOLLOW_UP: f"Follow-up: {patient_name} had an appointment recently. Please check if they need any assistance. You are receiving this as their {relationship}.",
+            ReminderType.CANCELLATION: f"Notice: {patient_name}'s appointment on {appointment_data['formatted_datetime']} has been cancelled. You are receiving this as their {relationship}.",
+            ReminderType.RESCHEDULING: f"Notice: {patient_name}'s appointment has been rescheduled to {appointment_data['formatted_datetime']} with Dr. {appointment_data['provider_name']}. You are receiving this as their {relationship}."
+        }
+        return messages.get(reminder_type, f"Appointment notification for {patient_name}")
+    
+    def send_no_show_alert_to_emergency_contact(self, appointment: Appointment):
+        """Send no-show alert to emergency contact"""
+        try:
+            patient = appointment.patient
+            
+            # Check if emergency contact notifications are enabled
+            if not getattr(patient, 'notify_emergency_contact', False):
+                return
+            
+            # Check if no-show alerts should be sent to emergency contact
+            notification_types = getattr(patient, 'emergency_contact_notification_types', [])
+            if 'no_show_alert' not in notification_types:
+                return
+            
+            # Get emergency contact information
+            emergency_contact_name = getattr(patient, 'emergency_contact_name', '')
+            emergency_contact_phone = getattr(patient, 'emergency_contact_phone', '')
+            emergency_contact_email = getattr(patient, 'emergency_contact_email', '')
+            emergency_contact_relationship = getattr(patient, 'emergency_contact_relationship', '')
+            
+            if not emergency_contact_name:
+                return
+            
+            # Prepare appointment data
+            appointment_data = self._prepare_appointment_data(appointment)
+            appointment_data.update({
+                'emergency_contact_name': emergency_contact_name,
+                'emergency_contact_relationship': emergency_contact_relationship,
+                'patient_name': f"{patient.user.first_name} {patient.user.last_name}",
+                'is_emergency_contact_notification': True
+            })
+            
+            # Get preferred notification methods
+            notification_methods = getattr(patient, 'emergency_contact_notification_methods', ['email', 'sms'])
+            
+            # Send notifications
+            if 'email' in notification_methods and emergency_contact_email:
+                email_client.send_appointment_confirmation_email(
+                    appointment_data=appointment_data,
+                    recipient_email=emergency_contact_email,
+                    is_patient=False
+                )
+            
+            if 'sms' in notification_methods and emergency_contact_phone:
+                message = f"Alert: {appointment_data['patient_name']} did not attend their appointment on {appointment_data['formatted_datetime']} with Dr. {appointment_data['provider_name']}. You are receiving this as their {emergency_contact_relationship}. Please check on them."
+                beem_client.send_sms(
+                    recipient=emergency_contact_phone,
+                    message=message
+                )
+            
+            logger.info(f"Sent no-show alert to emergency contact for appointment {appointment.id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending no-show alert to emergency contact: {str(e)}")
     
     def _get_patient_notification_preferences(self, patient: EnhancedPatient) -> Dict:
         """Get patient's notification preferences"""
@@ -311,15 +493,32 @@ class AppointmentReminderService:
     
     def _prepare_appointment_data(self, appointment: Appointment) -> Dict:
         """Prepare appointment data for notifications"""
+        # Format location from room information
+        location = "Main Hospital"
+        if appointment.room:
+            location_parts = []
+            if appointment.room.name:
+                location_parts.append(appointment.room.name)
+            if appointment.room.room_number:
+                location_parts.append(f"Room {appointment.room.room_number}")
+            if appointment.room.floor:
+                location_parts.append(f"Floor {appointment.room.floor}")
+            if appointment.room.building:
+                location_parts.append(appointment.room.building)
+            
+            if location_parts:
+                location = ", ".join(location_parts)
+        
         return {
             'appointment_id': str(appointment.id),
             'patient_name': f"{appointment.patient.user.first_name} {appointment.patient.user.last_name}",
-            'provider_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",
+            'doctor_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",
+            'provider_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",  # Keep for backward compatibility
             'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
             'appointment_time': appointment.start_time.strftime('%H:%M'),
             'appointment_type': appointment.appointment_type.name,
             'duration': appointment.duration,
-            'location': getattr(appointment, 'location_text', 'Main Hospital'),
+            'location': location,
             'notes': appointment.notes or '',
             'status': appointment.status,
             'formatted_datetime': f"{appointment.appointment_date.strftime('%A, %B %d, %Y')} at {appointment.start_time.strftime('%I:%M %p')}"
@@ -435,6 +634,11 @@ class AppointmentReminderService:
                         self._send_notification_via_channel(
                             channel, reminder_data['appointment_data'], reminder_type, appointment
                         )
+                    
+                    # Send to emergency contact if enabled
+                    self._send_emergency_contact_notification(
+                        appointment, reminder_type, reminder_data['appointment_data']
+                    )
                     
                     # Remove from active reminders
                     del self.active_reminders[reminder_id]

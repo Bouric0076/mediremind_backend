@@ -32,7 +32,7 @@ from .models import (
     SecurityAlert, Permission, UserPermission, RolePermission
 )
 from .services import AuthenticationService, PermissionService
-from .sync_utils import SyncErrorHandler, SyncMetrics
+from .sync_utils import AuthErrorHandler, AuthMetrics
 from accounts.models import EnhancedPatient
 from accounts.models import EnhancedStaffProfile
 
@@ -979,7 +979,7 @@ class SyncHealthView(AuthenticationView):
                 }, status=403)
             
             # Get overall health metrics
-            health_status = SyncMetrics.get_sync_health_status()
+            health_status = AuthMetrics.get_sync_health_status()
             
             # Get recent sync operations
             recent_logs = AuditLog.objects.filter(
@@ -1026,7 +1026,7 @@ class SyncHealthView(AuthenticationView):
             })
             
         except Exception as e:
-            SyncErrorHandler.log_sync_operation(
+            AuthErrorHandler.log_auth_operation(
                 'health_check', request.user.email if request.user.is_authenticated else 'anonymous',
                 False, {'endpoint': 'sync_health'}, e
             )
