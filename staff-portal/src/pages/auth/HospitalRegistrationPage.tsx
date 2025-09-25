@@ -279,13 +279,7 @@ export const HospitalRegistrationPage: React.FC = () => {
                              !formState.errors.hospital_email && 
                              !formState.errors.hospital_phone;
           
-          // Debug logging
-          console.log('Step 0 validation:', {
-            formData,
-            hasRequiredFields,
-            hasNoErrors,
-            errors: formState.errors
-          });
+
           
           return hasRequiredFields && hasNoErrors;
         } else {
