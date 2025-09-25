@@ -18,8 +18,10 @@ whitenoise
 python-dotenv
 
 # Authentication and security
-PyJWT
+bcrypt
 cryptography
+pyjwt
+pyotp
 
 # HTTP client
 requests
@@ -28,6 +30,8 @@ httpx
 # Data processing
 pandas
 numpy
+arrow
+psutil
 
 # Redis for caching and message broker
 redis

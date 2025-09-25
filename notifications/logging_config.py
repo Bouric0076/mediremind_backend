@@ -130,7 +130,7 @@ class NotificationLogger:
         
         # Create formatters
         detailed_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(component)s - %(message)s'
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         
         json_formatter = logging.Formatter(
