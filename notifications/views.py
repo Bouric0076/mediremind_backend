@@ -21,6 +21,8 @@ from django.utils import timezone
 @api_csrf_exempt
 def save_subscription(request):
     """Save a push notification subscription"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -80,6 +82,8 @@ def save_subscription(request):
 @api_csrf_exempt
 def get_notifications(request):
     """Get paginated list of notifications/scheduled tasks"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -223,6 +227,8 @@ def get_notifications(request):
 @api_csrf_exempt
 def get_notification_templates(request):
     """Get notification templates"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -296,6 +302,8 @@ def get_notification_templates(request):
 @api_csrf_exempt
 def send_manual_notification(request):
     """Send a manual notification"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -381,6 +389,8 @@ def send_manual_notification(request):
 @csrf_exempt
 def delete_subscription(request):
     """Delete a push notification subscription"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "DELETE":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -416,6 +426,8 @@ def delete_subscription(request):
 
 def get_vapid_public_key(request):
     """Return VAPID public key for frontend subscription"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -426,6 +438,8 @@ def get_vapid_public_key(request):
 @csrf_exempt
 def test_notifications(request):
     """Test endpoint for notifications"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -506,6 +520,8 @@ def test_notifications(request):
 @csrf_exempt
 def test_upcoming_reminders(request):
     """Test endpoint to trigger upcoming appointment reminders"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
@@ -548,6 +564,8 @@ def test_upcoming_reminders(request):
 @csrf_exempt
 def check_subscriptions(request):
     """Debug endpoint to check user's push subscriptions"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 

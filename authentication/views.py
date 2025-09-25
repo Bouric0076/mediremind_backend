@@ -1231,7 +1231,7 @@ def validate_user_permissions(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def permission_health_check(request):
     """
@@ -1289,7 +1289,7 @@ def permission_health_check(request):
         )
 
 
-@api_view(['POST'])
+@api_view(['POST', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def check_permission(request):
     """
@@ -1324,7 +1324,7 @@ def check_permission(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def user_detailed_permissions(request):
     """

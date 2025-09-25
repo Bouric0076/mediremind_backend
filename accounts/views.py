@@ -23,7 +23,7 @@ from datetime import datetime
 
 # Test endpoint for debugging authentication
 @api_csrf_exempt
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "OPTIONS"])
 def test_auth(request):
     """Test endpoint to debug authentication - requires valid token"""
     logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ def test_auth(request):
 # Hospital Registration endpoint
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def register_hospital(request):
     """Register a new hospital with admin user - MVP auto-approval"""
     logger = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ def register_hospital(request):
 # Patient API endpoints
 
 @api_csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_all_patients(request):
     """Get all patients with pagination - filtered by hospital"""
     # Get authenticated user using unified middleware
@@ -279,7 +279,7 @@ def get_all_patients(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_patient_detail(request, pk):
     """Get patient details by ID"""
     logger = logging.getLogger(__name__)
@@ -490,7 +490,7 @@ def update_patient(request, pk):
 # Staff API endpoints
 
 @api_csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_all_staff(request):
     """Get all staff members"""
     # Get authenticated user using unified middleware
@@ -547,7 +547,7 @@ def get_all_staff(request):
 # Care Team API endpoints
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_care_teams(request):
     """Get all care teams"""
     # Verify authentication
@@ -578,7 +578,7 @@ def get_care_teams(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_staff_detail(request, pk):
     """Get staff member details by ID"""
     # Get authenticated user using unified middleware
@@ -632,7 +632,7 @@ def get_staff_detail(request, pk):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def create_staff(request):
     """Create a new staff member"""
     # Verify authentication
@@ -663,7 +663,7 @@ def create_staff(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["PUT"])
+@require_http_methods(["PUT", "OPTIONS"])
 def update_staff(request, pk):
     """Update staff member information"""
     # Get authenticated user using unified middleware
@@ -740,7 +740,7 @@ def update_staff(request, pk):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def create_care_team(request):
     """Create a new care team"""
     # Verify authentication
@@ -770,7 +770,7 @@ def create_care_team(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_staff_credentials(request, staff_id):
     """Get staff credentials by staff ID"""
     # Verify authentication
@@ -804,7 +804,7 @@ def get_staff_credentials(request, staff_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_user_profile(request):
     """Get user profile information"""
     try:
@@ -830,7 +830,7 @@ def get_user_profile(request):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_credential_detail(request, pk):
     """Get credential details by ID"""
     # Verify authentication
@@ -863,7 +863,7 @@ def get_credential_detail(request, pk):
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_csrf_exempt
-@require_http_methods(["PUT"])
+@require_http_methods(["PUT", "OPTIONS"])
 def update_patient(request, pk):
     """Update patient information"""
     user = get_request_user(request)
@@ -996,7 +996,7 @@ def update_patient(request, pk):
 
 
 @api_csrf_exempt
-@require_http_methods(["DELETE"])
+@require_http_methods(["DELETE", "OPTIONS"])
 def delete_patient(request, pk):
     """Soft delete a patient (deactivate)"""
     user = get_request_user(request)
@@ -1030,7 +1030,7 @@ def delete_patient(request, pk):
 
 
 @api_csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def create_patient(request):
     """Create a new patient with optional account creation"""
     logger = logging.getLogger(__name__)
