@@ -236,23 +236,29 @@ CORS_ALLOW_METHODS = [
 CORS_PREFLIGHT_MAX_AGE = 86400
 
 # CSRF settings
+# Helper function to ensure URLs have proper schemes
+def ensure_url_scheme(url, default_scheme='https'):
+    """Ensure URL has a proper scheme, add default if missing"""
+    if not url:
+        return url
+    if not url.startswith(('http://', 'https://')):
+        return f"{default_scheme}://{url}"
+    return url
+
+# Get environment variables and ensure they have proper schemes
+frontend_url = ensure_url_scheme(os.getenv('FRONTEND_URL', 'http://localhost:3000'))
+vite_dev_url = ensure_url_scheme(os.getenv('VITE_DEV_URL', 'http://localhost:5173'))
+flutter_web_url = ensure_url_scheme(os.getenv('FLUTTER_WEB_URL', 'http://localhost:8080'))
+
 CSRF_TRUSTED_ORIGINS = [
-    os.getenv('FRONTEND_URL', 'http://localhost:3000'),
-    os.getenv('VITE_DEV_URL', 'http://localhost:5173'),
-    os.getenv('FLUTTER_WEB_URL', 'http://localhost:8080'),  # Flutter web app port
+    frontend_url,
+    vite_dev_url,
+    flutter_web_url,
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8080",
     "https://mediremind-frontend.onrender.com",  # Production frontend URL
 ]
-
-# Ensure all CSRF trusted origins have proper schemes
-csrf_origins_to_add = []
-for origin in CSRF_TRUSTED_ORIGINS:
-    if origin and not origin.startswith(('http://', 'https://')):
-        csrf_origins_to_add.append(f"https://{origin}")
-
-CSRF_TRUSTED_ORIGINS.extend(csrf_origins_to_add)
 
 # Session settings for cross-origin requests
 SESSION_COOKIE_SAMESITE = 'Lax'  # Standard setting for development
