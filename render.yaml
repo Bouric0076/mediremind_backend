@@ -48,6 +48,12 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://mediremind-backend.onrender.com
+        fromService:
+          type: web
+          name: mediremind-backend
+          property: host
       - key: REACT_APP_API_BASE_URL
-        value: https://mediremind-backend.onrender.com
+        fromService:
+          type: web
+          name: mediremind-backend
+          property: host

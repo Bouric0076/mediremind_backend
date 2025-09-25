@@ -198,13 +198,14 @@ else:
     # Production CORS settings
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
-        "https://mediremind-frontend.onrender.com",  # Update with your actual frontend URL
+        "https://mediremind-frontend.onrender.com",  # Frontend service
+        "https://mediremind-backend-cl6r.onrender.com",  # Backend service URL from error
     ]
     
-    # Add frontend URL from environment variable if available
+    # Add FRONTEND_URL from environment if available
     if 'FRONTEND_URL' in os.environ:
         frontend_url = os.environ['FRONTEND_URL']
-        # Ensure the URL has a proper scheme
+        # Ensure URL has proper scheme
         if not frontend_url.startswith(('http://', 'https://')):
             frontend_url = f"https://{frontend_url}"
         CORS_ALLOWED_ORIGINS.append(frontend_url)
@@ -258,6 +259,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8080",
     "https://mediremind-frontend.onrender.com",  # Production frontend URL
+    "https://mediremind-backend-cl6r.onrender.com",  # Backend service URL from error
 ]
 
 # Session settings for cross-origin requests
