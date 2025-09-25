@@ -23,7 +23,7 @@ from .models import (
 User = get_user_model()
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def dashboard_overview(request):
     """Get comprehensive dashboard overview with key metrics filtered by user's hospital"""
@@ -166,7 +166,7 @@ def dashboard_overview(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def appointment_analytics(request):
     """Get detailed appointment analytics"""
@@ -230,7 +230,7 @@ def appointment_analytics(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def revenue_analytics(request):
     """Get detailed revenue analytics"""
@@ -303,7 +303,7 @@ def revenue_analytics(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def user_analytics(request):
     """Get user behavior and demographics analytics"""
@@ -378,7 +378,7 @@ def user_analytics(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'OPTIONS'])
 @permission_classes([IsAuthenticated])
 def system_performance(request):
     """Get system performance metrics"""
