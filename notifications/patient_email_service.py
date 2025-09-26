@@ -52,12 +52,11 @@ class PatientEmailService:
             )
             
             # Send email
-            success = self.email_client.send_email(
-                to_email=patient.user.email,
+            success, message = self.email_client.send_email(
                 subject=f"Welcome to MediRemind - Your Account is Ready!",
-                html_content=html_content,
-                from_name="MediRemind Team",
-                reply_to=self._get_hospital_email(patient)
+                message=strip_tags(html_content),
+                recipient_list=[patient.user.email],
+                html_message=html_content
             )
             
             if success:
@@ -96,12 +95,11 @@ class PatientEmailService:
             )
             
             # Send email
-            success = self.email_client.send_email(
-                to_email=patient.email,
+            success, message = self.email_client.send_email(
                 subject=f"Welcome to MediRemind - You're All Set!",
-                html_content=html_content,
-                from_name="MediRemind Team",
-                reply_to=self._get_hospital_email(patient)
+                message=strip_tags(html_content),
+                recipient_list=[patient.email],
+                html_message=html_content
             )
             
             if success:
@@ -213,12 +211,11 @@ class PatientEmailService:
             """
             
             # Send email
-            success = self.email_client.send_email(
-                to_email=patient.user.email,
+            success, message = self.email_client.send_email(
                 subject=f"Reset Your MediRemind Password 🔑",
-                html_content=html_content,
-                from_name="MediRemind Team",
-                reply_to=self._get_hospital_email(patient)
+                message=strip_tags(html_content),
+                recipient_list=[patient.user.email],
+                html_message=html_content
             )
             
             if success:
@@ -248,7 +245,6 @@ class PatientEmailService:
             'patient_email': patient.user.email,
             'temporary_password': temporary_password or '(Please contact support)',
             'hospital_name': hospital.name if hospital else 'Your Healthcare Provider',
-            'patient_id': str(patient.id),
             'registration_date': patient.created_at.strftime('%B %d, %Y'),
             'primary_doctor': self._get_primary_doctor_name(patient),
             'mobile_app_url': self._get_mobile_app_url(),
@@ -271,7 +267,6 @@ class PatientEmailService:
             'first_name': patient.user.full_name.split(' ')[0] if patient.user.full_name else 'Patient',
             'last_name': ' '.join(patient.user.full_name.split(' ')[1:]) if patient.user.full_name and ' ' in patient.user.full_name else '',
             'hospital_name': hospital.name if hospital else 'Your Healthcare Provider',
-            'patient_id': str(patient.id),
             'registration_date': patient.created_at.strftime('%B %d, %Y'),
             'primary_doctor': self._get_primary_doctor_name(patient),
             'support_url': self._get_support_url(),
