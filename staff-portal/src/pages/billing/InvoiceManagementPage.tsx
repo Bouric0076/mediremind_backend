@@ -26,7 +26,6 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  Tooltip,
   Menu,
   MenuList,
   ListItemIcon,
@@ -38,7 +37,6 @@ import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
   MoreVert as MoreVertIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
@@ -47,12 +45,10 @@ import {
   Email as EmailIcon,
   Download as DownloadIcon,
   Payment as PaymentIcon,
-  Receipt as ReceiptIcon,
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Cancel as CancelIcon,
-  AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 
@@ -251,7 +247,7 @@ const mockInvoices: Invoice[] = [
 
 export const InvoiceManagementPage: React.FC = () => {
   const dispatch = useDispatch();
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
+  const [invoices] = useState<Invoice[]>(mockInvoices);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(mockInvoices);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -587,7 +583,7 @@ export const InvoiceManagementPage: React.FC = () => {
                         label={getStatusLabel(invoice.status)}
                         color={getStatusColor(invoice.status) as any}
                         size="small"
-                        icon={getStatusIcon(invoice.status)}
+                        icon={getStatusIcon(invoice.status) || undefined}
                       />
                     </TableCell>
                     <TableCell>
@@ -670,7 +666,7 @@ export const InvoiceManagementPage: React.FC = () => {
           {selectedInvoice && (
             <Box sx={{ mt: 2 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="h6" gutterBottom>
                     Patient Information
                   </Typography>
@@ -680,7 +676,7 @@ export const InvoiceManagementPage: React.FC = () => {
                     <Typography><strong>Appointment Date:</strong> {new Date(selectedInvoice.appointmentDate).toLocaleDateString()}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="h6" gutterBottom>
                     Invoice Information
                   </Typography>
@@ -695,7 +691,7 @@ export const InvoiceManagementPage: React.FC = () => {
                     />
                   </Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="h6" gutterBottom>
                     Services
                   </Typography>
@@ -724,7 +720,7 @@ export const InvoiceManagementPage: React.FC = () => {
                     </Table>
                   </TableContainer>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                     <Box sx={{ minWidth: 200 }}>
                       <Typography><strong>Total Amount:</strong> ${selectedInvoice.totalAmount.toFixed(2)}</Typography>

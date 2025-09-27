@@ -313,23 +313,65 @@ if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVAT
 
 # Email settings
 if DEBUG:
-    # In development mode, print emails to console
+    # Development mode - print emails to console
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     print("Development mode: Emails will be printed to console")
 else:
-    # In production mode, use SMTP
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-    EMAIL_USE_TLS = True
-    EMAIL_USE_SSL = False  # Don't use SSL when using TLS
-    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-    EMAIL_TIMEOUT = 10  # Add timeout setting
+    # Production mode - use transactional email service or SMTP
+    EMAIL_SERVICE = os.getenv('EMAIL_SERVICE', 'smtp').lower()
     
-    # Validate email settings
-    if not all([EMAIL_HOST_USER, EMAIL_HOST_PASSWORD]):
-        print("Warning: Email settings not properly configured. Email notifications will not work.")
+    if EMAIL_SERVICE == 'sendgrid':
+        # SendGrid configuration
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        EMAIL_HOST = 'smtp.sendgrid.net'
+        EMAIL_PORT = 587
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+        EMAIL_HOST_USER = 'apikey'  # This is always 'apikey' for SendGrid
+        EMAIL_HOST_PASSWORD = os.getenv('SENDGRID_API_KEY')
+        EMAIL_TIMEOUT = 30
+        
+    elif EMAIL_SERVICE == 'mailgun':
+        # Mailgun configuration
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        EMAIL_HOST = 'smtp.mailgun.org'
+        EMAIL_PORT = 587
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+        EMAIL_HOST_USER = os.getenv('MAILGUN_SMTP_LOGIN')
+        EMAIL_HOST_PASSWORD = os.getenv('MAILGUN_SMTP_PASSWORD')
+        EMAIL_TIMEOUT = 30
+        
+    elif EMAIL_SERVICE == 'aws_ses':
+        # AWS SES configuration
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        EMAIL_HOST = f'email-smtp.{os.getenv("AWS_REGION", "us-east-1")}.amazonaws.com'
+        EMAIL_PORT = 587
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+        EMAIL_HOST_USER = os.getenv('AWS_SES_SMTP_USERNAME')
+        EMAIL_HOST_PASSWORD = os.getenv('AWS_SES_SMTP_PASSWORD')
+        EMAIL_TIMEOUT = 30
+        
+    else:
+        # Fallback to Gmail SMTP (original configuration)
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+        EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+        EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+        EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+        EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+        EMAIL_TIMEOUT = 30  # Increased timeout
+    
+    # Warn if email settings are not configured
+    if not EMAIL_HOST_PASSWORD:
+        print(f"Warning: Email service '{EMAIL_SERVICE}' not properly configured. Email notifications will not work.")
+        print("Required environment variables depend on EMAIL_SERVICE:")
+        print("- sendgrid: SENDGRID_API_KEY")
+        print("- mailgun: MAILGUN_SMTP_LOGIN, MAILGUN_SMTP_PASSWORD")
+        print("- aws_ses: AWS_SES_SMTP_USERNAME, AWS_SES_SMTP_PASSWORD, AWS_REGION")
+        print("- smtp (gmail): EMAIL_HOST_USER, EMAIL_HOST_PASSWORD")
 
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
 
@@ -389,17 +431,44 @@ PRIVACY_URL = PATIENT_NOTIFICATION_SETTINGS['PRIVACY_URL']
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'logs/django.log',
+            'formatter': 'verbose',
         },
     },
     'root': {
-        'handlers': ['console'],
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
     },
     'loggers': {
         'accounts': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'calendar_integrations': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },

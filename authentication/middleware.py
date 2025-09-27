@@ -50,6 +50,8 @@ class AuthenticationMiddleware(MiddlewareMixin):
             '/api/auth/login/',
             '/api/auth/register/',
             '/api/auth/password-reset/',
+            '/api/calendar/google/auth/',  # Allow Google Calendar OAuth initiation
+            '/api/calendar/google/callback/',  # Allow Google Calendar OAuth callback
             '/api/health/',
             '/static/',
             '/media/',

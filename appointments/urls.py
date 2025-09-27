@@ -17,6 +17,10 @@ urlpatterns = [
     path('time-slots/', views.get_available_time_slots, name='get_available_time_slots'),  # GET /appointments/time-slots/
     path('types/', views.list_appointment_types, name='list_appointment_types'),  # GET /appointments/types/
     
+    # Role-specific appointment endpoints
+    path('patient/history/', views.patient_appointment_history, name='patient_appointment_history'),  # GET /appointments/patient/history/
+    path('hospital/', views.hospital_appointments, name='hospital_appointments'),  # GET /appointments/hospital/
+    
     # Legacy endpoints (keeping for backward compatibility)
     path('list/', views.list_appointments, name='list_appointments'),
 ]

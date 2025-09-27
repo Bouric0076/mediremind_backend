@@ -12,6 +12,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google-cloud/local-auth": "^3.0.1",
     "@hookform/resolvers": "^5.2.1",
     "@mui/icons-material": "^7.3.2",
     "@mui/lab": "^7.0.0-beta.17",
@@ -22,6 +23,8 @@
     "axios": "^1.11.0",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
+    "google-auth-library": "^10.3.0",
+    "googleapis": "^160.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",

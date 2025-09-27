@@ -4,7 +4,7 @@
  */
 
 import { permissionChecker } from './permissionUtils';
-import type { UserRole, Permission, DetailedPermissions } from './permissionUtils';
+import type { UserRole, DetailedPermissions } from './permissionUtils';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -48,7 +48,7 @@ export class PermissionValidator {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
+          'Authorization': `Token ${localStorage.getItem('token') || sessionStorage.getItem('token')}`
         }
       });
 

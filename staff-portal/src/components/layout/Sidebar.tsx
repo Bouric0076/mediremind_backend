@@ -11,7 +11,6 @@ import {
   Collapse,
   Typography,
   Box,
-  Divider,
   Avatar,
   Chip,
   Toolbar,
@@ -35,11 +34,9 @@ import {
   PersonAdd,
   EventAvailable,
   Analytics,
-  AccountBox,
   // Staff Management Icons
   Group as StaffIcon,
   Badge as CredentialIcon,
-  Person as ProfileIcon,
   // Billing & Financial Management Icons
   Receipt as BillingIcon,
   Payment as PaymentIcon,
@@ -247,7 +244,20 @@ const navigationItems: NavigationItem[] = [
     id: 'settings',
     label: 'Settings',
     icon: <SettingsIcon />,
-    path: '/app/settings',
+    children: [
+      {
+        id: 'settings-general',
+        label: 'General Settings',
+        icon: <SettingsIcon />,
+        path: '/app/settings',
+      },
+      {
+        id: 'calendar-integration',
+        label: 'Calendar Integration',
+        icon: <CalendarIcon />,
+        path: '/app/calendar',
+      },
+    ],
   },
 ];
 

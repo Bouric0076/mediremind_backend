@@ -6,7 +6,6 @@ import {
   IconButton,
   Button,
   Chip,
-  Tooltip,
   Menu,
   MenuItem,
   Dialog,
@@ -23,13 +22,12 @@ import {
   FormControl,
   InputLabel,
   Select,
-  TextField,
-  Stack,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   ChevronLeft,
   ChevronRight,
-  Today,
   ViewWeek,
   ViewDay,
   CalendarMonth,
@@ -37,9 +35,6 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
-  Schedule as ScheduleIcon,
-  LocationOn as LocationIcon,
-  MoreVert as MoreVertIcon,
   FilterList as FilterIcon,
 } from '@mui/icons-material';
 import {
@@ -55,44 +50,25 @@ import {
   isSameMonth,
   isToday,
   parseISO,
-  addMinutes,
-  differenceInMinutes,
   startOfDay,
   endOfDay,
 } from 'date-fns';
-
-interface Appointment {
-  id: string;
-  patientName: string;
-  patientId: string;
-  providerName: string;
-  providerId: string;
-  appointmentType: string;
-  date: string;
-  time: string;
-  duration: number;
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
-  priority: 'low' | 'medium' | 'high';
-  location: string;
-  notes?: string;
-  color?: string;
-}
+import type { Appointment } from '../../types';
+import type { ExternalCalendarEvent, SyncConflict } from '../../types/calendar';
 
 interface Provider {
   id: string;
   name: string;
   specialization: string;
-  color: string;
+  email: string;
+  availability: string[];
+  color?: string;
 }
+import calendarIntegrationService from '../../services/calendarIntegrationService';
+import SyncStatusIndicator from '../calendar/SyncStatusIndicator';
+import ConflictResolutionDialog from '../calendar/ConflictResolutionDialog';
+import SyncNotificationCenter, { useSyncNotifications } from '../calendar/SyncNotificationCenter';
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  appointment: Appointment;
-  color: string;
-}
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -116,12 +92,6 @@ const statusColors = {
   'no-show': '#795548',
 };
 
-const priorityColors = {
-  low: '#4CAF50',
-  medium: '#FF9800',
-  high: '#F44336',
-};
-
 export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
   appointments,
   providers,
@@ -136,6 +106,11 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showExternalEvents, setShowExternalEvents] = useState(false);
+  const [externalEvents, setExternalEvents] = useState<ExternalCalendarEvent[]>([]);
+  const [loadingExternal, setLoadingExternal] = useState(false);
+  const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -145,6 +120,17 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     open: boolean;
     appointment: Appointment | null;
   }>({ open: false, appointment: null });
+
+  // Sync notifications hook
+  const {
+    notifications,
+    dismissNotification,
+    dismissAll,
+    notifySyncStart,
+    notifySyncComplete,
+    notifySyncError,
+    notifyWarning,
+  } = useSyncNotifications();
 
   // Calculate date range based on view mode
   const dateRange = useMemo(() => {
@@ -179,12 +165,89 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
     }
   }, [dateRange, onDateRangeChange]);
 
+  // Load external calendar events with conflict detection
+  useEffect(() => {
+    const loadExternalEvents = async () => {
+      if (!showExternalEvents) {
+        setExternalEvents([]);
+        setConflicts([]);
+        return;
+      }
+
+      try {
+        setLoadingExternal(true);
+        notifySyncStart();
+        
+        // Check if user has any calendar integrations before making API calls
+        const integrations = await calendarIntegrationService.getIntegrationsOriginal();
+        if (integrations.length === 0) {
+          console.log('No calendar integrations found. Skipping external events fetch.');
+          setExternalEvents([]);
+          setConflicts([]);
+          notifySyncComplete(0, 0);
+          return;
+        }
+        
+        // Fetch events from all active integrations
+        const allEvents: ExternalCalendarEvent[] = [];
+        for (const integration of integrations) {
+          if (integration.status === 'active') {
+            try {
+              const events = await calendarIntegrationService.getExternalEvents(
+                integration.id,
+                format(dateRange.start, 'yyyy-MM-dd'),
+                format(dateRange.end, 'yyyy-MM-dd')
+              );
+              allEvents.push(...events);
+            } catch (error) {
+              console.error(`Failed to fetch events for integration ${integration.id}:`, error);
+            }
+          }
+        }
+        
+        setExternalEvents(allEvents);
+
+        // Check for conflicts between external events and internal appointments
+        const detectedConflicts = await calendarIntegrationService.detectConflicts(
+          appointments,
+          allEvents
+        );
+        
+        setConflicts(detectedConflicts);
+        
+        if (detectedConflicts.length > 0) {
+          notifyWarning(
+            'Sync Conflicts Detected',
+            `Found ${detectedConflicts.length} conflicts between internal appointments and external events.`,
+            [`${detectedConflicts.length} conflicts need resolution`]
+          );
+          setShowConflictDialog(true);
+        }
+
+        notifySyncComplete(allEvents.length, detectedConflicts.length);
+      } catch (error) {
+        console.error('Error loading external events:', error);
+        setExternalEvents([]);
+        setConflicts([]);
+        notifySyncError(
+          error instanceof Error ? error.message : 'Unknown sync error',
+          () => loadExternalEvents()
+        );
+      } finally {
+        setLoadingExternal(false);
+      }
+    };
+
+    loadExternalEvents();
+  }, [showExternalEvents, dateRange, appointments]);
+
   // Filter and convert appointments to calendar events
   const calendarEvents = useMemo(() => {
-    return appointments
+    // Internal appointments
+    const internalEvents = appointments
       .filter(appointment => {
         // Filter by provider
-        if (selectedProvider !== 'all' && appointment.providerId !== selectedProvider) {
+        if (selectedProvider !== 'all' && appointment.doctorId !== selectedProvider) {
           return false;
         }
 
@@ -194,29 +257,45 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
         }
 
         // Filter by date range
-        const appointmentDate = parseISO(appointment.date);
+        const appointmentDate = parseISO(appointment.startTime);
         return appointmentDate >= dateRange.start && appointmentDate <= dateRange.end;
       })
       .map(appointment => {
-        const appointmentDate = parseISO(appointment.date);
-        const [hours, minutes] = appointment.time.split(':').map(Number);
-        const start = new Date(appointmentDate);
-        start.setHours(hours, minutes, 0, 0);
-        const end = addMinutes(start, appointment.duration);
+        const start = parseISO(appointment.startTime);
+        const end = parseISO(appointment.endTime);
 
-        const provider = providers.find(p => p.id === appointment.providerId);
-        const color = appointment.color || provider?.color || statusColors[appointment.status];
+        const provider = providers.find(p => p.id === appointment.doctorId);
+        const color = provider?.color || statusColors[appointment.status as keyof typeof statusColors];
 
         return {
           id: appointment.id,
-          title: `${appointment.patientName} - ${appointment.appointmentType}`,
+          title: `${appointment.patient.name} - ${appointment.type}`,
           start,
           end,
           appointment,
           color,
+          isExternal: false,
         };
       });
-  }, [appointments, providers, selectedProvider, selectedStatus, dateRange]);
+
+    // External calendar events
+    const externalCalendarEvents = showExternalEvents ? externalEvents
+      .filter(event => {
+        const eventStart = parseISO(event.start_time);
+        return eventStart >= dateRange.start && eventStart <= dateRange.end;
+      })
+      .map(event => ({
+        id: `external-${event.id}`,
+        title: `🔗 ${event.title}`,
+        start: parseISO(event.start_time),
+        end: parseISO(event.end_time),
+        externalEvent: event,
+        color: '#9E9E9E', // Gray color for external events
+        isExternal: true,
+      })) : [];
+
+    return [...internalEvents, ...externalCalendarEvents];
+  }, [appointments, providers, selectedProvider, selectedStatus, dateRange, externalEvents, showExternalEvents]);
 
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     setCurrentDate(prev => {
@@ -274,6 +353,79 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
       onAppointmentDelete(deleteDialog.appointment.id);
     }
     setDeleteDialog({ open: false, appointment: null });
+  };
+
+  // Conflict resolution handlers
+  const handleConflictResolve = async (conflictId: string, resolution: 'keep_internal' | 'keep_external' | 'merge') => {
+    try {
+      await calendarIntegrationService.resolveConflict(conflictId, resolution);
+      
+      // Remove resolved conflict from state
+      setConflicts(prev => prev.filter(c => c.id !== conflictId));
+      
+      // Refresh external events to reflect changes
+      const integrations = await calendarIntegrationService.getIntegrationsOriginal();
+      const allEvents: ExternalCalendarEvent[] = [];
+      for (const integration of integrations) {
+        if (integration.status === 'active') {
+          try {
+            const events = await calendarIntegrationService.getExternalEvents(
+              integration.id,
+              format(dateRange.start, 'yyyy-MM-dd'),
+              format(dateRange.end, 'yyyy-MM-dd')
+            );
+            allEvents.push(...events);
+          } catch (error) {
+            console.error(`Failed to fetch events for integration ${integration.id}:`, error);
+          }
+        }
+      }
+      setExternalEvents(allEvents);
+      
+      notifySyncComplete(allEvents.length, conflicts.length - 1);
+    } catch (error) {
+      notifySyncError(
+        error instanceof Error ? error.message : 'Failed to resolve conflict'
+      );
+    }
+  };
+
+  const handleResolveAllConflicts = async (resolution: 'keep_internal' | 'keep_external' | 'merge') => {
+    try {
+      await Promise.all(
+        conflicts.map(conflict => 
+          calendarIntegrationService.resolveConflict(conflict.id, resolution)
+        )
+      );
+      
+      // Clear all conflicts
+      setConflicts([]);
+      
+      // Refresh external events
+      const integrations = await calendarIntegrationService.getIntegrationsOriginal();
+      const allEvents: ExternalCalendarEvent[] = [];
+      for (const integration of integrations) {
+        if (integration.status === 'active') {
+          try {
+            const events = await calendarIntegrationService.getExternalEvents(
+              integration.id,
+              format(dateRange.start, 'yyyy-MM-dd'),
+              format(dateRange.end, 'yyyy-MM-dd')
+            );
+            allEvents.push(...events);
+          } catch (error) {
+            console.error(`Failed to fetch events for integration ${integration.id}:`, error);
+          }
+        }
+      }
+      setExternalEvents(allEvents);
+      
+      notifySyncComplete(allEvents.length, 0);
+    } catch (error) {
+      notifySyncError(
+        error instanceof Error ? error.message : 'Failed to resolve conflicts'
+      );
+    }
   };
 
   const renderMonthView = () => {
@@ -437,11 +589,14 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
                     {/* Enhanced appointment display */}
                      <Box sx={{ height: 'calc(100% - 40px)', overflow: 'hidden' }}>
-                       {dayEvents.slice(0, 3).map((event, index) => {
-                         const appointment = event.appointment;
-                         const isUrgent = appointment.appointmentType?.toLowerCase().includes('urgent') || 
-                                         appointment.appointmentType?.toLowerCase().includes('emergency');
-                         const isFollowUp = appointment.appointmentType?.toLowerCase().includes('follow');
+                       {dayEvents.slice(0, 3).map((event) => {
+                         // Check if this is an internal appointment or external event
+                         const isInternalAppointment = 'appointment' in event;
+                         const appointment = isInternalAppointment ? event.appointment : null;
+                         
+                         const isUrgent = appointment?.type?.toLowerCase().includes('urgent') || 
+                                         appointment?.type?.toLowerCase().includes('emergency');
+                         const isFollowUp = appointment?.type?.toLowerCase().includes('follow');
                          
                          return (
                            <Box
@@ -507,9 +662,15 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                              }}
                              onClick={(e) => {
                                e.stopPropagation();
-                               onAppointmentClick(event.appointment);
+                               if (isInternalAppointment && appointment) {
+                                 onAppointmentClick(appointment);
+                               }
                              }}
-                             onContextMenu={(e) => handleAppointmentContextMenu(e, event.appointment)}
+                             onContextMenu={(e) => {
+                               if (isInternalAppointment && appointment) {
+                                 handleAppointmentContextMenu(e, appointment);
+                               }
+                             }}
                            >
                              {/* Time and Patient Info */}
                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -523,7 +684,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                                    transition: 'transform 0.2s ease',
                                  }}
                                >
-                                 {appointment.time}
+                                 {appointment?.startTime ? format(new Date(appointment.startTime), 'h:mm a') : ''}
                                </Typography>
                                
                                {/* Status indicator */}
@@ -533,9 +694,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                                    width: 8,
                                    height: 8,
                                    borderRadius: '50%',
-                                   backgroundColor: appointment.status === 'confirmed' ? '#4ade80' :
-                                                  appointment.status === 'scheduled' ? '#fbbf24' :
-                                                  appointment.status === 'completed' ? '#06b6d4' : '#ef4444',
+                                   backgroundColor: appointment?.status === 'confirmed' ? '#4ade80' :
+                                                  appointment?.status === 'scheduled' ? '#fbbf24' :
+                                                  appointment?.status === 'completed' ? '#06b6d4' : '#ef4444',
                                    boxShadow: '0 0 0 2px rgba(255,255,255,0.3)',
                                    transition: 'transform 0.2s ease',
                                  }}
@@ -556,7 +717,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                                  textShadow: '0 1px 2px rgba(0,0,0,0.1)',
                                }}
                              >
-                               {appointment.patientName}
+                               {appointment?.patient?.name}
                              </Typography>
                              
                              {/* Appointment Type with Badge */}
@@ -573,7 +734,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                                    flex: 1,
                                  }}
                                >
-                                 {appointment.appointmentType}
+                                 {appointment?.type}
                                </Typography>
                                
                                {/* Type badges */}
@@ -707,32 +868,43 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                         onNewAppointment(clickDate);
                       }}
                     >
-                      {dayHourEvents.map(event => (
-                        <Chip
-                          key={event.id}
-                          label={event.title}
-                          size="small"
-                          sx={{
-                            position: 'absolute',
-                            top: 2,
-                            left: 2,
-                            right: 2,
-                            backgroundColor: event.color,
-                            color: 'white',
-                            fontSize: '0.7rem',
-                            '& .MuiChip-label': {
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            },
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAppointmentClick(event.appointment);
-                          }}
-                          onContextMenu={(e) => handleAppointmentContextMenu(e, event.appointment)}
-                        />
-                      ))}
+                      {dayHourEvents.map(event => {
+                        const isInternalAppointment = 'appointment' in event;
+                        const appointment = isInternalAppointment ? event.appointment : null;
+                        
+                        return (
+                          <Chip
+                            key={event.id}
+                            label={event.title}
+                            size="small"
+                            sx={{
+                              position: 'absolute',
+                              top: 2,
+                              left: 2,
+                              right: 2,
+                              backgroundColor: event.color,
+                              color: 'white',
+                              fontSize: '0.7rem',
+                              '& .MuiChip-label': {
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              },
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isInternalAppointment && appointment) {
+                                onAppointmentClick(appointment);
+                              }
+                            }}
+                            onContextMenu={(e) => {
+                              if (isInternalAppointment && appointment) {
+                                handleAppointmentContextMenu(e, appointment);
+                              }
+                            }}
+                          />
+                        );
+                      })}
                     </Box>
                   </Grid>
                 );
@@ -794,37 +966,48 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                     onNewAppointment(clickDate);
                   }}
                 >
-                  {hourEvents.map((event, index) => (
-                    <Card
-                      key={event.id}
-                      sx={{
-                        position: 'absolute',
-                        top: 4,
-                        left: 4 + (index * 8),
-                        right: 4,
-                        backgroundColor: event.color,
-                        color: 'white',
-                        cursor: 'pointer',
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAppointmentClick(event.appointment);
-                      }}
-                      onContextMenu={(e) => handleAppointmentContextMenu(e, event.appointment)}
-                    >
+                  {hourEvents.map((event, index) => {
+                    const isInternalAppointment = 'appointment' in event;
+                    const appointment = isInternalAppointment ? event.appointment : null;
+                    
+                    return (
+                      <Card
+                        key={event.id}
+                        sx={{
+                          position: 'absolute',
+                          top: 4,
+                          left: 4 + (index * 8),
+                          right: 4,
+                          backgroundColor: event.color,
+                          color: 'white',
+                          cursor: 'pointer',
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isInternalAppointment && appointment) {
+                            onAppointmentClick(appointment);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          if (isInternalAppointment && appointment) {
+                            handleAppointmentContextMenu(e, appointment);
+                          }
+                        }}
+                      >
                       <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                        <Typography variant="body2" fontWeight="bold">
-                          {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
-                        </Typography>
-                        <Typography variant="body2">
-                          {event.appointment.patientName}
-                        </Typography>
-                        <Typography variant="caption">
-                          {event.appointment.appointmentType}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <Typography variant="body2" fontWeight="bold">
+                            {format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+                          </Typography>
+                          <Typography variant="body2">
+                            {isInternalAppointment && appointment ? appointment.patient?.name : event.title}
+                          </Typography>
+                          <Typography variant="caption">
+                            {isInternalAppointment && appointment ? appointment.type : 'External Event'}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </Box>
               </Box>
             );
@@ -906,6 +1089,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           </Box>
 
           <Box display="flex" alignItems="center" gap={2}>
+            <SyncStatusIndicator />
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -1152,6 +1336,37 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
             </Select>
           </FormControl>
 
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showExternalEvents}
+                onChange={(e) => setShowExternalEvents(e.target.checked)}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: 'white',
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: 'rgba(255,255,255,0.5)',
+                  },
+                  '& .MuiSwitch-track': {
+                    backgroundColor: 'rgba(255,255,255,0.3)',
+                  },
+                }}
+              />
+            }
+            label={
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                  External Events
+                </Typography>
+                {loadingExternal && (
+                  <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.8)' }} />
+                )}
+              </Box>
+            }
+            sx={{ color: 'rgba(255,255,255,0.9)' }}
+          />
+
           <Box sx={{ ml: 'auto' }}>
             <Typography 
               variant="body2" 
@@ -1165,7 +1380,12 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                 backdropFilter: 'blur(5px)',
               }}
             >
-              {calendarEvents.length} appointment{calendarEvents.length !== 1 ? 's' : ''}
+              {calendarEvents.filter(e => !e.isExternal).length} appointment{calendarEvents.filter(e => !e.isExternal).length !== 1 ? 's' : ''}
+              {showExternalEvents && externalEvents.length > 0 && (
+                <span style={{ opacity: 0.8 }}>
+                  {' '}+ {externalEvents.length} external
+                </span>
+              )}
             </Typography>
           </Box>
         </Box>
@@ -1234,7 +1454,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
         <DialogContent>
           <Typography>
             Are you sure you want to delete the appointment with{' '}
-            <strong>{deleteDialog.appointment?.patientName}</strong>?
+            <strong>{deleteDialog.appointment?.patient?.name}</strong>?
           </Typography>
           <Alert severity="warning" sx={{ mt: 2 }}>
             This action cannot be undone. The patient will be notified of the cancellation.
@@ -1249,6 +1469,27 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Conflict Resolution Dialog */}
+      <ConflictResolutionDialog
+        open={showConflictDialog}
+        conflicts={conflicts}
+        onClose={() => setShowConflictDialog(false)}
+        onResolve={handleConflictResolve}
+        onResolveAll={handleResolveAllConflicts}
+      />
+
+      {/* Sync Notification Center */}
+      <SyncNotificationCenter
+        notifications={notifications}
+        onDismiss={dismissNotification}
+        onDismissAll={dismissAll}
+        onRetrySync={() => {
+          // Trigger a manual sync by toggling external events
+          setShowExternalEvents(false);
+          setTimeout(() => setShowExternalEvents(true), 100);
+        }}
+      />
     </Box>
   );
 };

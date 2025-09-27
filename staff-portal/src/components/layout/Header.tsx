@@ -12,7 +12,6 @@ import {
   MenuItem,
   Divider,
   InputBase,
-  alpha,
   useTheme,
   useMediaQuery,
   Tooltip,
@@ -124,6 +123,11 @@ export const Header: React.FC = () => {
   const handleNotifications = () => {
     navigate('/notifications');
     handleNotificationMenuClose();
+  };
+
+  const handleRefresh = () => {
+    // Reload the current page to refresh all data
+    window.location.reload();
   };
 
   return (
@@ -302,6 +306,7 @@ export const Header: React.FC = () => {
         <Tooltip title="Refresh Data">
           <IconButton 
             color="inherit" 
+            onClick={handleRefresh}
             sx={{
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
               '&:hover': {

@@ -253,7 +253,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         `/api/appointments/time-slots/?provider_id=${formData.providerId}&date=${dateStr}&duration=${formData.duration}${excludeParam}`,
         {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Token ${localStorage.getItem('token')}`,
           },
         }
       );

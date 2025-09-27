@@ -410,9 +410,17 @@ def list_appointments(request):
             queryset = Appointment.objects.filter(provider__user=request.user)
         else:  # admin/staff
             if user_hospital:
-                # Filter appointments by hospital
+                # Filter appointments by hospital through the many-to-many relationship
+                # Get patients associated with this hospital through HospitalPatient relationship
+                from accounts.models import HospitalPatient
+                hospital_patient_ids = HospitalPatient.objects.filter(
+                    hospital=user_hospital,
+                    status='active'
+                ).values_list('patient_id', flat=True)
+                
+                # Filter appointments for patients in this hospital or providers in this hospital
                 queryset = Appointment.objects.filter(
-                    models.Q(patient__hospital=user_hospital) | 
+                    models.Q(patient_id__in=hospital_patient_ids) | 
                     models.Q(provider__hospital=user_hospital)
                 )
             else:
@@ -476,6 +484,196 @@ def list_appointments(request):
         logger.error(f"List appointments error: {str(e)}")
         return Response({
             "error": "Failed to retrieve appointments"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_appointment_history(request):
+    """Get appointment history for the logged-in patient"""
+    try:
+        user_role = getattr(request.user, 'role', 'patient')
+        
+        # This endpoint is specifically for patients
+        if user_role != 'patient':
+            return Response({
+                "error": "This endpoint is only accessible to patients"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get patient profile
+        try:
+            patient = EnhancedPatient.objects.get(user=request.user)
+        except EnhancedPatient.DoesNotExist:
+            return Response({
+                "error": "Patient profile not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Base queryset for patient's appointments
+        queryset = Appointment.objects.filter(patient=patient)
+        
+        # Apply filters from query parameters
+        status_filter = request.GET.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        date_from = request.GET.get('date_from')
+        if date_from:
+            try:
+                date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+                queryset = queryset.filter(appointment_date__gte=date_from)
+            except ValueError:
+                return Response({
+                    "error": "Invalid date_from format. Use YYYY-MM-DD"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        date_to = request.GET.get('date_to')
+        if date_to:
+            try:
+                date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+                queryset = queryset.filter(appointment_date__lte=date_to)
+            except ValueError:
+                return Response({
+                    "error": "Invalid date_to format. Use YYYY-MM-DD"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ordering - most recent first
+        queryset = queryset.select_related(
+            'provider__user', 'appointment_type', 'room', 'hospital'
+        ).order_by('-appointment_date', '-start_time')
+        
+        # Pagination
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 20)), 100)  # Max 100 per page
+        paginator = Paginator(queryset, per_page)
+        appointments_page = paginator.get_page(page)
+        
+        # Serialize data
+        serializer = AppointmentListSerializer(appointments_page, many=True)
+        
+        return Response({
+            "message": "Patient appointment history retrieved successfully",
+            "appointments": serializer.data,
+            "pagination": {
+                "current_page": page,
+                "total_pages": paginator.num_pages,
+                "total_count": paginator.count,
+                "per_page": per_page,
+                "has_next": appointments_page.has_next(),
+                "has_previous": appointments_page.has_previous()
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Patient appointment history error: {str(e)}")
+        return Response({
+            "error": "Failed to retrieve appointment history"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def hospital_appointments(request):
+    """Get appointments for the logged-in staff member's hospital"""
+    try:
+        user_role = getattr(request.user, 'role', 'patient')
+        
+        # This endpoint is specifically for hospital staff
+        if user_role == 'patient':
+            return Response({
+                "error": "This endpoint is only accessible to hospital staff"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get user's hospital
+        try:
+            staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+            user_hospital = staff_profile.hospital
+        except EnhancedStaffProfile.DoesNotExist:
+            return Response({
+                "error": "Staff profile not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Filter appointments by hospital through the many-to-many relationship
+        from accounts.models import HospitalPatient
+        hospital_patient_ids = HospitalPatient.objects.filter(
+            hospital=user_hospital,
+            status='active'
+        ).values_list('patient_id', flat=True)
+        
+        # Filter appointments for patients in this hospital or providers in this hospital
+        queryset = Appointment.objects.filter(
+            models.Q(patient_id__in=hospital_patient_ids) | 
+            models.Q(provider__hospital=user_hospital)
+        )
+        
+        # Apply filters from query parameters
+        status_filter = request.GET.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        date_from = request.GET.get('date_from')
+        if date_from:
+            try:
+                date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+                queryset = queryset.filter(appointment_date__gte=date_from)
+            except ValueError:
+                return Response({
+                    "error": "Invalid date_from format. Use YYYY-MM-DD"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        date_to = request.GET.get('date_to')
+        if date_to:
+            try:
+                date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+                queryset = queryset.filter(appointment_date__lte=date_to)
+            except ValueError:
+                return Response({
+                    "error": "Invalid date_to format. Use YYYY-MM-DD"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        priority_filter = request.GET.get('priority')
+        if priority_filter:
+            queryset = queryset.filter(priority=priority_filter)
+        
+        provider_id = request.GET.get('provider_id')
+        if provider_id:
+            queryset = queryset.filter(provider_id=provider_id)
+        
+        appointment_type_id = request.GET.get('appointment_type_id')
+        if appointment_type_id:
+            queryset = queryset.filter(appointment_type_id=appointment_type_id)
+        
+        # Ordering
+        queryset = queryset.select_related(
+            'patient__user', 'provider__user', 'appointment_type', 'room'
+        ).order_by('appointment_date', 'start_time')
+        
+        # Pagination
+        page = int(request.GET.get('page', 1))
+        per_page = min(int(request.GET.get('per_page', 20)), 100)  # Max 100 per page
+        paginator = Paginator(queryset, per_page)
+        appointments_page = paginator.get_page(page)
+        
+        # Serialize data
+        serializer = AppointmentListSerializer(appointments_page, many=True)
+        
+        return Response({
+            "message": "Hospital appointments retrieved successfully",
+            "hospital": user_hospital.name,
+            "appointments": serializer.data,
+            "pagination": {
+                "current_page": page,
+                "total_pages": paginator.num_pages,
+                "total_count": paginator.count,
+                "per_page": per_page,
+                "has_next": appointments_page.has_next(),
+                "has_previous": appointments_page.has_previous()
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Hospital appointments error: {str(e)}")
+        return Response({
+            "error": "Failed to retrieve hospital appointments"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

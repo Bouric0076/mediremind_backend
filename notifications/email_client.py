@@ -7,6 +7,7 @@ import json
 import ssl
 import certifi
 import os
+import socket
 from .template_manager import (
     template_manager, 
     TemplateContext, 
@@ -37,21 +38,53 @@ class EmailClient:
 
             # Log SSL certificate path
             cert_path = certifi.where()
-            logger.debug(f"Using SSL certificates from: {cert_path}")
-            if not os.path.exists(cert_path):
-                logger.error(f"SSL certificate file not found at: {cert_path}")
-
-            # Create a more permissive SSL context for development
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-
+            logger.info(f"Using SSL certificates from: {cert_path}")
+            
             # Log email settings (excluding password)
-            logger.debug(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
-                        f"use_tls={settings.EMAIL_USE_TLS}, use_ssl={settings.EMAIL_USE_SSL}")
+            logger.info(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
+                       f"use_tls={settings.EMAIL_USE_TLS}, use_ssl={settings.EMAIL_USE_SSL}")
 
-            # Configure email settings
+            # Test network connectivity before attempting to send
+            try:
+                # Test DNS resolution
+                socket.gethostbyname(settings.EMAIL_HOST)
+                logger.info(f"DNS resolution successful for {settings.EMAIL_HOST}")
+                
+                # Test port connectivity
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(10)  # 10 second timeout
+                result = sock.connect_ex((settings.EMAIL_HOST, settings.EMAIL_PORT))
+                sock.close()
+                
+                if result != 0:
+                    error_msg = f"Cannot connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}. Network may be restricted."
+                    logger.error(error_msg)
+                    return False, error_msg
+                else:
+                    logger.info(f"Port connectivity test successful for {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                    
+            except socket.gaierror as e:
+                error_msg = f"DNS resolution failed for {settings.EMAIL_HOST}: {str(e)}"
+                logger.error(error_msg)
+                return False, error_msg
+            except Exception as e:
+                error_msg = f"Network connectivity test failed: {str(e)}"
+                logger.error(error_msg)
+                return False, error_msg
+
+            # Configure email settings with improved error handling
             from django.core.mail.backends.smtp import EmailBackend
+            
+            # Create SSL context with better error handling
+            ssl_context = ssl.create_default_context(cafile=cert_path)
+            
+            # For production environments with strict network policies,
+            # we may need to be more permissive with SSL verification
+            if os.getenv('EMAIL_SSL_PERMISSIVE', 'False').lower() == 'true':
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                logger.warning("Using permissive SSL context - not recommended for production")
+
             email_backend = EmailBackend(
                 host=settings.EMAIL_HOST,
                 port=settings.EMAIL_PORT,
@@ -59,7 +92,7 @@ class EmailClient:
                 password=settings.EMAIL_HOST_PASSWORD,
                 use_tls=settings.EMAIL_USE_TLS,
                 use_ssl=settings.EMAIL_USE_SSL,
-                timeout=settings.EMAIL_TIMEOUT,
+                timeout=getattr(settings, 'EMAIL_TIMEOUT', 30),
                 ssl_context=ssl_context
             )
 
@@ -72,11 +105,22 @@ class EmailClient:
                 fail_silently=False,
                 connection=email_backend
             )
+            
+            logger.info(f"Email sent successfully to {recipient_list}")
             return True, "Email sent successfully"
 
+        except socket.error as e:
+            error_msg = f"Network error sending email: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
+        except ssl.SSLError as e:
+            error_msg = f"SSL error sending email: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
         except Exception as e:
-            logger.error(f"Error sending email: {str(e)}")
-            return False, str(e)
+            error_msg = f"Error sending email: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
 
     
     import json

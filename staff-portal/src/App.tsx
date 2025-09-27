@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { store } from './store';
+import { PersistGate } from 'redux-persist/integration/react';
+import { ThemeProvider, CssBaseline, CircularProgress, Box } from '@mui/material';
+import { store, persistor } from './store';
 import { theme } from './theme';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { SessionMonitor } from './components/auth/SessionMonitor';
@@ -18,6 +19,9 @@ import { NotificationsPage } from './pages/notifications/NotificationsPage';
 import { PrescriptionsPage } from './pages/prescriptions/PrescriptionsPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
+
+// Calendar Integration Pages
+import CalendarIntegrationPage from './pages/calendar/CalendarIntegrationPage';
 
 // Staff Management Pages
 import { StaffDirectoryPage } from './pages/staff/StaffDirectoryPage';
@@ -42,9 +46,22 @@ import SystemConfigurationPage from './pages/admin/SystemConfigurationPage';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ToastContainer } from './components/common/ToastContainer';
 
+// Loading component for PersistGate
+const LoadingComponent = () => (
+  <Box
+    display="flex"
+    justifyContent="center"
+    alignItems="center"
+    minHeight="100vh"
+  >
+    <CircularProgress />
+  </Box>
+);
+
 function App() {
   return (
     <Provider store={store}>
+      <PersistGate loading={<LoadingComponent />} persistor={persistor}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <ErrorBoundary>
@@ -73,6 +90,10 @@ function App() {
                         <Route path="/prescriptions" element={<PrescriptionsPage />} />
                         <Route path="/reports" element={<ReportsPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                        
+                        {/* Calendar Integration Routes */}
+                        <Route path="/calendar" element={<CalendarIntegrationPage />} />
+                        <Route path="/calendar/integration" element={<CalendarIntegrationPage />} />
                         
                         {/* Staff Management Routes */}
                         <Route path="/staff" element={<StaffDirectoryPage />} />
@@ -110,6 +131,7 @@ function App() {
           <ToastContainer />
         </ErrorBoundary>
       </ThemeProvider>
+      </PersistGate>
     </Provider>
   );
 }

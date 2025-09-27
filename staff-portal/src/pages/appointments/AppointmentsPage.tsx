@@ -29,6 +29,7 @@ import {
   Person as PersonIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
@@ -459,6 +460,14 @@ export const AppointmentsPage: React.FC = () => {
           Appointments
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+            onClick={() => navigate('/app/calendar')}
+            sx={{ mr: 1 }}
+          >
+            Calendar Integration
+          </Button>
           <IconButton
             onClick={() =>
               setViewMode(
@@ -594,18 +603,40 @@ export const AppointmentsPage: React.FC = () => {
           <AppointmentCalendar
             appointments={appointments.map(apt => ({
               id: apt.id,
-              patientName: apt.patient?.firstName + ' ' + apt.patient?.lastName || 'Unknown Patient',
               patientId: apt.patientId,
-              providerName: apt.doctor?.firstName + ' ' + apt.doctor?.lastName || 'Unknown Doctor',
-              providerId: apt.doctorId,
-              appointmentType: apt.type || 'consultation',
-              date: apt.startTime.split('T')[0],
-              time: apt.startTime.split('T')[1]?.substring(0, 5) || '00:00',
-              duration: Math.round((new Date(apt.endTime).getTime() - new Date(apt.startTime).getTime()) / (1000 * 60)),
-              status: apt.status.replace('_', '-') as 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show',
-              priority: apt.priority as 'low' | 'medium' | 'high',
+              patient: apt.patient || {
+                id: apt.patientId,
+                name: apt.patient?.firstName + ' ' + apt.patient?.lastName || 'Unknown Patient',
+                date_of_birth: '',
+                gender: 'other' as const,
+                contact: {},
+                status: 'active',
+                registration_completed: false,
+                created_at: '',
+                updated_at: ''
+              },
+              doctorId: apt.doctorId,
+              doctor: apt.doctor || {
+                id: apt.doctorId,
+                email: '',
+                full_name: apt.doctor?.firstName + ' ' + apt.doctor?.lastName || 'Unknown Doctor',
+                role: 'doctor' as const,
+                isActive: true,
+                createdAt: '',
+                updatedAt: ''
+              },
+              title: `${apt.type || 'Consultation'} - ${apt.patient?.firstName + ' ' + apt.patient?.lastName || 'Unknown Patient'}`,
+              description: apt.notes || '',
+              startTime: apt.startTime,
+              endTime: apt.endTime,
+              status: apt.status.replace('_', '-') as 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled',
+              type: apt.type as 'consultation' | 'follow_up' | 'emergency' | 'surgery' | 'therapy' | 'diagnostic' | 'vaccination',
+              priority: apt.priority as 'low' | 'medium' | 'high' | 'urgent' | 'emergency',
               location: apt.location || 'Main Hospital',
-              notes: apt.notes,
+              notes: apt.notes || '',
+              reminders: [],
+              createdAt: apt.createdAt || new Date().toISOString(),
+              updatedAt: apt.updatedAt || new Date().toISOString(),
             }))}
             providers={transformStaffData(staffData || [])}
             onAppointmentClick={(appointment) => handleAppointmentClick(convertCalendarAppointment(appointment))}

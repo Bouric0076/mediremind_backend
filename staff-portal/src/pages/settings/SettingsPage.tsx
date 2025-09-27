@@ -42,13 +42,14 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-
+  CalendarMonth as CalendarIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import type { RootState } from '../../store';
 import { setBreadcrumbs, setCurrentPage, setTheme } from '../../store/slices/uiSlice';
 import { logout } from '../../store/slices/authSlice';
+import CalendarIntegrationSettings from '../../components/settings/CalendarIntegrationSettings';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -80,8 +81,8 @@ export const SettingsPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileData, setProfileData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
+    firstName: user?.full_name?.split(' ')[0] || '',
+    lastName: user?.full_name?.split(' ').slice(1).join(' ') || '',
     email: user?.email || '',
     phone: user?.phone || '',
     department: user?.department || '',
@@ -167,6 +168,7 @@ export const SettingsPage: React.FC = () => {
           <Tab icon={<PersonIcon />} label="Profile" />
           <Tab icon={<SecurityIcon />} label="Security" />
           <Tab icon={<NotificationsIcon />} label="Notifications" />
+          <Tab icon={<CalendarIcon />} label="Calendar" />
           <Tab icon={<PaletteIcon />} label="Appearance" />
           <Tab icon={<LanguageIcon />} label="System" />
           <Tab icon={<StorageIcon />} label="Data" />
@@ -182,10 +184,10 @@ export const SettingsPage: React.FC = () => {
                 <Avatar
                   sx={{ width: 120, height: 120, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}
                 >
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  {user?.full_name?.split(' ')[0]?.[0]}{user?.full_name?.split(' ')[1]?.[0]}
                 </Avatar>
                 <Typography variant="h6" fontWeight="bold">
-                  {user?.firstName} {user?.lastName}
+                  {user?.full_name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   {user?.role} • {user?.department}
@@ -477,8 +479,13 @@ export const SettingsPage: React.FC = () => {
         </Card>
       </TabPanel>
 
-      {/* Appearance Tab */}
+      {/* Calendar Integration Tab */}
       <TabPanel value={tabValue} index={3}>
+        <CalendarIntegrationSettings />
+      </TabPanel>
+
+      {/* Appearance Tab */}
+      <TabPanel value={tabValue} index={4}>
         <Card>
           <CardContent>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
@@ -552,7 +559,7 @@ export const SettingsPage: React.FC = () => {
       </TabPanel>
 
       {/* System Tab */}
-      <TabPanel value={tabValue} index={4}>
+      <TabPanel value={tabValue} index={5}>
         <Card>
           <CardContent>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
@@ -637,7 +644,7 @@ export const SettingsPage: React.FC = () => {
       </TabPanel>
 
       {/* Data Tab */}
-      <TabPanel value={tabValue} index={5}>
+      <TabPanel value={tabValue} index={6}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>

@@ -469,6 +469,8 @@ export const ROUTES = {
   MEDICAL_RECORDS: '/medical-records',
   PRESCRIPTIONS: '/prescriptions',
   SETTINGS: '/settings',
+  CALENDAR: '/calendar',
+  CALENDAR_INTEGRATION: '/calendar/integration',
   PROFILE: '/profile',
 } as const;
 

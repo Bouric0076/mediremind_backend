@@ -30,6 +30,8 @@ const routeLabels: Record<string, string> = {
   '/app/reports': 'Reports',
   '/app/analytics/dashboard': 'Analytics',
   '/app/settings': 'Settings',
+  '/app/calendar': 'Calendar Integration',
+  '/app/calendar/integration': 'Calendar Integration',
 };
 
 export const Breadcrumbs: React.FC = () => {

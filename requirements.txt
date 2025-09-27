@@ -47,6 +47,11 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 
+# Microsoft Graph API (for Outlook Calendar)
+msal
+msgraph-core
+msgraph-sdk
+
 # Email services
 sendgrid
 

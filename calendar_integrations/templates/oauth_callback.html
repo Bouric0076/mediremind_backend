@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1976d2 0%, #87ceeb 50%, #ffffff 100%);
+            color: #1976d2;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            backdrop-filter: blur(15px);
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(25, 118, 210, 0.2);
+            border: 2px solid rgba(135, 206, 235, 0.3);
+            animation: slideInUp 0.6s ease-out;
+        }
+        @keyframes slideInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .spinner {
+            border: 3px solid rgba(135, 206, 235, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #1976d2;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        .error-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(244, 67, 54, 0.1);
+            border-radius: 50%;
+            border: 2px solid rgba(244, 67, 54, 0.3);
+            animation: fadeInScale 0.5s ease-out;
+        }
+        .success-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(25, 118, 210, 0.1);
+            border-radius: 50%;
+            border: 2px solid rgba(25, 118, 210, 0.3);
+            animation: fadeInScale 0.5s ease-out;
+        }
+        .icon-svg {
+            width: 32px;
+            height: 32px;
+            transition: transform 0.2s ease;
+        }
+        .error-icon .icon-svg {
+            fill: #f44336;
+        }
+        .success-icon .icon-svg {
+            fill: #1976d2;
+        }
+        .error-icon:hover .icon-svg,
+        .success-icon:hover .icon-svg {
+            transform: scale(1.1);
+        }
+        @keyframes fadeInScale {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .success-message {
+            background: rgba(25, 118, 210, 0.1);
+            border: 1px solid rgba(25, 118, 210, 0.3);
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if error %}
+            <div class="error-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" opacity="0"/>
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </div>
+            <h2>Authentication Failed</h2>
+            <div class="error-message">
+                <p>{{ error }}</p>
+            </div>
+        {% elif integration_data %}
+            <div class="success-icon">
+                <svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <h2>Authentication Successful</h2>
+            <div class="success-message">
+                <p>Your {{ integration_data.calendar_name }} calendar has been connected successfully!</p>
+            </div>
+        {% else %}
+            <div class="spinner"></div>
+            <h2>Completing Authentication...</h2>
+            <p>Please wait while we complete your calendar integration.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+            
+            // Security: Validate origin for postMessage
+            const ALLOWED_ORIGINS = [
+                'http://localhost:3000',
+                'http://localhost:8000',
+                'https://localhost:3000',
+                'https://localhost:8000'
+            ];
+            
+            // Calendar integration page URL for redirect
+            const CALENDAR_INTEGRATION_URL = 'http://localhost:3000/calendar-integration';
+            
+            // Get URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            
+            // Get integration data from Django template context
+            let integrationData = null;
+            {% if integration_data %}
+                try {
+                    integrationData = {{ integration_data|safe }};
+                } catch (e) {
+                    console.error('Failed to parse integration data:', e);
+                }
+            {% endif %}
+            
+            // Validate state parameter for CSRF protection
+            function validateState(state) {
+                if (!state) {
+                    console.warn('No state parameter provided');
+                    return false;
+                }
+                
+                // Basic state validation - should be a non-empty string
+                if (typeof state !== 'string' || state.length < 10) {
+                    console.warn('Invalid state parameter format');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Send secure message to parent window
+            function sendMessageToParent(messageData) {
+                if (!window.opener || window.opener.closed) {
+                    console.error('Parent window not available');
+                    return;
+                }
+                
+                try {
+                    // Add timestamp for message tracking
+                    messageData.timestamp = Date.now();
+                    
+                    // Send to all allowed origins
+                    ALLOWED_ORIGINS.forEach(origin => {
+                        window.opener.postMessage(messageData, origin);
+                    });
+                    
+                    console.log('Message sent to parent window:', messageData.type);
+                } catch (e) {
+                    console.error('Failed to send message to parent window:', e);
+                }
+            }
+            
+            // Process OAuth callback
+            function processCallback() {
+                if (error) {
+                    sendMessageToParent({
+                        type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+                        error: error,
+                        error_code: 'OAUTH_ERROR'
+                    });
+                    return;
+                }
+                
+                if (!code) {
+                    sendMessageToParent({
+                        type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+                        error: 'No authorization code received',
+                        error_code: 'MISSING_AUTH_CODE'
+                    });
+                    return;
+                }
+                
+                // Validate state parameter for CSRF protection
+                if (!validateState(state)) {
+                    sendMessageToParent({
+                        type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+                        error: 'Invalid state parameter',
+                        error_code: 'INVALID_STATE'
+                    });
+                    return;
+                }
+                
+                // Send success message with integration data
+                const successMessage = {
+                    type: 'GOOGLE_CALENDAR_AUTH_SUCCESS',
+                    code: code,
+                    state: state
+                };
+                
+                if (integrationData) {
+                    successMessage.integration = {
+                        calendar_id: integrationData.calendar_id,
+                        calendar_name: integrationData.calendar_name,
+                        // Don't send sensitive token data to frontend
+                        token_expiry: integrationData.token_expiry
+                    };
+                }
+                
+                sendMessageToParent(successMessage);
+            }
+            
+            // Process the callback immediately
+            processCallback();
+            
+            // Close the popup window and redirect parent after a delay
+            setTimeout(() => {
+                try {
+                    // If this is a popup window, send message to parent and close
+                    if (window.opener && !window.opener.closed) {
+                        // Send a final message to refresh the parent page
+                        sendMessageToParent({
+                            type: 'GOOGLE_CALENDAR_AUTH_COMPLETE',
+                            action: 'refresh_page'
+                        });
+                        window.close();
+                    } else {
+                        // If not a popup, redirect to calendar integration page
+                        window.location.href = CALENDAR_INTEGRATION_URL;
+                    }
+                } catch (e) {
+                    console.error('Failed to close window or redirect:', e);
+                    // Fallback: try to redirect anyway
+                    try {
+                        window.location.href = CALENDAR_INTEGRATION_URL;
+                    } catch (redirectError) {
+                        console.error('Failed to redirect:', redirectError);
+                    }
+                }
+            }, 2000);
+            
+            // Fallback: close window if parent doesn't exist or redirect if standalone
+            if (!window.opener || window.opener.closed) {
+                setTimeout(() => {
+                    try {
+                        // If this is a standalone window, redirect to calendar integration page
+                        window.location.href = CALENDAR_INTEGRATION_URL;
+                    } catch (e) {
+                        console.error('Failed to redirect:', e);
+                        // Last resort: try to close the window
+                        try {
+                            window.close();
+                        } catch (closeError) {
+                            console.error('Failed to close window:', closeError);
+                        }
+                    }
+                }, 1000);
+            }
+        })();
+    </script>
+</body>
+</html>

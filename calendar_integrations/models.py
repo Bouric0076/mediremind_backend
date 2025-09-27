@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
 import json
+from .encryption import encrypt_token, decrypt_token
 
 
 class CalendarProvider(models.TextChoices):
@@ -33,14 +34,14 @@ class CalendarIntegration(models.Model):
     calendar_id = models.CharField(max_length=255, help_text="External calendar ID")
     calendar_name = models.CharField(max_length=255, default="Primary Calendar")
     
-    # OAuth tokens
-    access_token = models.TextField()
-    refresh_token = models.TextField(blank=True, null=True)
+    # OAuth tokens (encrypted)
+    _access_token = models.TextField(db_column='access_token')
+    _refresh_token = models.TextField(blank=True, null=True, db_column='refresh_token')
     token_expiry = models.DateTimeField(blank=True, null=True)
     
     # Sync settings
     status = models.CharField(max_length=20, choices=SyncStatus.choices, default=SyncStatus.PENDING)
-    sync_enabled = models.BooleanField(default=True)
+    sync_enabled = models.BooleanField(default=False)  # Auto sync disabled by default
     last_sync_at = models.DateTimeField(blank=True, null=True)
     next_sync_at = models.DateTimeField(blank=True, null=True)
     
@@ -55,6 +56,36 @@ class CalendarIntegration(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.get_provider_display()} - {self.calendar_name}"
     
+    @property
+    def access_token(self):
+        """Get decrypted access token"""
+        if self._access_token:
+            return decrypt_token(self._access_token)
+        return None
+    
+    @access_token.setter
+    def access_token(self, value):
+        """Set encrypted access token"""
+        if value:
+            self._access_token = encrypt_token(value)
+        else:
+            self._access_token = value
+    
+    @property
+    def refresh_token(self):
+        """Get decrypted refresh token"""
+        if self._refresh_token:
+            return decrypt_token(self._refresh_token)
+        return None
+    
+    @refresh_token.setter
+    def refresh_token(self, value):
+        """Set encrypted refresh token"""
+        if value:
+            self._refresh_token = encrypt_token(value)
+        else:
+            self._refresh_token = value
+    
     def is_token_expired(self):
         """Check if access token is expired"""
         if not self.token_expiry:
@@ -65,6 +96,14 @@ class CalendarIntegration(models.Model):
         """Schedule next sync"""
         self.next_sync_at = timezone.now() + timedelta(minutes=minutes)
         self.save(update_fields=['next_sync_at'])
+    
+    def get_credentials(self):
+        """Get decrypted credentials for API calls"""
+        return {
+            'access_token': self.access_token,
+            'refresh_token': self.refresh_token,
+            'token_expiry': self.token_expiry
+        }
 
 
 class ExternalCalendarEvent(models.Model):
