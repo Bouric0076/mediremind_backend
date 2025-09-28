@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key')
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # ALLOWED_HOSTS configuration for Render
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '1f789e63f6fe.ngrok-free.app']
 
 # Add Render hostname if available
 if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
@@ -196,9 +196,11 @@ if DEBUG:
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
+        "http://localhost:63320",  # Flutter app development server
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
+        "http://127.0.0.1:63320",  # Flutter app development server
     ])
 else:
     # Production settings - include production URLs
