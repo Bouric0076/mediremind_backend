@@ -107,19 +107,30 @@ class TokenEncryption:
             return None
 
 
-# Global instance for use throughout the application
-token_encryption = TokenEncryption()
+# Global instance for use throughout the application (initialized lazily)
+_token_encryption = None
+
+
+def get_token_encryption():
+    """
+    Get or create the global token encryption instance.
+    This is done lazily to avoid initialization errors during import.
+    """
+    global _token_encryption
+    if _token_encryption is None:
+        _token_encryption = TokenEncryption()
+    return _token_encryption
 
 
 def encrypt_token(token):
     """
     Convenience function to encrypt a token.
     """
-    return token_encryption.encrypt_token(token)
+    return get_token_encryption().encrypt_token(token)
 
 
 def decrypt_token(encrypted_token):
     """
     Convenience function to decrypt a token.
     """
-    return token_encryption.decrypt_token(encrypted_token)
+    return get_token_encryption().decrypt_token(encrypted_token)
