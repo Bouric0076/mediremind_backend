@@ -448,6 +448,12 @@ PATIENT_PORTAL_URL = PATIENT_NOTIFICATION_SETTINGS['PATIENT_PORTAL_URL']
 SUPPORT_URL = PATIENT_NOTIFICATION_SETTINGS['SUPPORT_URL']
 PRIVACY_URL = PATIENT_NOTIFICATION_SETTINGS['PRIVACY_URL']
 
+# Ensure logs directory exists for logging
+import os
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOGS_DIR):
+    os.makedirs(LOGS_DIR)
+
 # Logging configuration
 LOGGING = {
     'version': 1,
@@ -471,6 +477,7 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': 'logs/django.log',
             'formatter': 'verbose',
+            'delay': True,  # Delay file creation until first log message
         },
     },
     'root': {
