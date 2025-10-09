@@ -46,8 +46,26 @@ class FCMService:
         try:
             creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', '')
             scopes = ['https://www.googleapis.com/auth/firebase.messaging']
-            if creds_path:
-                return service_account.Credentials.from_service_account_file(creds_path, scopes=scopes)
+            
+            # Check if creds_path contains JSON content (starts with '{')
+            if creds_path and creds_path.strip().startswith('{'):
+                try:
+                    # Parse JSON content directly
+                    import json
+                    creds_info = json.loads(creds_path)
+                    return service_account.Credentials.from_service_account_info(creds_info, scopes=scopes)
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Failed to parse GOOGLE_APPLICATION_CREDENTIALS as JSON: {e}")
+                    return None
+            elif creds_path:
+                # Treat as file path
+                try:
+                    return service_account.Credentials.from_service_account_file(creds_path, scopes=scopes)
+                except FileNotFoundError:
+                    logger.warning(f"GOOGLE_APPLICATION_CREDENTIALS file not found: {creds_path}")
+                    return None
+            
+            # Fallback to individual environment variables
             info = {
                 "type": "service_account",
                 "project_id": os.getenv("FCM_PROJECT_ID") or self.project_id or "",
