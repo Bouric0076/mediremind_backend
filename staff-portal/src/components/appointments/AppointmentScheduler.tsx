@@ -418,6 +418,9 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   };
 
   const handleInputChange = (field: keyof AppointmentFormData, value: any) => {
+    console.log(`handleInputChange - ${field}:`, value);
+    console.log(`handleInputChange - ${field} type:`, typeof value);
+    
     setFormData(prev => ({
       ...prev,
       [field]: value,

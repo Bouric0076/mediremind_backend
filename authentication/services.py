@@ -682,7 +682,7 @@ class PermissionService:
         try:
             user_permissions = UserPermission.objects.filter(
                 user=user, 
-                is_granted=True
+                granted=True
             ).select_related('permission')
             
             for user_perm in user_permissions:
@@ -722,7 +722,7 @@ class PermissionService:
                     user=user,
                     permission__codename=permission,
                     resource_id=resource_id,
-                    is_granted=True
+                    granted=True
                 ).exists()
                 
                 return resource_permission

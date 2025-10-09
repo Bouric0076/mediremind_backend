@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import json
 from supabase_client import admin_client
-from authentication.utils import get_authenticated_user
+from authentication.utils import get_authenticated_user, get_user_profile
 from authentication.middleware import api_csrf_exempt, get_request_user
 from datetime import datetime
 from .utils import (
@@ -12,11 +12,12 @@ from .utils import (
     send_appointment_update,
     trigger_manual_reminder
 )
-from .models import ScheduledTask
+from .models import ScheduledTask, NotificationLog
 from django.core.paginator import Paginator
 from django.db.models import Q
 from accounts.models import EnhancedStaffProfile
 from django.utils import timezone
+from uuid import UUID
 
 @api_csrf_exempt
 def save_subscription(request):
@@ -115,7 +116,7 @@ def get_notifications(request):
 
         # Build query
         queryset = ScheduledTask.objects.all()
-        
+
         # Apply hospital filter for staff/admin users
         if user_hospital:
             # Get appointments associated with this hospital
@@ -141,7 +142,34 @@ def get_notifications(request):
             except Exception as e:
                 print(f"Error filtering notifications by hospital: {e}")
                 return JsonResponse({"error": "Error filtering notifications by hospital"}, status=500)
-        
+        # Apply patient-only filtering for patient users
+        if user_role == 'patient':
+            try:
+                patient_row = None
+                # Try lookup by email first
+                patient_result = admin_client.table("patients").select("id").eq("email", user.email).limit(1).execute()
+                if patient_result.data:
+                    patient_row = patient_result.data[0]
+                else:
+                    # Fallback by user_id mapping
+                    fallback = admin_client.table("patients").select("id").eq("user_id", str(user.id)).limit(1).execute()
+                    if fallback.data:
+                        patient_row = fallback.data[0]
+
+                if not patient_row:
+                    return JsonResponse({"error": "Patient record not found for current user"}, status=403)
+
+                # Get appointments for this patient in one query
+                appt_result = admin_client.table("appointments").select("id").eq("patient_id", patient_row['id']).execute()
+                patient_appointments = [a['id'] for a in (appt_result.data or [])]
+                if patient_appointments:
+                    queryset = queryset.filter(appointment_id__in=patient_appointments)
+                else:
+                    queryset = ScheduledTask.objects.none()
+            except Exception as e:
+                print(f"Error filtering notifications for patient: {e}")
+                return JsonResponse({"error": "Error filtering notifications for patient"}, status=500)
+
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         if task_type_filter:
@@ -156,30 +184,49 @@ def get_notifications(request):
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page)
 
+        # Batch enrichment: fetch appointments and patients for current page in bulk
+        appointment_ids = [str(task.appointment_id) for task in page_obj if task.appointment_id]
+        appointment_map = {}
+        patient_map = {}
+        try:
+            if appointment_ids:
+                appt_batch = admin_client.table("appointments").select(
+                    "id, patient_id, provider_id, appointment_date, appointment_time, location, status"
+                ).in_("id", appointment_ids).execute()
+                if appt_batch.data:
+                    appointment_map = {row['id']: row for row in appt_batch.data}
+                    patient_ids = list({row.get('patient_id') for row in appt_batch.data if row.get('patient_id')})
+                    if patient_ids:
+                        patient_batch = admin_client.table("patients").select(
+                            "id, first_name, last_name, email, phone"
+                        ).in_("id", patient_ids).execute()
+                        if patient_batch.data:
+                            patient_map = {row['id']: row for row in patient_batch.data}
+        except Exception as e:
+            print(f"Error during batch enrichment: {e}")
+
+        # Determine reader key based on unified profile mapping (patient/staff)
+        reader_key = str(user.id)
+        try:
+            profile = get_user_profile(user.id, user_role)
+            if profile and profile.get('id'):
+                reader_key = str(profile['id'])
+        except Exception:
+            pass
+
         # Format notifications
         notifications = []
         for task in page_obj:
-            # Get appointment and patient data
-            appointment_data = None
-            patient_data = None
+            # Get appointment and patient data from batch maps
+            appointment_data = appointment_map.get(str(task.appointment_id))
+            patient_data = patient_map.get(appointment_data['patient_id']) if appointment_data else None
             
-            try:
-                appointment_result = admin_client.table("appointments").select(
-                    "id, patient_id, provider_id, appointment_date, appointment_time, location, status"
-                ).eq("id", str(task.appointment_id)).execute()
-                
-                if appointment_result.data:
-                    appointment_data = appointment_result.data[0]
-                    
-                    # Get patient data
-                    patient_result = admin_client.table("patients").select(
-                        "id, first_name, last_name, email, phone"
-                    ).eq("id", appointment_data['patient_id']).execute()
-                    
-                    if patient_result.data:
-                        patient_data = patient_result.data[0]
-            except Exception as e:
-                print(f"Error fetching appointment/patient data: {e}")
+            # Determine read status for current user from message_data
+            message_data = task.message_data or {}
+            reads = message_data.get('reads', {})
+            read_by_list = message_data.get('read_by', [])
+            is_read = reader_key in reads or reader_key in read_by_list
+            read_at = reads.get(reader_key)
 
             notification = {
                 'id': str(task.id),
@@ -205,7 +252,9 @@ def get_notifications(request):
                 } if appointment_data else None,
                 'error_message': task.error_message,
                 'retry_count': task.retry_count,
-                'created_at': task.created_at.isoformat()
+                'created_at': task.created_at.isoformat(),
+                'isRead': is_read,
+                'readAt': read_at
             }
             notifications.append(notification)
 
@@ -386,7 +435,7 @@ def send_manual_notification(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@csrf_exempt
+@api_csrf_exempt
 def delete_subscription(request):
     """Delete a push notification subscription"""
     if request.method == "OPTIONS":
@@ -395,14 +444,9 @@ def delete_subscription(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # Verify authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({"error": "Authorization required"}, status=401)
-
-    token = auth_header.split(' ')[1]
-    user = get_authenticated_user(token)
+    user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Invalid token"}, status=401)
+        return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         data = json.loads(request.body)
@@ -435,7 +479,7 @@ def get_vapid_public_key(request):
         "vapidPublicKey": settings.WEBPUSH_SETTINGS['VAPID_PUBLIC_KEY']
     })
 
-@csrf_exempt
+@api_csrf_exempt
 def test_notifications(request):
     """Test endpoint for notifications"""
     if request.method == "OPTIONS":
@@ -444,14 +488,9 @@ def test_notifications(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # Verify authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({"error": "Authorization required"}, status=401)
-
-    token = auth_header.split(' ')[1]
-    user = get_authenticated_user(token)
+    user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Invalid token"}, status=401)
+        return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         # Get user role and hospital association
@@ -517,7 +556,7 @@ def test_notifications(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@csrf_exempt
+@api_csrf_exempt
 def test_upcoming_reminders(request):
     """Test endpoint to trigger upcoming appointment reminders"""
     if request.method == "OPTIONS":
@@ -526,14 +565,9 @@ def test_upcoming_reminders(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # Verify authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({"error": "Authorization required"}, status=401)
-
-    token = auth_header.split(' ')[1]
-    user = get_authenticated_user(token)
+    user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Invalid token"}, status=401)
+        return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         # Get all appointments for testing
@@ -561,7 +595,7 @@ def test_upcoming_reminders(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@csrf_exempt
+@api_csrf_exempt
 def check_subscriptions(request):
     """Debug endpoint to check user's push subscriptions"""
     if request.method == "OPTIONS":
@@ -570,14 +604,9 @@ def check_subscriptions(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     # Verify authentication
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return JsonResponse({"error": "Authorization required"}, status=401)
-
-    token = auth_header.split(' ')[1]
-    user = get_authenticated_user(token)
+    user = get_request_user(request)
     if not user:
-        return JsonResponse({"error": "Invalid token"}, status=401)
+        return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
         # Get all subscriptions for the user
@@ -588,5 +617,160 @@ def check_subscriptions(request):
             "subscriptions": result.data if result.data else []
         })
 
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_csrf_exempt
+def notification_preferences(request):
+    """Get or update notification preferences for the authenticated patient"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
+
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    default_preferences = {
+        'email': True,
+        'sms': True,
+        'push': True,
+        'whatsapp': False
+    }
+
+    try:
+        # Locate patient record in Supabase by email
+        patient_result = admin_client.table("patients").select("id, notification_preferences").eq("email", user.email).limit(1).execute()
+        patient_row = patient_result.data[0] if patient_result.data else None
+
+        if request.method == "GET":
+            if patient_row and patient_row.get('notification_preferences'):
+                return JsonResponse({'preferences': patient_row['notification_preferences']})
+            else:
+                return JsonResponse({'preferences': default_preferences})
+
+        if request.method in ["PUT", "POST"]:
+            try:
+                data = json.loads(request.body or '{}')
+            except json.JSONDecodeError:
+                return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+            # Support both {'preferences': {...}} and direct preference keys
+            preferences = data.get('preferences') if isinstance(data, dict) else None
+            if not preferences:
+                # Fall back to using top-level keys
+                preferences = {
+                    'email': bool(data.get('email', True)),
+                    'sms': bool(data.get('sms', True)),
+                    'push': bool(data.get('push', True)),
+                    'whatsapp': bool(data.get('whatsapp', False)),
+                }
+
+            # Validate preference keys
+            valid_keys = {'email', 'sms', 'push', 'whatsapp'}
+            for key in list(preferences.keys()):
+                if key not in valid_keys:
+                    preferences.pop(key)
+            
+            # If no patient row, try to upsert by email
+            if not patient_row:
+                # Attempt to find by user_id as a fallback
+                fallback = admin_client.table("patients").select("id").eq("user_id", str(user.id)).limit(1).execute()
+                if fallback.data:
+                    patient_row = {'id': fallback.data[0]['id']}
+
+            if patient_row:
+                admin_client.table("patients").update({
+                    'notification_preferences': preferences
+                }).eq("id", patient_row['id']).execute()
+                return JsonResponse({'message': 'Preferences updated', 'preferences': preferences})
+            else:
+                # As a last resort, update by email
+                admin_client.table("patients").update({
+                    'notification_preferences': preferences
+                }).eq("email", user.email).execute()
+                return JsonResponse({'message': 'Preferences updated', 'preferences': preferences})
+
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_csrf_exempt
+def mark_notification_read(request, notification_id):
+    """Mark a notification as read for the authenticated user"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        # Support both UUID and string IDs
+        task = None
+        try:
+            task = ScheduledTask.objects.get(id=notification_id)
+        except Exception:
+            try:
+                task = ScheduledTask.objects.get(id=UUID(str(notification_id)))
+            except ScheduledTask.DoesNotExist:
+                return JsonResponse({"error": "Notification not found"}, status=404)
+
+        # Update message_data with read tracking
+        # Determine reader key based on unified profile mapping
+        reader_key = str(user.id)
+        try:
+            profile = get_user_profile(user.id, getattr(user, 'role', None))
+            if profile and profile.get('id'):
+                reader_key = str(profile['id'])
+        except Exception:
+            pass
+
+        # Update message_data with read tracking
+        message_data = task.message_data or {}
+        reads = message_data.get('reads', {})
+        now_iso = timezone.now().isoformat()
+        reads[reader_key] = now_iso
+        message_data['reads'] = reads
+        read_by = message_data.get('read_by', [])
+        if reader_key not in read_by:
+            read_by.append(reader_key)
+        message_data['read_by'] = read_by
+        task.message_data = message_data
+        task.save(update_fields=['message_data'])
+
+        # Optionally update NotificationLog status
+        try:
+            logs = NotificationLog.objects.filter(task=task, patient_id=str(user.id)).order_by('-created_at')
+            # Map to Supabase patient_id for logs
+            supabase_patient_id = None
+            try:
+                pr = admin_client.table("patients").select("id").eq("email", user.email).limit(1).execute()
+                if pr.data:
+                    supabase_patient_id = pr.data[0]['id']
+                else:
+                    fb = admin_client.table("patients").select("id").eq("user_id", str(user.id)).limit(1).execute()
+                    if fb.data:
+                        supabase_patient_id = fb.data[0]['id']
+            except Exception:
+                supabase_patient_id = None
+
+            logs = NotificationLog.objects.filter(task=task, patient_id=str(supabase_patient_id) if supabase_patient_id else '').order_by('-created_at')
+            if logs.exists():
+                log = logs.first()
+                log.status = 'opened'
+                log.opened_at = timezone.now()
+                log.save(update_fields=['status', 'opened_at'])
+        except Exception as log_err:
+            print(f"Error updating NotificationLog: {log_err}")
+ 
+        # Prepare response
+        return JsonResponse({
+            'id': str(task.id),
+            'isRead': True,
+            'readAt': reads.get(reader_key)
+        })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

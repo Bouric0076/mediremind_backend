@@ -69,10 +69,13 @@ class PersistentNotificationScheduler:
         }
 
     def start(self):
-        """Start the persistent scheduler"""
+        """Start the persistent scheduler (disabled: Celery beat handles scheduling)"""
         if self.is_running:
             logger.warning("Persistent scheduler is already running")
             return
+        logger.info("Persistent notification scheduler start requested, but managed by Celery beat. No internal threads started.")
+        self.is_running = True
+        return
         
         logger.info("Starting persistent notification scheduler...")
         
@@ -92,12 +95,12 @@ class PersistentNotificationScheduler:
         logger.info("Persistent notification scheduler started successfully")
 
     def stop(self):
-        """Stop the persistent scheduler"""
+        """Stop the persistent scheduler (no-op)"""
         if not self.is_running:
             return
-        
-        logger.info("Stopping persistent notification scheduler...")
+        logger.info("Persistent notification scheduler stop requested (managed by Celery beat)")
         self.is_running = False
+        return
         
         # Wait for threads to finish
         if self.scheduler_thread and self.scheduler_thread.is_alive():
@@ -159,7 +162,8 @@ class PersistentNotificationScheduler:
             return 0
 
     def _scheduler_loop(self):
-        """Main scheduler loop that processes due tasks"""
+        """Disabled: Celery beat drives task processing"""
+        return
         while self.is_running:
             try:
                 # Get due tasks from database
@@ -214,7 +218,8 @@ class PersistentNotificationScheduler:
                 threading.Event().wait(self.check_interval)
 
     def _cleanup_loop(self):
-        """Background cleanup and maintenance loop"""
+        """Disabled: Celery beat handles cleanup via periodic tasks"""
+        return
         while self.is_running:
             try:
                 # Reset circuit breakers

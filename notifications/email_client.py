@@ -25,7 +25,11 @@ class EmailClient:
     def send_email(subject, message, recipient_list, html_message=None):
         """Send an email to the specified recipients"""
         try:
-            if not all([settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD]):
+            # Check if using console backend (for development)
+            if settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
+                # For console backend, we don't need SMTP credentials
+                logger.info("Using console email backend - emails will be printed to console")
+            elif not all([settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD]):
                 logger.warning("Email settings not configured")
                 return False, "Email settings not configured"
 
@@ -36,65 +40,72 @@ class EmailClient:
             if not html_message:
                 html_message = f"<p>{message}</p>"
 
-            # Log SSL certificate path
-            cert_path = certifi.where()
-            logger.info(f"Using SSL certificates from: {cert_path}")
-            
-            # Log email settings (excluding password)
-            logger.info(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
-                       f"use_tls={settings.EMAIL_USE_TLS}, use_ssl={settings.EMAIL_USE_SSL}")
+            # Handle different email backends
+            if settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
+                # For console backend, use default Django send_mail
+                logger.info("Using console email backend - skipping SMTP configuration")
+                email_backend = None
+            else:
+                # For SMTP backends, configure properly
+                # Log SSL certificate path
+                cert_path = certifi.where()
+                logger.info(f"Using SSL certificates from: {cert_path}")
+                
+                # Log email settings (excluding password)
+                logger.info(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
+                           f"use_tls={settings.EMAIL_USE_TLS}, use_ssl={settings.EMAIL_USE_SSL}")
 
-            # Test network connectivity before attempting to send
-            try:
-                # Test DNS resolution
-                socket.gethostbyname(settings.EMAIL_HOST)
-                logger.info(f"DNS resolution successful for {settings.EMAIL_HOST}")
-                
-                # Test port connectivity
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(10)  # 10 second timeout
-                result = sock.connect_ex((settings.EMAIL_HOST, settings.EMAIL_PORT))
-                sock.close()
-                
-                if result != 0:
-                    error_msg = f"Cannot connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}. Network may be restricted."
+                # Test network connectivity before attempting to send
+                try:
+                    # Test DNS resolution
+                    socket.gethostbyname(settings.EMAIL_HOST)
+                    logger.info(f"DNS resolution successful for {settings.EMAIL_HOST}")
+                    
+                    # Test port connectivity
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(10)  # 10 second timeout
+                    result = sock.connect_ex((settings.EMAIL_HOST, settings.EMAIL_PORT))
+                    sock.close()
+                    
+                    if result != 0:
+                        error_msg = f"Cannot connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}. Network may be restricted."
+                        logger.error(error_msg)
+                        return False, error_msg
+                    else:
+                        logger.info(f"Port connectivity test successful for {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                        
+                except socket.gaierror as e:
+                    error_msg = f"DNS resolution failed for {settings.EMAIL_HOST}: {str(e)}"
                     logger.error(error_msg)
                     return False, error_msg
-                else:
-                    logger.info(f"Port connectivity test successful for {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
-                    
-            except socket.gaierror as e:
-                error_msg = f"DNS resolution failed for {settings.EMAIL_HOST}: {str(e)}"
-                logger.error(error_msg)
-                return False, error_msg
-            except Exception as e:
-                error_msg = f"Network connectivity test failed: {str(e)}"
-                logger.error(error_msg)
-                return False, error_msg
+                except Exception as e:
+                    error_msg = f"Network connectivity test failed: {str(e)}"
+                    logger.error(error_msg)
+                    return False, error_msg
 
-            # Configure email settings with improved error handling
-            from django.core.mail.backends.smtp import EmailBackend
-            
-            # Create SSL context with better error handling
-            ssl_context = ssl.create_default_context(cafile=cert_path)
-            
-            # For production environments with strict network policies,
-            # we may need to be more permissive with SSL verification
-            if os.getenv('EMAIL_SSL_PERMISSIVE', 'False').lower() == 'true':
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-                logger.warning("Using permissive SSL context - not recommended for production")
+                # Configure email settings with improved error handling
+                from django.core.mail.backends.smtp import EmailBackend
+                
+                # Create SSL context with better error handling
+                ssl_context = ssl.create_default_context(cafile=cert_path)
+                
+                # For production environments with strict network policies,
+                # we may need to be more permissive with SSL verification
+                if os.getenv('EMAIL_SSL_PERMISSIVE', 'False').lower() == 'true':
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    logger.warning("Using permissive SSL context - not recommended for production")
 
-            email_backend = EmailBackend(
-                host=settings.EMAIL_HOST,
-                port=settings.EMAIL_PORT,
-                username=settings.EMAIL_HOST_USER,
-                password=settings.EMAIL_HOST_PASSWORD,
-                use_tls=settings.EMAIL_USE_TLS,
-                use_ssl=settings.EMAIL_USE_SSL,
-                timeout=getattr(settings, 'EMAIL_TIMEOUT', 30),
-                ssl_context=ssl_context
-            )
+                email_backend = EmailBackend(
+                    host=settings.EMAIL_HOST,
+                    port=settings.EMAIL_PORT,
+                    username=settings.EMAIL_HOST_USER,
+                    password=settings.EMAIL_HOST_PASSWORD,
+                    use_tls=settings.EMAIL_USE_TLS,
+                    use_ssl=settings.EMAIL_USE_SSL,
+                    timeout=getattr(settings, 'EMAIL_TIMEOUT', 30),
+                    ssl_context=ssl_context
+                )
 
             send_mail(
                 subject=subject,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { format, parseISO, isSameDay, isAfter } from 'date-fns';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -30,10 +31,11 @@ import {
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
   Settings as SettingsIcon,
+  Sms as SmsIcon,
 } from '@mui/icons-material';
 
-import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
-import { useGetAppointmentsQuery, useGetPatientsQuery, useGetStaffQuery, useGetAppointmentTypesQuery, useCreateAppointmentMutation } from '../../store/api/apiSlice';
+import { setBreadcrumbs, setCurrentPage, addToast } from '../../store/slices/uiSlice';
+import { useGetAppointmentsQuery, useGetPatientsQuery, useGetStaffQuery, useGetAppointmentTypesQuery, useCreateAppointmentMutation, useSendManualSmsReminderMutation } from '../../store/api/apiSlice';
 import AppointmentScheduler from '../../components/appointments/AppointmentScheduler';
 import AppointmentCalendar from '../../components/appointments/AppointmentCalendar';
 
@@ -158,6 +160,7 @@ export const AppointmentsPage: React.FC = () => {
   const { data: appointmentTypesData } = useGetAppointmentTypesQuery();
   
   const [createAppointment, { isLoading: isCreating }] = useCreateAppointmentMutation();
+  const [sendManualSmsReminder, { isLoading: isSendingSms }] = useSendManualSmsReminderMutation();
 
   useEffect(() => {
     dispatch(setCurrentPage('appointments'));
@@ -204,11 +207,47 @@ export const AppointmentsPage: React.FC = () => {
     }
   };
 
+  // Transform API data to match frontend interface
+  const transformApiAppointment = (apiAppointment: any) => {
+    return {
+      id: apiAppointment.id,
+      patientId: apiAppointment.patient_id || '',
+      patientName: apiAppointment.patient_name || 'Unknown Patient',
+      date: apiAppointment.appointment_date || apiAppointment.date,
+      time: apiAppointment.start_time || apiAppointment.time,
+      duration: apiAppointment.duration || 30,
+      type: (apiAppointment.appointment_type_name || apiAppointment.type || 'consultation').toLowerCase().replace(' ', '-'),
+      status: apiAppointment.status || 'scheduled',
+      provider: apiAppointment.provider_name || apiAppointment.provider || 'Unknown Provider',
+      providerId: apiAppointment.provider_id || '',
+      notes: apiAppointment.notes || '',
+      room: apiAppointment.room || 'Main Hospital',
+      priority: apiAppointment.priority || 'medium',
+      createdAt: apiAppointment.created_at || new Date().toISOString(),
+      updatedAt: apiAppointment.updated_at || new Date().toISOString(),
+    };
+  };
+
   // Get appointments from API data
-  const appointments = appointmentsData?.appointments || [];
+  const appointments = (appointmentsData?.appointments || []).map(transformApiAppointment);
 
   const getAppointmentsForDate = (date: string) => {
-    return appointments.filter((apt) => apt.date === date);
+    return appointments.filter(apt => {
+      if (!apt.date) return false;
+      
+      // Handle YYYY-MM-DD format from API
+      const appointmentDate = parseISO(apt.date);
+      const targetDate = parseISO(date);
+      
+      if (isNaN(appointmentDate.getTime())) {
+        // Try parsing as simple date string
+        const [year, month, day] = apt.date.split('-').map(Number);
+        const aptDate = new Date(year, month - 1, day);
+        return isSameDay(aptDate, targetDate);
+      }
+      
+      return isSameDay(appointmentDate, targetDate);
+    });
   };
 
   const getTodayAppointments = () => {
@@ -218,7 +257,36 @@ export const AppointmentsPage: React.FC = () => {
 
   const getUpcomingAppointments = () => {
     const today = new Date();
-    return appointments.filter((apt) => new Date(apt.date) > today);
+    return appointments.filter(apt => {
+      if (!apt.date) return false;
+      
+      // Handle YYYY-MM-DD format from API
+      let appointmentDate = parseISO(apt.date);
+      
+      if (isNaN(appointmentDate.getTime())) {
+        // Try parsing as simple date string
+        const [year, month, day] = apt.date.split('-').map(Number);
+        appointmentDate = new Date(year, month - 1, day);
+      }
+      
+      return isAfter(appointmentDate, today) || isSameDay(appointmentDate, today);
+    }).sort((a, b) => {
+      // Handle YYYY-MM-DD format from API
+      let dateA = parseISO(a.date);
+      let dateB = parseISO(b.date);
+      
+      if (isNaN(dateA.getTime())) {
+        const [yearA, monthA, dayA] = a.date.split('-').map(Number);
+        dateA = new Date(yearA, monthA - 1, dayA);
+      }
+      
+      if (isNaN(dateB.getTime())) {
+        const [yearB, monthB, dayB] = b.date.split('-').map(Number);
+        dateB = new Date(yearB, monthB - 1, dayB);
+      }
+      
+      return dateA.getTime() - dateB.getTime();
+    });
   };
 
   // Helper function to convert AppointmentCalendar appointment to AppointmentsPage appointment
@@ -283,14 +351,57 @@ export const AppointmentsPage: React.FC = () => {
     }
   };
 
+  const handleSendSmsReminder = async (appointmentId: string) => {
+    try {
+      const result = await sendManualSmsReminder(appointmentId).unwrap();
+      console.log('SMS reminder sent successfully:', result);
+      dispatch(addToast({
+        title: 'Success',
+        message: 'SMS reminder sent successfully',
+        type: 'success',
+        duration: 3000,
+      }));
+    } catch (error) {
+      console.error('Failed to send SMS reminder:', error);
+      dispatch(addToast({
+        title: 'Error',
+        message: 'Failed to send SMS reminder. Please try again.',
+        type: 'error',
+        duration: 5000,
+      }));
+    }
+  };
+
   const handleAppointmentSubmit = async (appointmentData: any) => {
     try {
+      // Debug the date being processed
+      console.log('handleAppointmentSubmit - appointmentData.date:', appointmentData.date);
+      console.log('handleAppointmentSubmit - appointmentData.date type:', typeof appointmentData.date);
+      console.log('handleAppointmentSubmit - appointmentData.date toISOString:', appointmentData.date?.toISOString());
+      
       // Transform the appointment data to match Django API expectations
+      const appointmentDate = appointmentData.date;
+      let formattedDate = '';
+      
+      if (appointmentDate) {
+        if (appointmentDate instanceof Date) {
+          // Use format from date-fns to preserve local date instead of UTC conversion
+          formattedDate = format(appointmentDate, 'yyyy-MM-dd');
+        } else if (typeof appointmentDate === 'string') {
+          formattedDate = appointmentDate;
+        } else {
+          console.warn('Unexpected date format:', appointmentDate);
+          formattedDate = format(new Date(), 'yyyy-MM-dd');
+        }
+      }
+      
+      console.log('handleAppointmentSubmit - formattedDate:', formattedDate);
+      
       const apiData = {
         patient_id: appointmentData.patientId,
         provider_id: appointmentData.providerId,
         appointment_type_id: appointmentData.appointmentTypeId,
-        appointment_date: appointmentData.date ? appointmentData.date.toISOString().split('T')[0] : '',
+        appointment_date: formattedDate,
         start_time: appointmentData.time ? appointmentData.time.toTimeString().split(' ')[0].substring(0, 5) : '',
         duration: appointmentData.duration || 30, // Include dynamic duration
         reason: appointmentData.notes || 'General appointment',
@@ -343,6 +454,24 @@ export const AppointmentsPage: React.FC = () => {
               '&:hover': { bgcolor: 'grey.50' },
             }}
             onClick={() => navigate(`/app/appointments/${appointment.id}`)}
+            secondaryAction={
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Tooltip title="Send SMS Reminder">
+                  <IconButton
+                    edge="end"
+                    aria-label="send-sms-reminder"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSendSmsReminder(appointment.id);
+                    }}
+                    disabled={isSendingSms}
+                    color="primary"
+                  >
+                    <SmsIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            }
           >
             <ListItemAvatar>
               <Avatar sx={{ bgcolor: 'primary.main' }}>
@@ -389,9 +518,19 @@ export const AppointmentsPage: React.FC = () => {
                     >
                       <CalendarIcon sx={{ fontSize: 14 }} />
                       <Typography variant="body2">
-                        {new Date(
-                          appointment.date,
-                        ).toLocaleDateString()}
+                        {(() => {
+                          try {
+                            const appointmentDate = parseISO(appointment.date);
+                            if (isNaN(appointmentDate.getTime())) {
+                              const [year, month, day] = appointment.date.split('-').map(Number);
+                              const dateObj = new Date(year, month - 1, day);
+                              return dateObj.toLocaleDateString();
+                            }
+                            return appointmentDate.toLocaleDateString();
+                          } catch (error) {
+                            return appointment.date;
+                          }
+                        })()}
                       </Typography>
                     </Box>
                     <Box
@@ -604,9 +743,9 @@ export const AppointmentsPage: React.FC = () => {
             appointments={appointments.map(apt => ({
               id: apt.id,
               patientId: apt.patientId,
-              patient: apt.patient || {
+              patient: {
                 id: apt.patientId,
-                name: apt.patient?.firstName + ' ' + apt.patient?.lastName || 'Unknown Patient',
+                name: apt.patientName,
                 date_of_birth: '',
                 gender: 'other' as const,
                 contact: {},
@@ -615,28 +754,28 @@ export const AppointmentsPage: React.FC = () => {
                 created_at: '',
                 updated_at: ''
               },
-              doctorId: apt.doctorId,
-              doctor: apt.doctor || {
-                id: apt.doctorId,
+              doctorId: apt.providerId,
+              doctor: {
+                id: apt.providerId,
                 email: '',
-                full_name: apt.doctor?.firstName + ' ' + apt.doctor?.lastName || 'Unknown Doctor',
+                full_name: apt.provider,
                 role: 'doctor' as const,
                 isActive: true,
                 createdAt: '',
                 updatedAt: ''
               },
-              title: `${apt.type || 'Consultation'} - ${apt.patient?.firstName + ' ' + apt.patient?.lastName || 'Unknown Patient'}`,
+              title: `${apt.type} - ${apt.patientName}`,
               description: apt.notes || '',
-              startTime: apt.startTime,
-              endTime: apt.endTime,
+              startTime: `${apt.date}T${apt.time}`,
+              endTime: `${apt.date}T${apt.time}`, // Will be calculated based on duration
               status: apt.status.replace('_', '-') as 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'rescheduled',
               type: apt.type as 'consultation' | 'follow_up' | 'emergency' | 'surgery' | 'therapy' | 'diagnostic' | 'vaccination',
               priority: apt.priority as 'low' | 'medium' | 'high' | 'urgent' | 'emergency',
-              location: apt.location || 'Main Hospital',
+              location: apt.room || 'Main Hospital',
               notes: apt.notes || '',
               reminders: [],
-              createdAt: apt.createdAt || new Date().toISOString(),
-              updatedAt: apt.updatedAt || new Date().toISOString(),
+              createdAt: apt.createdAt,
+              updatedAt: apt.updatedAt,
             }))}
             providers={transformStaffData(staffData || [])}
             onAppointmentClick={(appointment) => handleAppointmentClick(convertCalendarAppointment(appointment))}

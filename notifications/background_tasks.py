@@ -20,6 +20,7 @@ from .utils import (
     get_patient_data,
     get_doctor_data
 )
+from .tasks import process_pending_reminders
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,23 @@ class BackgroundTask:
     max_errors: int = 5
 
 class BackgroundTaskManager:
-    """Manages background tasks for the notification system"""
+    """Manages background tasks via Celery beat"""
+    
+    def start(self):
+        """Start background task scheduling (delegated to Celery beat)"""
+        notification_logger.info(
+            LogCategory.SYSTEM,
+            "Background tasks scheduled via Celery beat",
+            "background_task_manager"
+        )
+    
+    def stop(self):
+        """Stop background task scheduling"""
+        notification_logger.info(
+            LogCategory.SYSTEM,
+            "Background tasks stop requested (managed by Celery beat)",
+            "background_task_manager"
+        )
     
     def __init__(self, max_workers: int = 5):
         self.max_workers = max_workers
@@ -124,13 +141,14 @@ class BackgroundTaskManager:
             self.tasks[task.task_type.value] = task
 
     def start(self):
-        """Start the background task manager"""
+        """Start the background task manager (delegated to Celery beat)"""
         if self.is_running:
             logger.warning("Background task manager is already running")
             return
-            
+        # No internal threads started; Celery beat schedules tasks
         self.is_running = True
-        
+        logger.info(f"Background task manager start requested; Celery beat manages scheduling (workers={self.max_workers})")
+        return
         # Start scheduler thread
         self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)
         self.scheduler_thread.start()
@@ -138,17 +156,20 @@ class BackgroundTaskManager:
         logger.info(f"Background task manager started with {self.max_workers} workers")
 
     def stop(self):
-        """Stop the background task manager"""
+        """Stop the background task manager (no-op for scheduling)"""
         if not self.is_running:
             return
-            
-        logger.info("Stopping background task manager...")
+        logger.info("Background task manager stop requested (managed by Celery beat)")
         self.is_running = False
-        
         # Cancel running tasks
         for future in self.active_futures.values():
             future.cancel()
-            
+        # Do not join scheduler thread; it's not started in Celery mode
+        # Shutdown executor
+        self.executor.shutdown(wait=True)
+        logger.info("Background task manager stopped")
+        return
+        
         # Wait for scheduler thread
         if self.scheduler_thread:
             self.scheduler_thread.join(timeout=10)
@@ -206,6 +227,8 @@ class BackgroundTaskManager:
         }
 
     def _scheduler_loop(self):
+        """Disabled: Celery beat triggers background tasks"""
+        return
         """Main scheduler loop for background tasks"""
         while self.is_running:
             try:

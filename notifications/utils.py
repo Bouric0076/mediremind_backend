@@ -46,7 +46,7 @@ def get_appointment_details(appointment_id):
             "appointment_time": formatted_time,  # Formatted for messages
             "type": appointment["type"],
             "status": appointment["status"],
-            "location": appointment.get("location", "Main Hospital"),
+            "location": appointment.get("location", "Main Hospital"), 
             "patient_name": patient.get("full_name"),
             "patient_phone": patient.get("phone"),
             "doctor_name": doctor.get("full_name"),
@@ -78,10 +78,15 @@ def get_appointment_data(appointment_id):
         except Appointment.DoesNotExist:
             return None, "Appointment not found"
         
-        # Format location from room information
-        location = "Main Hospital"
+        # Format location from hospital and room information
+        location_parts = []
+        
+        # Add hospital name first
+        if appointment.hospital:
+            location_parts.append(appointment.hospital.name)
+        
+        # Add room details if available
         if appointment.room:
-            location_parts = []
             if appointment.room.name:
                 location_parts.append(appointment.room.name)
             if appointment.room.room_number:
@@ -90,9 +95,9 @@ def get_appointment_data(appointment_id):
                 location_parts.append(f"Floor {appointment.room.floor}")
             if appointment.room.building:
                 location_parts.append(appointment.room.building)
-            
-            if location_parts:
-                location = ", ".join(location_parts)
+        
+        # Default to "Main Hospital" if no location info available
+        location = ", ".join(location_parts) if location_parts else "Main Hospital"
         
         # Format the data
         formatted_data = {

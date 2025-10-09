@@ -256,43 +256,78 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           return false;
         }
 
-        // Filter by date range
-        const appointmentDate = parseISO(appointment.startTime);
-        return appointmentDate >= dateRange.start && appointmentDate <= dateRange.end;
+        // Filter by date range - check if startTime exists and is valid
+        if (!appointment.startTime || !appointment.endTime) {
+          console.warn('Appointment missing startTime or endTime:', appointment);
+          return false;
+        }
+
+        try {
+          const appointmentDate = parseISO(appointment.startTime);
+          return appointmentDate >= dateRange.start && appointmentDate <= dateRange.end;
+        } catch (error) {
+          console.warn('Invalid appointment date format:', appointment.startTime, error);
+          return false;
+        }
       })
       .map(appointment => {
-        const start = parseISO(appointment.startTime);
-        const end = parseISO(appointment.endTime);
+        try {
+          const start = parseISO(appointment.startTime);
+          const end = parseISO(appointment.endTime);
 
-        const provider = providers.find(p => p.id === appointment.doctorId);
-        const color = provider?.color || statusColors[appointment.status as keyof typeof statusColors];
+          const provider = providers.find(p => p.id === appointment.doctorId);
+          const color = provider?.color || statusColors[appointment.status as keyof typeof statusColors];
 
-        return {
-          id: appointment.id,
-          title: `${appointment.patient.name} - ${appointment.type}`,
-          start,
-          end,
-          appointment,
-          color,
-          isExternal: false,
-        };
-      });
+          return {
+            id: appointment.id,
+            title: `${appointment.patient.name} - ${appointment.type}`,
+            start,
+            end,
+            appointment,
+            color,
+            isExternal: false,
+          };
+        } catch (error) {
+          console.error('Error parsing appointment dates:', appointment, error);
+          return null;
+        }
+      })
+      .filter(Boolean); // Remove any null entries from failed date parsing
 
     // External calendar events
     const externalCalendarEvents = showExternalEvents ? externalEvents
       .filter(event => {
-        const eventStart = parseISO(event.start_time);
-        return eventStart >= dateRange.start && eventStart <= dateRange.end;
+        // Check if required fields exist and are valid
+        if (!event.start_time || !event.end_time) {
+          console.warn('External event missing start_time or end_time:', event);
+          return false;
+        }
+
+        try {
+          const eventStart = parseISO(event.start_time);
+          return eventStart >= dateRange.start && eventStart <= dateRange.end;
+        } catch (error) {
+          console.warn('Invalid external event date format:', event.start_time, error);
+          return false;
+        }
       })
-      .map(event => ({
-        id: `external-${event.id}`,
-        title: `🔗 ${event.title}`,
-        start: parseISO(event.start_time),
-        end: parseISO(event.end_time),
-        externalEvent: event,
-        color: '#9E9E9E', // Gray color for external events
-        isExternal: true,
-      })) : [];
+      .map(event => {
+        try {
+          return {
+            id: `external-${event.id}`,
+            title: `🔗 ${event.title}`,
+            start: parseISO(event.start_time),
+            end: parseISO(event.end_time),
+            externalEvent: event,
+            color: '#9E9E9E', // Gray color for external events
+            isExternal: true,
+          };
+        } catch (error) {
+          console.error('Error parsing external event dates:', event, error);
+          return null;
+        }
+      })
+      .filter(Boolean) : [];
 
     return [...internalEvents, ...externalCalendarEvents];
   }, [appointments, providers, selectedProvider, selectedStatus, dateRange, externalEvents, showExternalEvents]);
@@ -493,7 +528,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
           <Grid container key={weekIndex} sx={{ minHeight: 140, mb: 1 }}>
             {week.map((day, dayIndex) => {
               const dayEvents = calendarEvents.filter(event =>
-                isSameDay(event.start, day)
+                event && event.start && isSameDay(event.start, day)
               );
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isTodayDate = isToday(day);
@@ -590,6 +625,9 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                     {/* Enhanced appointment display */}
                      <Box sx={{ height: 'calc(100% - 40px)', overflow: 'hidden' }}>
                        {dayEvents.slice(0, 3).map((event) => {
+                         // Check if event exists
+                         if (!event) return null;
+                         
                          // Check if this is an internal appointment or external event
                          const isInternalAppointment = 'appointment' in event;
                          const appointment = isInternalAppointment ? event.appointment : null;
@@ -845,6 +883,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
               </Grid>
               {days.map(day => {
                 const dayHourEvents = calendarEvents.filter(event => {
+                  if (!event || !event.start) return false;
                   const eventHour = event.start.getHours();
                   return isSameDay(event.start, day) && eventHour === hour;
                 });
@@ -869,6 +908,8 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                       }}
                     >
                       {dayHourEvents.map(event => {
+                        if (!event) return null;
+                        
                         const isInternalAppointment = 'appointment' in event;
                         const appointment = isInternalAppointment ? event.appointment : null;
                         
@@ -919,7 +960,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
   const renderDayView = () => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const dayEvents = calendarEvents.filter(event =>
-      isSameDay(event.start, currentDate)
+      event && event.start && isSameDay(event.start, currentDate)
     );
 
     return (
@@ -932,7 +973,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
 
         <Box sx={{ maxHeight: 600, overflow: 'auto' }}>
           {hours.map(hour => {
-            const hourEvents = dayEvents.filter(event => event.start.getHours() === hour);
+            const hourEvents = dayEvents.filter(event => event && event.start && event.start.getHours() === hour);
 
             return (
               <Box
@@ -967,6 +1008,8 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                   }}
                 >
                   {hourEvents.map((event, index) => {
+                    if (!event) return null;
+                    
                     const isInternalAppointment = 'appointment' in event;
                     const appointment = isInternalAppointment ? event.appointment : null;
                     
@@ -1380,7 +1423,7 @@ export const AppointmentCalendar: React.FC<AppointmentCalendarProps> = ({
                 backdropFilter: 'blur(5px)',
               }}
             >
-              {calendarEvents.filter(e => !e.isExternal).length} appointment{calendarEvents.filter(e => !e.isExternal).length !== 1 ? 's' : ''}
+              {calendarEvents.filter(e => e && !e.isExternal).length} appointment{calendarEvents.filter(e => e && !e.isExternal).length !== 1 ? 's' : ''}
               {showExternalEvents && externalEvents.length > 0 && (
                 <span style={{ opacity: 0.8 }}>
                   {' '}+ {externalEvents.length} external

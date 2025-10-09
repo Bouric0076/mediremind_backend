@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from authentication.utils import get_authenticated_user
 from authentication.middleware import api_csrf_exempt, get_request_user
 from .models import Appointment, AppointmentType, Room, Equipment, AppointmentWaitlist
-from accounts.models import EnhancedPatient, EnhancedStaffProfile
+from accounts.models import EnhancedPatient, EnhancedStaffProfile, HospitalPatient
 from .serializers import (
     AppointmentSerializer, AppointmentCreateSerializer, AppointmentUpdateSerializer,
     AppointmentListSerializer, AppointmentTypeSerializer,
@@ -32,12 +32,20 @@ from .utils import (
 )
 from notifications.utils import send_appointment_confirmation, send_appointment_update
 from notifications.appointment_reminders import appointment_reminder_service
+from notifications.textsms_client import textsms_client
 import json
 import uuid
 from datetime import datetime, timedelta, time, date
 import logging
+import phonenumbers
+from phonenumbers import NumberParseException
 
 logger = logging.getLogger(__name__)
+
+
+def check_patient_hospital_relationship(patient, hospital):
+    """Check if patient has a relationship with the given hospital"""
+    return HospitalPatient.objects.filter(patient=patient, hospital=hospital, status='active').exists()
 
 
 def send_appointment_notification(appointment_data, action, patient_email, doctor_email):
@@ -96,10 +104,18 @@ def create_appointment(request):
                 
                 # If staff/admin, ensure the appointment is linked to their hospital
                 if user_role != 'patient' and user_hospital:
-                    # Update patient's hospital if not set
-                    if not appointment.patient.hospital:
-                        appointment.patient.hospital = user_hospital
-                        appointment.patient.save()
+                    # Ensure HospitalPatient relationship exists for the patient
+                    from accounts.models import HospitalPatient
+                    hospital_patient, created = HospitalPatient.objects.get_or_create(
+                        hospital=user_hospital,
+                        patient=appointment.patient,
+                        defaults={
+                            'relationship_type': 'appointment',
+                            'status': 'active',
+                            'first_visit_date': timezone.now(),
+                            'last_visit_date': timezone.now(),
+                        }
+                    )
                     
                     # Update provider's hospital if not set
                     if not appointment.provider.hospital:
@@ -173,10 +189,10 @@ def update_appointment(request, appointment_id):
         elif user_role not in ['patient', 'doctor']:
             # For admin/staff, check hospital association
             if user_hospital:
-                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                patient_has_relationship = check_patient_hospital_relationship(appointment.patient, user_hospital)
                 provider_hospital = getattr(appointment.provider, 'hospital', None)
                 
-                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                if not patient_has_relationship and provider_hospital != user_hospital:
                     return Response({"error": "Permission denied - hospital mismatch"}, 
                                    status=status.HTTP_403_FORBIDDEN)
             else:
@@ -275,10 +291,10 @@ def cancel_appointment(request, appointment_id):
         elif user_role not in ['patient', 'doctor']:
             # For admin/staff, check hospital association
             if user_hospital:
-                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                patient_has_relationship = check_patient_hospital_relationship(appointment.patient, user_hospital)
                 provider_hospital = getattr(appointment.provider, 'hospital', None)
                 
-                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                if not patient_has_relationship and provider_hospital != user_hospital:
                     return JsonResponse({"error": "Permission denied - hospital mismatch"}, status=403)
             else:
                 return JsonResponse({"error": "Hospital association not found"}, status=403)
@@ -360,10 +376,10 @@ def get_appointment_detail(request, appointment_id):
         elif user_role not in ['patient', 'doctor']:
             # For admin/staff, check hospital association
             if user_hospital:
-                patient_hospital = getattr(appointment.patient, 'hospital', None)
+                patient_has_relationship = check_patient_hospital_relationship(appointment.patient, user_hospital)
                 provider_hospital = getattr(appointment.provider, 'hospital', None)
                 
-                if patient_hospital != user_hospital and provider_hospital != user_hospital:
+                if not patient_has_relationship and provider_hospital != user_hospital:
                     return Response({"error": "Permission denied - hospital mismatch"}, 
                                    status=status.HTTP_403_FORBIDDEN)
             else:
@@ -962,3 +978,110 @@ def list_appointment_types(request):
     except Exception as e:
         logger.error(f"List appointment types error: {str(e)}")
         return Response({"error": "Failed to retrieve appointment types"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_manual_sms_reminder(request, appointment_id):
+    """Send a manual SMS reminder for an appointment - accessible by staff only"""
+    try:
+        # Check if user is staff/admin
+        user_role = getattr(request.user, 'role', 'patient')
+        if user_role == 'patient':
+            return Response({
+                "error": "Permission denied. Only staff members can send manual reminders"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get user's hospital if staff/admin
+        user_hospital = None
+        try:
+            staff_profile = EnhancedStaffProfile.objects.get(user=request.user)
+            user_hospital = staff_profile.hospital
+            if not user_hospital:
+                return Response({
+                    "error": "Hospital association not found"
+                }, status=status.HTTP_403_FORBIDDEN)
+        except EnhancedStaffProfile.DoesNotExist:
+            return Response({
+                "error": "Staff profile not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get the appointment
+        appointment = get_object_or_404(Appointment, id=appointment_id)
+        
+        # Check hospital permissions
+        patient_has_relationship = check_patient_hospital_relationship(appointment.patient, user_hospital)
+        provider_hospital = getattr(appointment.provider, 'hospital', None)
+        
+        if not patient_has_relationship and provider_hospital != user_hospital:
+            return Response({
+                "error": "Permission denied - hospital mismatch"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get patient's phone number
+        patient_phone = getattr(appointment.patient, 'phone', None)
+        if not patient_phone:
+            return Response({
+                "error": "Patient phone number not found"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate and format phone number
+        try:
+            parsed_number = phonenumbers.parse(patient_phone, "KE")  # Default to Kenya
+            if not phonenumbers.is_valid_number(parsed_number):
+                return Response({
+                    "error": "Invalid phone number format"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            formatted_phone = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
+        except NumberParseException:
+            return Response({
+                "error": "Invalid phone number format"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Compose SMS message
+        appointment_date = appointment.appointment_date.strftime('%Y-%m-%d')
+        start_time = appointment.start_time.strftime('%H:%M')
+        
+        # Get location - hospital name is required, room name is optional
+        location_name = appointment.hospital.name if appointment.hospital else 'Main Hospital'
+        # Only add room info if available
+        if appointment.room:
+            location_name = f"{appointment.hospital.name} - {appointment.room.name}"
+        
+        sms_message = (
+            f"Reminder: You have an appointment with {appointment.provider.user.get_full_name()} "
+            f"on {appointment_date} at {start_time}. "
+            f"Location: {location_name}. "
+            f"Please arrive 15 minutes early. Reply STOP to unsubscribe."
+        )
+        
+        # Send SMS using the existing SMS service
+        success, response_message = textsms_client.send_sms(
+            recipient=formatted_phone,
+            message=sms_message
+        )
+        
+        if success:
+            # Log the manual reminder
+            logger.info(f"Manual SMS reminder sent for appointment {appointment_id} to {formatted_phone}")
+            
+            return Response({
+                "message": "SMS reminder sent successfully",
+                "phone_number": formatted_phone,
+                "appointment_id": appointment_id,
+                "response": response_message
+            }, status=status.HTTP_200_OK)
+        else:
+            logger.error(f"Failed to send manual SMS reminder for appointment {appointment_id}: {response_message}")
+            
+            return Response({
+                "error": "Failed to send SMS reminder",
+                "details": response_message
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    except Exception as e:
+        logger.error(f"Send manual SMS reminder error for appointment {appointment_id}: {str(e)}")
+        return Response({
+            "error": "Failed to send SMS reminder"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

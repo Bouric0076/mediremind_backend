@@ -95,44 +95,28 @@ class NotificationScheduler:
         }
 
     def start(self):
-        """Start the scheduler service"""
+        """Start the scheduler service (delegated to Celery beat)"""
         if self.is_running:
             logger.warning("Scheduler is already running")
             return
             
         self.is_running = True
-        logger.info("Starting notification scheduler...")
+        logger.info("Notification scheduler status set to running. Task dispatch is managed by Celery beat.")
         
-        # Start scheduler thread
-        self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)
-        self.scheduler_thread.start()
-        
-        # Start processor thread
-        self.processor_thread = threading.Thread(target=self._processor_loop, daemon=True)
-        self.processor_thread.start()
-        
-        # Load pending reminders from database
+        # Optional: Load pending reminders if needed for immediate operations
         self._load_pending_reminders()
         
-        logger.info(f"Notification scheduler started with {self.max_workers} workers")
+        logger.info(f"Notification scheduler initialized with {self.max_workers} workers (no internal threads)")
 
     def stop(self):
         """Stop the scheduler service"""
         if not self.is_running:
             return
             
-        logger.info("Stopping notification scheduler...")
+        logger.info("Stopping notification scheduler (no internal threads to join)...")
         self.is_running = False
         
-        # Wait for threads to finish
-        if self.scheduler_thread:
-            self.scheduler_thread.join(timeout=5)
-        if self.processor_thread:
-            self.processor_thread.join(timeout=5)
-            
-        # Shutdown executor
-        self.executor.shutdown(wait=True)
-        
+        # No thread joins or executor shutdown needed since threads aren't started
         logger.info("Notification scheduler stopped")
 
     def schedule_reminder(self, appointment_id: str, reminder_type: str, 
@@ -313,80 +297,14 @@ class NotificationScheduler:
         }
 
     def _scheduler_loop(self):
-        """Main scheduler loop that checks for due tasks"""
-        while self.is_running:
-            try:
-                current_time = datetime.now()
-                
-                # Check for due tasks
-                due_tasks = []
-                temp_queue = PriorityQueue()
-                
-                # Extract all tasks and check which are due
-                while not self.task_queue.empty():
-                    try:
-                        task = self.task_queue.get_nowait()
-                        if task.scheduled_time <= current_time and task.status == TaskStatus.PENDING:
-                            due_tasks.append(task)
-                        else:
-                            temp_queue.put(task)
-                    except Empty:
-                        break
-                
-                # Put non-due tasks back
-                while not temp_queue.empty():
-                    self.task_queue.put(temp_queue.get())
-                
-                # Process due tasks
-                for task in due_tasks:
-                    if self._check_rate_limit(task.delivery_method):
-                        task.status = TaskStatus.PROCESSING
-                        self.processing_queue.put(task)
-                        self.active_tasks[task.id] = task
-                    else:
-                        # Rate limited, reschedule for later
-                        task.scheduled_time = current_time + timedelta(minutes=5)
-                        self.task_queue.put(task)
-                        logger.warning(f"Rate limited {task.delivery_method}, rescheduling task {task.id}")
-                
-                # Clean up old rate limit entries
-                self._cleanup_rate_limits()
-                
-                time.sleep(self.check_interval)
-                
-            except Exception as e:
-                logger.error(f"Error in scheduler loop: {str(e)}")
-                time.sleep(self.check_interval)
+        """Main scheduler loop that checks for due tasks (disabled; Celery beat handles scheduling)"""
+        logger.info("_scheduler_loop disabled. Celery beat processes due tasks via tasks.process_pending_reminders.")
+        return
 
     def _processor_loop(self):
-        """Process tasks from the processing queue"""
-        while self.is_running:
-            try:
-                # Get task from processing queue
-                try:
-                    task = self.processing_queue.get(timeout=1)
-                except Empty:
-                    continue
-                
-                # Submit task to thread pool
-                future = self.executor.submit(self._process_task, task)
-                
-                # Handle completion in a separate thread to avoid blocking
-                def handle_completion(fut, task_obj):
-                    try:
-                        result = fut.result()
-                        self._handle_task_completion(task_obj, result)
-                    except Exception as e:
-                        self._handle_task_failure(task_obj, str(e))
-                
-                threading.Thread(
-                    target=handle_completion, 
-                    args=(future, task), 
-                    daemon=True
-                ).start()
-                
-            except Exception as e:
-                logger.error(f"Error in processor loop: {str(e)}")
+        """Process tasks from the processing queue (disabled; processing done in Celery tasks)"""
+        logger.info("_processor_loop disabled. Task processing occurs within Celery task handlers.")
+        return
 
     def _process_task(self, task: ScheduledTask) -> Tuple[bool, str]:
         """Process a single notification task"""

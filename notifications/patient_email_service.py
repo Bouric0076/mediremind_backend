@@ -147,12 +147,11 @@ class PatientEmailService:
             )
             
             # Send email
-            success = self.email_client.send_email(
-                to_email=patient.user.email,
+            success, message = self.email_client.send_email(
                 subject=f"Your MediRemind Account is Now Active! 🔓",
-                html_content=html_content,
-                from_name="MediRemind Team",
-                reply_to=self._get_hospital_email(patient)
+                message=strip_tags(html_content),
+                recipient_list=[patient.user.email],
+                html_message=html_content
             )
             
             if success:

@@ -108,19 +108,19 @@ class TestRunner:
         
         if test_type == 'unit':
             # Load only unit tests
-            pattern = 'test_*.py'
+            pattern = 'test_*\.py'
             exclude_patterns = ['test_integration*.py', 'test_performance*.py']
         elif test_type == 'integration':
             # Load only integration tests
-            pattern = 'test_integration*.py'
+            pattern = 'test_integration*\.py'
             exclude_patterns = []
         elif test_type == 'performance':
             # Load only performance tests
-            pattern = 'test_performance*.py'
+            pattern = 'test_performance*\.py'
             exclude_patterns = []
         else:
             # Load all tests
-            pattern = 'test_*.py'
+            pattern = 'test_*\.py'
             exclude_patterns = []
         
         loader = unittest.TestLoader()
@@ -151,6 +151,14 @@ class TestRunner:
         TestConfig.setup_test_environment()
         
         try:
+            # Ensure Django is configured for tests
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mediremind_backend.settings')
+            try:
+                import django
+                django.setup()
+            except Exception as e:
+                print(f"Warning: Django setup failed: {e}")
+            
             # Create test runner
             if self.verbose:
                 verbosity = 2
@@ -199,6 +207,15 @@ class TestRunner:
             self.cov.start()
         
         try:
+            # Ensure test environment and Django are configured before discovery
+            TestConfig.setup_test_environment()
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mediremind_backend.settings')
+            try:
+                import django
+                django.setup()
+            except Exception as e:
+                print(f"Warning: Django setup failed during discovery: {e}")
+            
             # Discover tests
             suites = self.discover_tests(test_type)
             
@@ -223,6 +240,9 @@ class TestRunner:
                 
                 # Generate coverage report
                 self.test_result.coverage_data = self._generate_coverage_report()
+            
+            # Clean up test environment after all suites
+            TestConfig.cleanup_test_environment()
         
         self.test_result.end_time = datetime.now()
         self.test_result.duration = (self.test_result.end_time - self.test_result.start_time).total_seconds()

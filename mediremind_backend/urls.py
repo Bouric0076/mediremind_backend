@@ -30,15 +30,11 @@ urlpatterns = [
     path('api/analytics/', include('analytics.urls')),
     path('api/calendar/', include('calendar_integrations.urls')),
     path('api/scheduler/', include(scheduler_api_urls)),
-    
-    # Legacy endpoints (keeping for backward compatibility)
-    path('auth/', include('authentication.urls')),
-    path('accounts/', include('accounts.urls')), 
-    path('appointments/', include('appointments.urls')),
-    path('notifications/', include('notifications.urls')),
-    path('analytics/', include('analytics.urls')),
-    path('calendar/', include('calendar_integrations.urls')),
+    path('api/patient/', include('patient_mobile_api.urls')),
     
     # Health check
     path('health/', health_check, name='health_check'),
+    
+    # Note: Legacy duplicate endpoints removed to avoid URL namespace conflicts.
+    # All API endpoints are served under the /api/ prefix.
 ]

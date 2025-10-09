@@ -97,3 +97,5 @@ supabase
 
 # AWS SDK (for backup/storage)
 boto3
+
+phonenumbers

@@ -39,6 +39,8 @@ class ScheduledTask(models.Model):
         ('update', 'Appointment Update'),
         ('cancellation', 'Appointment Cancellation'),
         ('no_show', 'No Show Notification'),
+        ('manual', 'Manual Notification'),
+        ('notification', 'Generic Notification'),
     ]
     
     DELIVERY_METHODS = [

@@ -23,4 +23,7 @@ urlpatterns = [
     
     # Legacy endpoints (keeping for backward compatibility)
     path('list/', views.list_appointments, name='list_appointments'),
+    
+    # Manual SMS reminder endpoint
+    path('<uuid:appointment_id>/send-sms-reminder/', views.send_manual_sms_reminder, name='send_manual_sms_reminder'),
 ]

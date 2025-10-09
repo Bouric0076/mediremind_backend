@@ -255,7 +255,7 @@ class Appointment(models.Model):
         # Auto-calculate end_time if not provided but duration and start_time are available
         if not self.end_time and self.duration and self.start_time:
             # Calculate end_time from start_time + duration
-            start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+            start_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
             end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
             self.end_time = end_datetime.time()
         
@@ -264,7 +264,7 @@ class Appointment(models.Model):
             self.duration = self.appointment_type.default_duration
             # Recalculate end_time with the default duration
             if self.start_time:
-                start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+                start_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
                 end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
                 self.end_time = end_datetime.time()
         
@@ -274,8 +274,8 @@ class Appointment(models.Model):
                 raise ValidationError("Start time must be before end time")
             
             # Validate duration matches time difference
-            start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
-            end_datetime = timezone.datetime.combine(self.appointment_date, self.end_time)
+            start_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
+            end_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.end_time))
             calculated_duration = int((end_datetime - start_datetime).total_seconds() / 60)
             
             if abs(self.duration - calculated_duration) > 1:  # Allow 1 minute tolerance
@@ -285,7 +285,7 @@ class Appointment(models.Model):
         # Auto-calculate end_time if not provided but duration and start_time are available
         if not self.end_time and self.duration and self.start_time:
             # Calculate end_time from start_time + duration
-            start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+            start_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
             end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
             self.end_time = end_datetime.time()
         
@@ -294,7 +294,7 @@ class Appointment(models.Model):
             self.duration = self.appointment_type.default_duration
             # Recalculate end_time with the default duration
             if self.start_time:
-                start_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+                start_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
                 end_datetime = start_datetime + timezone.timedelta(minutes=self.duration)
                 self.end_time = end_datetime.time()
         
@@ -319,7 +319,9 @@ class Appointment(models.Model):
     def is_upcoming(self):
         """Check if appointment is upcoming"""
         now = timezone.now()
-        appointment_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+        appointment_datetime = timezone.make_aware(
+            timezone.datetime.combine(self.appointment_date, self.start_time)
+        )
         return appointment_datetime > now
     
     def _ensure_hospital_patient_relationship(self):
@@ -353,7 +355,7 @@ class Appointment(models.Model):
     def time_until_appointment(self):
         """Get time until appointment"""
         now = timezone.now()
-        appointment_datetime = timezone.datetime.combine(self.appointment_date, self.start_time)
+        appointment_datetime = timezone.make_aware(timezone.datetime.combine(self.appointment_date, self.start_time))
         if appointment_datetime > now:
             return appointment_datetime - now
         return None

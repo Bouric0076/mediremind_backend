@@ -504,10 +504,15 @@ class AppointmentReminderService:
     
     def _prepare_appointment_data(self, appointment: Appointment) -> Dict:
         """Prepare appointment data for notifications"""
-        # Format location from room information
-        location = "Main Hospital"
+        # Format location from hospital and room information
+        location_parts = []
+        
+        # Add hospital name first
+        if appointment.hospital:
+            location_parts.append(appointment.hospital.name)
+        
+        # Add room details if available
         if appointment.room:
-            location_parts = []
             if appointment.room.name:
                 location_parts.append(appointment.room.name)
             if appointment.room.room_number:
@@ -516,9 +521,15 @@ class AppointmentReminderService:
                 location_parts.append(f"Floor {appointment.room.floor}")
             if appointment.room.building:
                 location_parts.append(appointment.room.building)
-            
-            if location_parts:
-                location = ", ".join(location_parts)
+        
+        # Default to "Main Hospital" if no location info available
+        location = ", ".join(location_parts) if location_parts else "Main Hospital"
+        
+        # Create timezone-aware datetime for calendar links
+        appointment_datetime = timezone.make_aware(
+            timezone.datetime.combine(appointment.appointment_date, appointment.start_time)
+        )
+        end_datetime = appointment_datetime + timezone.timedelta(minutes=appointment.duration)
         
         return {
             'appointment_id': str(appointment.id),
@@ -527,6 +538,8 @@ class AppointmentReminderService:
             'provider_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",  # Keep for backward compatibility
             'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
             'appointment_time': appointment.start_time.strftime('%H:%M'),
+            'start_time': appointment_datetime,
+            'end_time': end_datetime,
             'appointment_type': appointment.appointment_type.name,
             'duration': appointment.duration,
             'location': location,

@@ -171,11 +171,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
     
     def get_can_cancel(self, obj):
         """Check if appointment can be cancelled"""
-        return obj.can_cancel()
+        return obj.can_be_cancelled()
     
     def get_can_reschedule(self, obj):
         """Check if appointment can be rescheduled"""
-        return obj.can_reschedule()
+        return obj.can_be_rescheduled()
     
     def get_formatted_datetime(self, obj):
         """Get formatted date and time"""
@@ -276,6 +276,21 @@ class AppointmentCreateSerializer(AppointmentSerializer):
             'created_at', 'updated_at', 'is_today', 'is_upcoming',
             'can_cancel', 'can_reschedule', 'formatted_datetime'
         ]
+    
+    def create(self, validated_data):
+        """Create appointment with hospital from context"""
+        # Get hospital from context (set by the view)
+        hospital = self.context.get('hospital')
+        user = self.context.get('user')
+        
+        if not hospital:
+            raise serializers.ValidationError("Hospital association is required")
+        
+        # Set hospital and created_by
+        validated_data['hospital'] = hospital
+        validated_data['created_by'] = user
+        
+        return super().create(validated_data)
 
 
 class AppointmentUpdateSerializer(AppointmentSerializer):
@@ -294,20 +309,35 @@ class AppointmentListSerializer(serializers.ModelSerializer):
     provider_name = serializers.SerializerMethodField()
     appointment_type_name = serializers.CharField(source='appointment_type.name')
     formatted_datetime = serializers.SerializerMethodField()
+    patient_id = serializers.CharField(source='patient.id')
+    provider_id = serializers.CharField(source='provider.id')
+    room = serializers.CharField(source='room.name', allow_null=True)
+    notes = serializers.CharField(allow_blank=True)
+    duration = serializers.IntegerField()
     
     class Meta:
         model = Appointment
         fields = [
-            'id', 'patient_name', 'provider_name',
-            'appointment_type_name', 'appointment_date', 'start_time',
-            'status', 'priority', 'formatted_datetime'
+            'id', 'patient_id', 'patient_name', 'provider_id', 'provider_name',
+            'appointment_type_name', 'appointment_date', 'start_time', 'duration',
+            'status', 'priority', 'formatted_datetime', 'room', 'notes'
         ]
     
     def get_patient_name(self, obj):
-        return f"{obj.patient.user.first_name} {obj.patient.user.last_name}".strip()
+        try:
+            if obj.patient and obj.patient.user:
+                return obj.patient.user.get_full_name() or "Unknown Patient"
+        except AttributeError:
+            pass
+        return "Unknown Patient"
     
     def get_provider_name(self, obj):
-        return f"{obj.provider.user.first_name} {obj.provider.user.last_name}".strip()
+        try:
+            if obj.provider and obj.provider.user:
+                return obj.provider.user.get_full_name() or "Unknown Provider"
+        except AttributeError:
+            pass
+        return "Unknown Provider"
     
     def get_formatted_datetime(self, obj):
         return f"{obj.appointment_date.strftime('%m/%d/%Y')} {obj.start_time.strftime('%I:%M %p')}"

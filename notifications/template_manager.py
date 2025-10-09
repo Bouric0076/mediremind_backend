@@ -923,7 +923,7 @@ class TemplateManager:
                 if not start_time:
                     # Try parsing date and time separately
                     date_str = appointment.get('date') or appointment.get('appointment_date')
-                    time_str = appointment.get('time') or appointment.get('start_time')
+                    time_str = appointment.get('time') or appointment.get('appointment_time') or appointment.get('start_time')
                     if date_str and time_str:
                         start_time = DateTimeValidator.create_appointment_datetime(date_str, time_str)
             elif not isinstance(start_time, datetime):

@@ -9,6 +9,7 @@ import json
 from collections import deque, defaultdict
 from supabase_client import supabase
 from .logging_config import notification_logger, LogCategory
+from .tasks import monitor_notification_health
 
 class MetricType(Enum):
     COUNTER = "counter"
@@ -166,85 +167,41 @@ class SystemMonitor:
         self.monitor_interval = 30  # seconds
     
     def start_monitoring(self):
-        """Start system monitoring"""
-        if self.monitoring:
-            return
-        
-        self.monitoring = True
-        self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
-        self.monitor_thread.start()
-        
+        """Start system monitoring via Celery Beat (no internal loop)"""
+        # No-op: monitoring is handled by Celery beat task monitor_notification_health
         notification_logger.info(
             LogCategory.SYSTEM,
-            "System monitoring started",
+            "System monitoring scheduled via Celery beat",
             "system_monitor"
         )
     
     def stop_monitoring(self):
         """Stop system monitoring"""
-        self.monitoring = False
-        if self.monitor_thread:
-            self.monitor_thread.join(timeout=5)
-        
+        # No-op: Celery beat controls scheduling
         notification_logger.info(
             LogCategory.SYSTEM,
-            "System monitoring stopped",
+            "System monitoring stop requested (managed by Celery beat)",
             "system_monitor"
         )
-    
-    def _monitor_loop(self):
-        """Main monitoring loop"""
-        while self.monitoring:
-            try:
-                self._collect_system_metrics()
-                time.sleep(self.monitor_interval)
-            except Exception as e:
-                notification_logger.error(
-                    LogCategory.SYSTEM,
-                    f"Error in monitoring loop: {str(e)}",
-                    "system_monitor",
-                    error_details=str(e)
-                )
-                time.sleep(self.monitor_interval)
-    
-    def _collect_system_metrics(self):
-        """Collect system resource metrics"""
-        try:
-            # CPU metrics
-            cpu_percent = psutil.cpu_percent(interval=1)
-            self.metrics.set_gauge('system.cpu.usage_percent', cpu_percent)
-            
-            # Memory metrics
-            memory = psutil.virtual_memory()
-            self.metrics.set_gauge('system.memory.usage_percent', memory.percent)
-            self.metrics.set_gauge('system.memory.available_mb', memory.available / 1024 / 1024)
-            self.metrics.set_gauge('system.memory.used_mb', memory.used / 1024 / 1024)
-            
-            # Disk metrics
-            disk = psutil.disk_usage('/')
-            self.metrics.set_gauge('system.disk.usage_percent', disk.percent)
-            self.metrics.set_gauge('system.disk.free_gb', disk.free / 1024 / 1024 / 1024)
-            
-            # Network metrics
-            network = psutil.net_io_counters()
-            self.metrics.set_gauge('system.network.bytes_sent', network.bytes_sent)
-            self.metrics.set_gauge('system.network.bytes_recv', network.bytes_recv)
-            
-            # Process metrics
-            process = psutil.Process()
-            self.metrics.set_gauge('process.memory.rss_mb', process.memory_info().rss / 1024 / 1024)
-            self.metrics.set_gauge('process.cpu.percent', process.cpu_percent())
-            
-        except Exception as e:
-            notification_logger.error(
-                LogCategory.SYSTEM,
-                f"Error collecting system metrics: {str(e)}",
-                "system_monitor",
-                error_details=str(e)
-            )
 
 class AlertManager:
-    """Manages system alerts and thresholds"""
+    """Manages alerts based on system metrics"""
+    
+    def start_alert_checking(self):
+        """Start alert checking (disabled, handled by Celery beat)"""
+        notification_logger.info(
+            LogCategory.SYSTEM,
+            "Alert checking managed by Celery beat (no internal thread)",
+            "alert_manager"
+        )
+    
+    def stop_alert_checking(self):
+        """Stop alert checking (no-op)"""
+        notification_logger.info(
+            LogCategory.SYSTEM,
+            "Alert checking stop requested (managed by Celery beat)",
+            "alert_manager"
+        )
     
     def __init__(self, metrics_collector: MetricsCollector):
         self.metrics = metrics_collector
@@ -262,47 +219,9 @@ class AlertManager:
         self.checking = False
         self.check_thread = None
     
-    def start_alert_checking(self):
-        """Start alert checking"""
-        if self.checking:
-            return
-        
-        self.checking = True
-        self.check_thread = threading.Thread(target=self._check_loop, daemon=True)
-        self.check_thread.start()
-        
-        notification_logger.info(
-            LogCategory.SYSTEM,
-            "Alert checking started",
-            "alert_manager"
-        )
-    
-    def stop_alert_checking(self):
-        """Stop alert checking"""
-        self.checking = False
-        if self.check_thread:
-            self.check_thread.join(timeout=5)
-        
-        notification_logger.info(
-            LogCategory.SYSTEM,
-            "Alert checking stopped",
-            "alert_manager"
-        )
-    
     def _check_loop(self):
-        """Main alert checking loop"""
-        while self.checking:
-            try:
-                self._check_thresholds()
-                time.sleep(self.check_interval)
-            except Exception as e:
-                notification_logger.error(
-                    LogCategory.SYSTEM,
-                    f"Error in alert checking loop: {str(e)}",
-                    "alert_manager",
-                    error_details=str(e)
-                )
-                time.sleep(self.check_interval)
+        """Disabled: Celery beat handles periodic checks"""
+        pass
     
     def _check_thresholds(self):
         """Check all metrics against thresholds"""

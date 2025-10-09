@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 load_dotenv()
 
@@ -30,7 +31,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key')
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # ALLOWED_HOSTS configuration for Render
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '1f789e63f6fe.ngrok-free.app']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'a72e84e7df2d.ngrok-free.app']
 
 # Add Render hostname if available
 if 'RENDER_EXTERNAL_HOSTNAME' in os.environ:
@@ -63,6 +64,7 @@ INSTALLED_APPS = [
     'prescriptions',
     'analytics',  # Analytics and dashboard system
     'calendar_integrations',  # Calendar integration system
+    'patient_mobile_api',  # Patient mobile app API endpoints
 ]
 
 MIDDLEWARE = [
@@ -308,10 +310,27 @@ WEBPUSH_SETTINGS = {
     "VAPID_ADMIN_EMAIL": os.getenv("VAPID_ADMIN_EMAIL", "admin@mediremind.com")
 }
 
+# FCM settings
+FCM_SERVER_KEY = os.getenv("FCM_SERVER_KEY", "")
+FCM_PROJECT_ID = os.getenv("FCM_PROJECT_ID", "")
+# Add v1 config toggles and credentials support
+FCM_USE_V1 = os.getenv("FCM_USE_V1", "false")
+GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+FCM_PRIVATE_KEY_ID = os.getenv("FCM_PRIVATE_KEY_ID", "")
+FCM_PRIVATE_KEY = os.getenv("FCM_PRIVATE_KEY", "")
+FCM_CLIENT_EMAIL = os.getenv("FCM_CLIENT_EMAIL", "")
+FCM_CLIENT_ID = os.getenv("FCM_CLIENT_ID", "")
+FCM_TOKEN_URI = os.getenv("FCM_TOKEN_URI", "https://oauth2.googleapis.com/token")
+
 # Validate VAPID settings
 if not all([WEBPUSH_SETTINGS["VAPID_PUBLIC_KEY"], WEBPUSH_SETTINGS["VAPID_PRIVATE_KEY"]]):
     print("Warning: VAPID keys not properly configured. Web push notifications will not work.")
     print("Generate VAPID keys using: python notifications/generate_vapid_keys.py")
+
+# Validate FCM settings
+if not FCM_SERVER_KEY:
+    print("Warning: FCM_SERVER_KEY not configured. Firebase push notifications will not work.")
+    print("Get your FCM server key from Firebase Console -> Project Settings -> Cloud Messaging")
 
 # Email settings
 if DEBUG:
@@ -474,6 +493,31 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+    },
+}
+
+
+# Celery Beat schedule for periodic tasks
+CELERY_BEAT_SCHEDULE = {
+    'process-pending-reminders': {
+        'task': 'notifications.tasks.process_pending_reminders',
+        'schedule': crontab(minute='*/1'),  # every 1 minute
+        'options': {'queue': 'notifications', 'expires': 55},
+    },
+    'cleanup-old-notification-logs': {
+        'task': 'notifications.tasks.cleanup_old_notification_logs',
+        'schedule': crontab(hour=3, minute=0),  # daily at 03:00 UTC
+        'options': {'queue': 'notifications'},
+    },
+    'monitor-notification-health': {
+        'task': 'notifications.tasks.monitor_notification_health',
+        'schedule': crontab(minute='*/5'),  # every 5 minutes
+        'options': {'queue': 'notifications', 'expires': 240},
+    },
+    'collect-queue-stats': {
+        'task': 'notifications.tasks.collect_queue_stats',
+        'schedule': crontab(minute='*/2'),  # every 2 minutes
+        'options': {'queue': 'notifications', 'expires': 110},
     },
 }
 

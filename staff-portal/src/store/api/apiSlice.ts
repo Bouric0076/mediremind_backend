@@ -263,7 +263,7 @@ export const apiSlice = createApi({
         Object.entries(params).forEach(([key, value]) => {
           if (value) searchParams.append(key, value);
         });
-        return `/appointments/?${searchParams}`;
+        return `/api/appointments/?${searchParams}`;
       },
       providesTags: (result) =>
         result
@@ -314,6 +314,19 @@ export const apiSlice = createApi({
         body: { reason },
       }),
       invalidatesTags: (_, __, { id }) => [{ type: 'Appointment', id }],
+    }),
+    
+    // Manual SMS reminder endpoint
+    sendManualSmsReminder: builder.mutation<{
+      message: string;
+      phone_number: string;
+      appointment_id: string;
+      response: string;
+    }, string>({
+      query: (appointmentId) => ({
+        url: `/api/appointments/${appointmentId}/send-sms-reminder/`,
+        method: 'POST',
+      }),
     }),
     
     getAppointmentTypes: builder.query<
@@ -422,7 +435,7 @@ export const apiSlice = createApi({
     
     // Analytics and Reports
     getDashboardStats: builder.query<any, { period?: string }>({
-      query: ({ period = '7d' }) => `/analytics/dashboard?period=${period}`,
+      query: ({ period = '7d' }) => `/api/analytics/dashboard/?period=${period}`,
       providesTags: ['Analytics'],
     }),
     
@@ -567,4 +580,5 @@ export const {
   useCreateCareTeamMutation,
   useGetStaffCredentialsQuery,
   useGetStaffCredentialQuery,
+  useSendManualSmsReminderMutation,
 } = apiSlice;
