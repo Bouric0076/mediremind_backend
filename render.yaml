@@ -33,11 +33,13 @@ services:
       - key: DEFAULT_FROM_EMAIL
         value: "noreply@mediremind.com"
       - key: EMAIL_SERVICE
-        value: "smtp"
-      - key: EMAIL_HOST_USER
-        value: "bouricenos0@gmail.com"  # Replace with your actual Gmail address
-      - key: EMAIL_HOST_PASSWORD
-        value: "pzac qvyl vxwx mnas"     # Replace with your Gmail app password
+        value: "sendgrid"
+      - key: SENDGRID_API_KEY
+        value: "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"  # Replace with your SendGrid API key
+      - key: SENDGRID_FROM_EMAIL
+        value: "bouricenos0@gmail.com"
+      - key: SENDGRID_FROM_NAME
+        value: "MediRemind"
       - key: FRONTEND_URL
         fromService:
           type: web
