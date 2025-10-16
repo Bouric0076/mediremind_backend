@@ -35,7 +35,7 @@ services:
       - key: EMAIL_SERVICE
         value: "sendgrid"
       - key: SENDGRID_API_KEY
-        value: "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"  # Replace with your SendGrid API key
+        generateValue: true  # Set this in Render dashboard
       - key: SENDGRID_FROM_EMAIL
         value: "bouricenos0@gmail.com"
       - key: SENDGRID_FROM_NAME
