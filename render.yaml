@@ -32,6 +32,12 @@ services:
         value: "bouricenos0@gmail.com"
       - key: DEFAULT_FROM_EMAIL
         value: "noreply@mediremind.com"
+      - key: EMAIL_SERVICE
+        value: "smtp"
+      - key: EMAIL_HOST_USER
+        value: "bouricenos0@gmail.com"  # Replace with your actual Gmail address
+      - key: EMAIL_HOST_PASSWORD
+        value: "pzac qvyl vxwx mnas"     # Replace with your Gmail app password
       - key: FRONTEND_URL
         fromService:
           type: web
