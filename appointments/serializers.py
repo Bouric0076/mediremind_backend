@@ -13,15 +13,26 @@ User = get_user_model()
 
 class UserBasicSerializer(serializers.ModelSerializer):
     """Basic user information serializer"""
-    full_name = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ['id', 'first_name', 'last_name', 'email', 'full_name']
         read_only_fields = ['id']
     
-    def get_full_name(self, obj):
-        return f"{obj.first_name} {obj.last_name}".strip()
+    def get_first_name(self, obj):
+        # Extract first name from full_name field
+        if obj.full_name:
+            return obj.full_name.split()[0] if obj.full_name.split() else ""
+        return ""
+    
+    def get_last_name(self, obj):
+        # Extract last name from full_name field
+        if obj.full_name:
+            parts = obj.full_name.split()
+            return " ".join(parts[1:]) if len(parts) > 1 else ""
+        return ""
 
 
 class PatientBasicSerializer(serializers.ModelSerializer):
@@ -140,6 +151,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
     can_reschedule = serializers.SerializerMethodField()
     formatted_datetime = serializers.SerializerMethodField()
     
+    # Frontend display fields
+    patient_name = serializers.SerializerMethodField()
+    patient_phone = serializers.SerializerMethodField()
+    patient_email = serializers.SerializerMethodField()
+    provider_name = serializers.SerializerMethodField()
+    appointment_type_name = serializers.SerializerMethodField()
+    
     class Meta:
         model = Appointment
         fields = [
@@ -153,12 +171,16 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'cancelled_at', 'cancelled_by', 'cancellation_reason',
             'created_at', 'updated_at',
             'is_today', 'is_upcoming', 'can_cancel', 'can_reschedule',
-            'formatted_datetime'
+            'formatted_datetime',
+            'patient_name', 'patient_phone', 'patient_email',
+            'provider_name', 'appointment_type_name'
         ]
         read_only_fields = [
             'id', 'end_time', 'duration', 'estimated_cost',
             'created_at', 'updated_at', 'is_today', 'is_upcoming',
-            'can_cancel', 'can_reschedule', 'formatted_datetime'
+            'can_cancel', 'can_reschedule', 'formatted_datetime',
+            'patient_name', 'patient_phone', 'patient_email',
+            'provider_name', 'appointment_type_name'
         ]
     
     def get_is_today(self, obj):
@@ -180,6 +202,26 @@ class AppointmentSerializer(serializers.ModelSerializer):
     def get_formatted_datetime(self, obj):
         """Get formatted date and time"""
         return f"{obj.appointment_date.strftime('%A, %B %d, %Y')} at {obj.start_time.strftime('%I:%M %p')}"
+    
+    def get_patient_name(self, obj):
+        """Get patient full name"""
+        return obj.patient.user.full_name if obj.patient and obj.patient.user else ""
+    
+    def get_patient_phone(self, obj):
+        """Get patient phone"""
+        return obj.patient.phone if obj.patient else ""
+    
+    def get_patient_email(self, obj):
+        """Get patient email"""
+        return obj.patient.user.email if obj.patient and obj.patient.user else ""
+    
+    def get_provider_name(self, obj):
+        """Get provider full name"""
+        return obj.provider.user.full_name if obj.provider and obj.provider.user else ""
+    
+    def get_appointment_type_name(self, obj):
+        """Get appointment type name"""
+        return obj.appointment_type.name if obj.appointment_type else ""
     
     def validate(self, data):
         """Comprehensive validation for appointment data"""

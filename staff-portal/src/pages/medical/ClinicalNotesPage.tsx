@@ -33,52 +33,32 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider,
   Alert,
   Avatar,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  TextareaAutosize,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
-  Autocomplete,
-  Stack,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
-  Note as NoteIcon,
   Assignment as AssignmentIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
+
   Visibility as VisibilityIcon,
-  Person as PersonIcon,
-  CalendarToday as CalendarIcon,
-  AccessTime as TimeIcon,
+  Print as PrintIcon,
+  Note as NoteIcon,
   MedicalServices as MedicalIcon,
   Psychology as PsychologyIcon,
   LocalHospital as HospitalIcon,
   Healing as HealingIcon,
-  ExpandMore as ExpandMoreIcon,
-  Print as PrintIcon,
-  Share as ShareIcon,
-  Lock as LockIcon,
-  LockOpen as LockOpenIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Flag as FlagIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
   AttachFile as AttachFileIcon,
+  Share as ShareIcon,
   VoiceChat as VoiceChatIcon,
-  Mic as MicIcon,
-  Stop as StopIcon,
-  PlayArrow as PlayIcon,
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 
@@ -388,7 +368,7 @@ const mockNoteTemplates: NoteTemplate[] = [
 export const ClinicalNotesPage: React.FC = () => {
   const dispatch = useDispatch();
   const [notes, setNotes] = useState<ClinicalNote[]>(mockClinicalNotes);
-  const [templates, setTemplates] = useState<NoteTemplate[]>(mockNoteTemplates);
+  const [templates] = useState<NoteTemplate[]>(mockNoteTemplates);
   const [filteredNotes, setFilteredNotes] = useState<ClinicalNote[]>(mockClinicalNotes);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -403,7 +383,7 @@ export const ClinicalNotesPage: React.FC = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<NoteTemplate | null>(null);
+
   const [isRecording, setIsRecording] = useState(false);
   const [editingNote, setEditingNote] = useState<Partial<ClinicalNote>>({});
 
@@ -534,7 +514,6 @@ export const ClinicalNotesPage: React.FC = () => {
   };
 
   const handleCreateNote = (template?: NoteTemplate) => {
-    setSelectedTemplate(template || null);
     setEditingNote({
       noteType: template?.type as any || 'progress',
       title: '',

@@ -4,11 +4,7 @@ import * as Types from '../../types';
 
 type Patient = Types.Patient;
 
-interface PatientInsurance {
-  provider: string;
-  policyNumber: string;
-  groupNumber: string;
-}
+
 
 interface PatientsState {
   list: Patient[];

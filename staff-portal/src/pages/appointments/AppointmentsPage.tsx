@@ -20,6 +20,8 @@ import {
   Tooltip,
   Badge,
   keyframes,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 
 
@@ -28,6 +30,7 @@ import {
   Add as AddIcon,
   AccessTime as AccessTimeIcon,
   Person as PersonIcon,
+  Search as SearchIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
   Settings as SettingsIcon,
@@ -143,6 +146,7 @@ export const AppointmentsPage: React.FC = () => {
   const [schedulerOpen, setSchedulerOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [selectedAppointmentDate, setSelectedAppointmentDate] = useState<Date | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: appointmentsData, isLoading, error, refetch } = useGetAppointmentsQuery({
     date: selectedDate,
@@ -255,6 +259,17 @@ export const AppointmentsPage: React.FC = () => {
     return getAppointmentsForDate(today);
   };
 
+  const filterAppointmentsBySearch = (appointments: Appointment[]) => {
+    if (!searchQuery.trim()) return appointments;
+    
+    const query = searchQuery.toLowerCase();
+    return appointments.filter(apt => 
+      apt.patientName.toLowerCase().includes(query) ||
+      apt.provider.toLowerCase().includes(query) ||
+      apt.type.toLowerCase().includes(query)
+    );
+  };
+
   const getUpcomingAppointments = () => {
     const today = new Date();
     return appointments.filter(apt => {
@@ -269,7 +284,8 @@ export const AppointmentsPage: React.FC = () => {
         appointmentDate = new Date(year, month - 1, day);
       }
       
-      return isAfter(appointmentDate, today) || isSameDay(appointmentDate, today);
+      // Only include future appointments (excluding today)
+      return isAfter(appointmentDate, today);
     }).sort((a, b) => {
       // Handle YYYY-MM-DD format from API
       let dateA = parseISO(a.date);
@@ -631,13 +647,31 @@ export const AppointmentsPage: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Search Field */}
+      <Paper sx={{ mb: 2, p: 2 }}>
+        <TextField
+          fullWidth
+          placeholder="Search appointments by patient name, provider, or type..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
+          size="small"
+        />
+      </Paper>
+
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab
             label={
               <Badge
-                badgeContent={getTodayAppointments().length}
+                badgeContent={filterAppointmentsBySearch(getTodayAppointments()).length}
                 color="primary"
               >
                 Today
@@ -647,7 +681,7 @@ export const AppointmentsPage: React.FC = () => {
           <Tab
             label={
               <Badge
-                badgeContent={getUpcomingAppointments().length}
+                badgeContent={filterAppointmentsBySearch(getUpcomingAppointments()).length}
                 color="secondary"
               >
                 Upcoming
@@ -663,7 +697,7 @@ export const AppointmentsPage: React.FC = () => {
       <TabPanel value={tabValue} index={0}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Today's Appointments ({isLoading ? '...' : getTodayAppointments().length})
+            Today's Appointments ({isLoading ? '...' : filterAppointmentsBySearch(getTodayAppointments()).length})
           </Typography>
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
@@ -678,15 +712,15 @@ export const AppointmentsPage: React.FC = () => {
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
             </Typography>
-          ) : getTodayAppointments().length > 0 ? (
-            renderListView(getTodayAppointments())
+          ) : filterAppointmentsBySearch(getTodayAppointments()).length > 0 ? (
+            renderListView(filterAppointmentsBySearch(getTodayAppointments()))
           ) : (
             <Typography
               color="text.secondary"
               textAlign="center"
               sx={{ py: 4 }}
             >
-              No appointments scheduled for today
+              {searchQuery ? 'No appointments match your search' : 'No appointments scheduled for today'}
             </Typography>
           )}
         </Paper>
@@ -695,7 +729,7 @@ export const AppointmentsPage: React.FC = () => {
       <TabPanel value={tabValue} index={1}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Upcoming Appointments ({isLoading ? '...' : getUpcomingAppointments().length})
+            Upcoming Appointments ({isLoading ? '...' : filterAppointmentsBySearch(getUpcomingAppointments()).length})
           </Typography>
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
@@ -710,15 +744,15 @@ export const AppointmentsPage: React.FC = () => {
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
             </Typography>
-          ) : getUpcomingAppointments().length > 0 ? (
-            renderListView(getUpcomingAppointments())
+          ) : filterAppointmentsBySearch(getUpcomingAppointments()).length > 0 ? (
+            renderListView(filterAppointmentsBySearch(getUpcomingAppointments()))
           ) : (
             <Typography
               color="text.secondary"
               textAlign="center"
               sx={{ py: 4 }}
             >
-              No upcoming appointments
+              {searchQuery ? 'No appointments match your search' : 'No upcoming appointments'}
             </Typography>
           )}
         </Paper>
@@ -790,7 +824,7 @@ export const AppointmentsPage: React.FC = () => {
       <TabPanel value={tabValue} index={3}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            All Appointments ({isLoading ? '...' : appointments.length})
+            All Appointments ({isLoading ? '...' : filterAppointmentsBySearch(appointments).length})
           </Typography>
           {isLoading ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
@@ -805,15 +839,15 @@ export const AppointmentsPage: React.FC = () => {
             <Typography color="error" textAlign="center" sx={{ py: 4 }}>
               Error loading appointments
             </Typography>
-          ) : appointments.length > 0 ? (
-            renderListView(appointments)
+          ) : filterAppointmentsBySearch(appointments).length > 0 ? (
+            renderListView(filterAppointmentsBySearch(appointments))
           ) : (
             <Typography
               color="text.secondary"
               textAlign="center"
               sx={{ py: 4 }}
             >
-              No appointments found
+              {searchQuery ? 'No appointments match your search' : 'No appointments found'}
             </Typography>
           )}
         </Paper>

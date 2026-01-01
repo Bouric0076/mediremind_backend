@@ -30,7 +30,7 @@ import {
   Warning as WarningIcon,
   Refresh as RefreshIcon,
   Settings as SettingsIcon,
-  Schedule as ScheduleIcon,
+
   CloudSync as CloudSyncIcon,
 } from '@mui/icons-material';
 import { format, formatDistanceToNow } from 'date-fns';

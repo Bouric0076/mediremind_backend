@@ -190,7 +190,7 @@ export const NotificationsPage: React.FC = () => {
   
   const [tabValue, setTabValue] = useState(0);
   const [newNotificationOpen, setNewNotificationOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
   
   // Pagination and filtering state
   const [page, setPage] = useState(1);
@@ -236,11 +236,11 @@ export const NotificationsPage: React.FC = () => {
     ]));
   }, [dispatch]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
   };
 

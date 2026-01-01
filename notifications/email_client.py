@@ -55,33 +55,37 @@ class EmailClient:
                 logger.info(f"Email settings: host={settings.EMAIL_HOST}, port={settings.EMAIL_PORT}, "
                            f"use_tls={settings.EMAIL_USE_TLS}, use_ssl={settings.EMAIL_USE_SSL}")
 
-                # Test network connectivity before attempting to send
-                try:
-                    # Test DNS resolution
-                    socket.gethostbyname(settings.EMAIL_HOST)
-                    logger.info(f"DNS resolution successful for {settings.EMAIL_HOST}")
-                    
-                    # Test port connectivity
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(10)  # 10 second timeout
-                    result = sock.connect_ex((settings.EMAIL_HOST, settings.EMAIL_PORT))
-                    sock.close()
-                    
-                    if result != 0:
-                        error_msg = f"Cannot connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}. Network may be restricted."
+                # Skip network connectivity test for Render environment (causes timeout)
+                if os.getenv('RENDER', 'false').lower() != 'true':
+                    # Test network connectivity before attempting to send (only in non-Render environments)
+                    try:
+                        # Test DNS resolution
+                        socket.gethostbyname(settings.EMAIL_HOST)
+                        logger.info(f"DNS resolution successful for {settings.EMAIL_HOST}")
+                        
+                        # Test port connectivity
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(5)  # Reduced timeout to 5 seconds
+                        result = sock.connect_ex((settings.EMAIL_HOST, settings.EMAIL_PORT))
+                        sock.close()
+                        
+                        if result != 0:
+                            error_msg = f"Cannot connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}. Network may be restricted."
+                            logger.error(error_msg)
+                            return False, error_msg
+                        else:
+                            logger.info(f"Port connectivity test successful for {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                            
+                    except socket.gaierror as e:
+                        error_msg = f"DNS resolution failed for {settings.EMAIL_HOST}: {str(e)}"
                         logger.error(error_msg)
                         return False, error_msg
-                    else:
-                        logger.info(f"Port connectivity test successful for {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
-                        
-                except socket.gaierror as e:
-                    error_msg = f"DNS resolution failed for {settings.EMAIL_HOST}: {str(e)}"
-                    logger.error(error_msg)
-                    return False, error_msg
-                except Exception as e:
-                    error_msg = f"Network connectivity test failed: {str(e)}"
-                    logger.error(error_msg)
-                    return False, error_msg
+                    except Exception as e:
+                        error_msg = f"Network connectivity test failed: {str(e)}"
+                        logger.error(error_msg)
+                        return False, error_msg
+                else:
+                    logger.info("Running on Render - skipping network connectivity test to avoid timeout")
 
                 # Configure email settings with improved error handling
                 from django.core.mail.backends.smtp import EmailBackend
@@ -96,6 +100,9 @@ class EmailClient:
                     ssl_context.verify_mode = ssl.CERT_NONE
                     logger.warning("Using permissive SSL context - not recommended for production")
 
+                # Reduced timeout for Render environment
+                email_timeout = 15 if os.getenv('RENDER', 'false').lower() == 'true' else getattr(settings, 'EMAIL_TIMEOUT', 30)
+                
                 email_backend = EmailBackend(
                     host=settings.EMAIL_HOST,
                     port=settings.EMAIL_PORT,
@@ -103,7 +110,7 @@ class EmailClient:
                     password=settings.EMAIL_HOST_PASSWORD,
                     use_tls=settings.EMAIL_USE_TLS,
                     use_ssl=settings.EMAIL_USE_SSL,
-                    timeout=getattr(settings, 'EMAIL_TIMEOUT', 30),
+                    timeout=email_timeout,
                     ssl_context=ssl_context
                 )
 

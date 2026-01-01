@@ -41,8 +41,7 @@ import {
 
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../store';
+
 
 interface ConfigSection {
   id: string;

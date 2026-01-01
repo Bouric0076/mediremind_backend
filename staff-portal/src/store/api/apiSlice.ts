@@ -263,7 +263,7 @@ export const apiSlice = createApi({
         Object.entries(params).forEach(([key, value]) => {
           if (value) searchParams.append(key, value);
         });
-        return `/api/appointments/?${searchParams}`;
+        return `${API_ENDPOINTS.APPOINTMENTS.LIST}?${searchParams}`;
       },
       providesTags: (result) =>
         result
@@ -275,7 +275,7 @@ export const apiSlice = createApi({
     }),
     
     getAppointment: builder.query<any, string>({
-      query: (id) => `/appointments/${id}`,
+      query: (id) => API_ENDPOINTS.APPOINTMENTS.GET(id),
       providesTags: (_, __, id) => [{ type: 'Appointment', id }],
     }),
     
@@ -291,7 +291,7 @@ export const apiSlice = createApi({
       title?: string;
     }>({
       query: (appointment) => ({
-        url: '/api/appointments/create/',
+        url: API_ENDPOINTS.APPOINTMENTS.CREATE,
         method: 'POST',
         body: appointment,
       }),
@@ -300,7 +300,7 @@ export const apiSlice = createApi({
     
     updateAppointment: builder.mutation<any, { id: string; updates: Partial<any> }>({
       query: ({ id, updates }) => ({
-        url: `/api/appointments/${id}`,
+        url: API_ENDPOINTS.APPOINTMENTS.UPDATE(id),
         method: 'PATCH',
         body: updates,
       }),
@@ -309,7 +309,7 @@ export const apiSlice = createApi({
     
     cancelAppointment: builder.mutation<any, { id: string; reason?: string }>({
       query: ({ id, reason }) => ({
-        url: `/api/appointments/${id}/cancel`,
+        url: API_ENDPOINTS.APPOINTMENTS.CANCEL(id),
         method: 'POST',
         body: { reason },
       }),
@@ -324,7 +324,7 @@ export const apiSlice = createApi({
       response: string;
     }, string>({
       query: (appointmentId) => ({
-        url: `/api/appointments/${appointmentId}/send-sms-reminder/`,
+        url: API_ENDPOINTS.APPOINTMENTS.SEND_SMS_REMINDER(appointmentId),
         method: 'POST',
       }),
     }),
@@ -333,7 +333,7 @@ export const apiSlice = createApi({
       { appointment_types: any[] },
       void
     >({
-      query: () => '/api/appointments/types/',
+      query: () => API_ENDPOINTS.APPOINTMENTS.TYPES,
       providesTags: ['AppointmentType'],
     }),
     

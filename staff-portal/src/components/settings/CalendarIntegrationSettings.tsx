@@ -121,7 +121,7 @@ const CalendarIntegrationSettings: React.FC = () => {
     try {
       setSyncing(integrationId);
       setError(null);
-      await calendarIntegrationService.syncCalendar(integrationId.toString());
+      await calendarIntegrationService.syncCalendar(integrationId);
       
       // Update the integration's last sync time
       setIntegrations(prev => 

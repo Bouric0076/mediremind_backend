@@ -43,7 +43,7 @@ import {
   Security as SecurityIcon,
   CloudSync as CloudSyncIcon,
   Event as EventIcon,
-  Refresh as RefreshIcon,
+
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import calendarIntegrationService from '../../services/calendarIntegrationService';

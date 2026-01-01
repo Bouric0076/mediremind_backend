@@ -125,11 +125,11 @@
             </div>
             <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">{{ appointment.date }}</span>
+                <span class="detail-value">{{ appointment_date|default:"TBD" }}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Time:</span>
-                <span class="detail-value">{{ appointment.time }}</span>
+                <span class="detail-value">{{ appointment_time|default:"TBD" }}</span>
             </div>
             {% if appointment.location %}
             <div class="detail-row">

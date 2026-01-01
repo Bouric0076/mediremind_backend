@@ -159,16 +159,21 @@ export const getDefaultRedirectPath = (): string => {
   }
   
   // Role-based default redirects
-  switch (user.role) {
-    case 'admin':
-      return '/app/dashboard';
-    case 'doctor':
-      return '/app/patients';
-    case 'nurse':
-      return '/app/patients';
-    case 'receptionist':
-      return '/app/appointments';
-    default:
-      return '/app/dashboard';
+  const role = user.role as string;
+  
+  // Handle both legacy and current role names
+  if (role === 'system_admin' || role === 'admin') {
+    return '/app/dashboard';
   }
+  if (role === 'physician' || role === 'doctor') {
+    return '/app/patients';
+  }
+  if (role === 'nurse' || role === 'nurse_practitioner' || role === 'physician_assistant') {
+    return '/app/patients';
+  }
+  if (role === 'receptionist') {
+    return '/app/appointments';
+  }
+  
+  return '/app/dashboard';
 };

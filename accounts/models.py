@@ -1,9 +1,10 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.core.validators import RegexValidator, EmailValidator
+from django.core.validators import RegexValidator, EmailValidator, MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from authentication.models import EncryptedCharField, EncryptedTextField, EncryptedJSONField
+from encryption.fields import EnhancedEncryptedCharField, EnhancedEncryptedTextField
+from authentication.models import EncryptedJSONField
 import uuid
 from datetime import date, timedelta
 
@@ -56,8 +57,8 @@ class Hospital(models.Model):
     country = models.CharField(max_length=100, default='United States')
     
     # Business Information
-    license_number = EncryptedCharField(max_length=255, blank=True)
-    tax_id = EncryptedCharField(max_length=255, blank=True)
+    license_number = EnhancedEncryptedCharField(max_length=255, blank=True)
+    tax_id = EnhancedEncryptedCharField(max_length=255, blank=True)
     accreditation = models.JSONField(default=list, help_text="List of accreditations")
     
     # Settings and Configuration
@@ -300,24 +301,25 @@ class EnhancedPatient(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='patient_profile')
     
     # Personal Information
+    national_id = EnhancedEncryptedCharField(max_length=255, null=True, blank=True)  # Encrypted national ID for patient lookup
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
     marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, blank=True)
     
     # Contact Information (encrypted for privacy)
-    phone = EncryptedCharField(max_length=255)  # Increased for encrypted values
-    address_line1 = EncryptedCharField(max_length=255)
-    address_line2 = EncryptedCharField(max_length=255, blank=True)
-    city = EncryptedCharField(max_length=255)  # Increased for encrypted values
-    state = EncryptedCharField(max_length=255)  # Increased for encrypted values
-    zip_code = EncryptedCharField(max_length=255)  # Increased for encrypted values
+    phone = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
+    address_line1 = EnhancedEncryptedCharField(max_length=255)
+    address_line2 = EnhancedEncryptedCharField(max_length=255, blank=True)
+    city = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
+    state = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
+    zip_code = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
     country = models.CharField(max_length=50, default='United States')
     
     # Emergency Contact (encrypted)
-    emergency_contact_name = EncryptedCharField(max_length=255)
-    emergency_contact_relationship = EncryptedCharField(max_length=255)  # Increased for encrypted values
-    emergency_contact_phone = EncryptedCharField(max_length=255)  # Increased for encrypted values
-    emergency_contact_email = EncryptedCharField(max_length=255, blank=True)
+    emergency_contact_name = EnhancedEncryptedCharField(max_length=255)
+    emergency_contact_relationship = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
+    emergency_contact_phone = EnhancedEncryptedCharField(max_length=255)  # Increased for encrypted values
+    emergency_contact_email = EnhancedEncryptedCharField(max_length=255, blank=True)
     
     # Medical Information
     blood_type = models.CharField(max_length=10, choices=BLOOD_TYPE_CHOICES, default='Unknown')
@@ -325,11 +327,11 @@ class EnhancedPatient(models.Model):
     weight_lbs = models.PositiveIntegerField(null=True, blank=True, help_text="Weight in pounds")
     
     # Medical History (encrypted)
-    allergies = EncryptedTextField(blank=True, help_text="Known allergies and reactions")
-    current_medications = EncryptedTextField(blank=True, help_text="Current medications and dosages")
-    medical_conditions = EncryptedTextField(blank=True, help_text="Chronic conditions and diagnoses")
-    surgical_history = EncryptedTextField(blank=True, help_text="Previous surgeries and procedures")
-    family_medical_history = EncryptedTextField(blank=True, help_text="Relevant family medical history")
+    allergies = EnhancedEncryptedTextField(blank=True, help_text="Known allergies and reactions")
+    current_medications = EnhancedEncryptedTextField(blank=True, help_text="Current medications and dosages")
+    medical_conditions = EnhancedEncryptedTextField(blank=True, help_text="Chronic conditions and diagnoses")
+    surgical_history = EnhancedEncryptedTextField(blank=True, help_text="Previous surgeries and procedures")
+    family_medical_history = EnhancedEncryptedTextField(blank=True, help_text="Relevant family medical history")
     
     # Lifestyle Information (encrypted)
     smoking_status = models.CharField(
@@ -364,10 +366,10 @@ class EnhancedPatient(models.Model):
     )
     
     # Insurance Information (encrypted)
-    insurance_provider = EncryptedCharField(max_length=255, blank=True)
+    insurance_provider = EnhancedEncryptedCharField(max_length=255, blank=True)
     insurance_type = models.CharField(max_length=20, choices=INSURANCE_TYPE_CHOICES, blank=True)
-    insurance_policy_number = EncryptedCharField(max_length=100, blank=True)
-    insurance_group_number = EncryptedCharField(max_length=100, blank=True)
+    insurance_policy_number = EnhancedEncryptedCharField(max_length=500, blank=True)
+    insurance_group_number = EnhancedEncryptedCharField(max_length=500, blank=True)
     
     # Healthcare Preferences
     preferred_language = models.CharField(max_length=50, default='English')
@@ -476,6 +478,77 @@ class EnhancedPatient(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+    
+    # Emergency Contact Management Methods
+    def get_all_emergency_contacts(self):
+        """Get all emergency contacts including primary contact and additional contacts"""
+        contacts = []
+        
+        # Add primary contact (from EnhancedPatient fields)
+        if self.emergency_contact_name:
+            contacts.append({
+                'priority': 1,
+                'name': self.emergency_contact_name,
+                'relationship': self.emergency_contact_relationship,
+                'phone': self.emergency_contact_phone,
+                'email': self.emergency_contact_email,
+                'is_active': True,
+                'notify_appointments': True,
+                'notify_cancellations': True,
+                'notify_reschedules': True,
+                'notify_emergencies': True,
+            })
+        
+        # Add additional contacts (from EmergencyContact model)
+        additional_contacts = self.additional_emergency_contacts.filter(is_active=True).order_by('priority')
+        for contact in additional_contacts:
+            contacts.append({
+                'priority': contact.priority,
+                'name': contact.name,
+                'relationship': contact.relationship,
+                'phone': contact.phone,
+                'email': contact.email,
+                'is_active': contact.is_active,
+                'notify_appointments': contact.notify_appointments,
+                'notify_cancellations': contact.notify_cancellations,
+                'notify_reschedules': contact.notify_reschedules,
+                'notify_emergencies': contact.notify_emergencies,
+            })
+        
+        return contacts
+    
+    def get_emergency_contacts_for_notification(self, notification_type='appointments'):
+        """Get emergency contacts that should be notified for a specific type"""
+        all_contacts = self.get_all_emergency_contacts()
+        
+        # Map notification types to field names
+        notification_field_map = {
+            'appointments': 'notify_appointments',
+            'cancellations': 'notify_cancellations',
+            'reschedules': 'notify_reschedules',
+            'emergencies': 'notify_emergencies',
+        }
+        
+        field_name = notification_field_map.get(notification_type, 'notify_appointments')
+        
+        # Filter contacts that should be notified and have contact info
+        return [
+            contact for contact in all_contacts
+            if contact.get(field_name, True) and (contact['phone'] or contact['email'])
+        ]
+    
+    def has_emergency_contact_with_email(self):
+        """Check if patient has at least one emergency contact with email"""
+        contacts = self.get_all_emergency_contacts()
+        return any(contact['email'] for contact in contacts)
+    
+    def get_primary_emergency_contact(self):
+        """Get the primary emergency contact (priority 1)"""
+        contacts = self.get_all_emergency_contacts()
+        for contact in contacts:
+            if contact['priority'] == 1:
+                return contact
+        return None
 
 
 class PatientCareTeam(models.Model):
@@ -590,7 +663,7 @@ class EnhancedStaffProfile(models.Model):
     job_title = models.CharField(max_length=100)
     
     # Credentials and Licensing (encrypted)
-    license_number = EncryptedCharField(max_length=100, blank=True)
+    license_number = EnhancedEncryptedCharField(max_length=500, blank=True)
     license_state = models.CharField(max_length=50, blank=True)
     license_expiration = models.DateField(null=True, blank=True)
     license_status = models.CharField(
@@ -606,9 +679,9 @@ class EnhancedStaffProfile(models.Model):
     )
     
     # DEA and NPI (encrypted for security)
-    dea_number = EncryptedCharField(max_length=255, blank=True)
+    dea_number = EnhancedEncryptedCharField(max_length=255, blank=True)
     dea_expiration = models.DateField(null=True, blank=True)
-    npi_number = EncryptedCharField(max_length=255, blank=True)
+    npi_number = EnhancedEncryptedCharField(max_length=255, blank=True)
     
     # Employment Details
     employment_status = models.CharField(
@@ -620,13 +693,13 @@ class EnhancedStaffProfile(models.Model):
     termination_date = models.DateField(null=True, blank=True)
     
     # Contact Information (encrypted)
-    work_phone = EncryptedCharField(max_length=255, blank=True)
+    work_phone = EnhancedEncryptedCharField(max_length=255, blank=True)
     work_email = models.EmailField(blank=True)
-    pager = EncryptedCharField(max_length=255, blank=True)
+    pager = EnhancedEncryptedCharField(max_length=255, blank=True)
     
     # Office/Location Information
     office_location = models.CharField(max_length=255, blank=True)
-    office_address = EncryptedTextField(blank=True)
+    office_address = EnhancedEncryptedTextField(blank=True)
     
     # Schedule and Availability
     default_schedule = EncryptedJSONField(
@@ -636,7 +709,7 @@ class EnhancedStaffProfile(models.Model):
     
     # Professional Details
     years_experience = models.PositiveIntegerField(null=True, blank=True)
-    education = EncryptedTextField(blank=True, help_text="Educational background")
+    education = EnhancedEncryptedTextField(blank=True, help_text="Educational background")
     languages_spoken = models.JSONField(
         default=list,
         help_text="Languages spoken by the staff member"
@@ -649,9 +722,9 @@ class EnhancedStaffProfile(models.Model):
     )
     
     # Emergency Contact (encrypted)
-    emergency_contact_name = EncryptedCharField(max_length=255, blank=True)
-    emergency_contact_relationship = EncryptedCharField(max_length=100, blank=True)
-    emergency_contact_phone = EncryptedCharField(max_length=255, blank=True)
+    emergency_contact_name = EnhancedEncryptedCharField(max_length=255, blank=True)
+    emergency_contact_relationship = EnhancedEncryptedCharField(max_length=500, blank=True)
+    emergency_contact_phone = EnhancedEncryptedCharField(max_length=255, blank=True)
     
     # Professional References
     professional_references = EncryptedJSONField(
@@ -781,7 +854,7 @@ class StaffCredential(models.Model):
     issuing_organization = models.CharField(max_length=255)
     
     # Credential Numbers (encrypted)
-    credential_number = EncryptedCharField(max_length=100, blank=True)
+    credential_number = EnhancedEncryptedCharField(max_length=500, blank=True)
     
     # Dates
     issue_date = models.DateField()
@@ -842,6 +915,88 @@ class StaffCredential(models.Model):
         return self.expiration_date < date.today()
 
 
+class EmergencyContact(models.Model):
+    """Additional emergency contacts for patients (contacts 2 and 3)"""
+    
+    RELATIONSHIP_CHOICES = [
+        ('spouse', 'Spouse'),
+        ('parent', 'Parent'),
+        ('child', 'Child'),
+        ('sibling', 'Sibling'),
+        ('relative', 'Other Relative'),
+        ('friend', 'Friend'),
+        ('neighbor', 'Neighbor'),
+        ('colleague', 'Colleague'),
+        ('guardian', 'Guardian'),
+        ('other', 'Other'),
+    ]
+    
+    # Primary identification
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(
+        EnhancedPatient,
+        on_delete=models.CASCADE,
+        related_name='additional_emergency_contacts'
+    )
+    
+    # Contact Information (encrypted for privacy)
+    name = EnhancedEncryptedCharField(max_length=255)
+    relationship = models.CharField(max_length=20, choices=RELATIONSHIP_CHOICES)
+    phone = EnhancedEncryptedCharField(max_length=255)
+    email = EnhancedEncryptedCharField(max_length=255, blank=True)
+    
+    # Notification preferences
+    notify_appointments = models.BooleanField(default=True, help_text="Notify about appointment reminders")
+    notify_cancellations = models.BooleanField(default=True, help_text="Notify about appointment cancellations")
+    notify_reschedules = models.BooleanField(default=True, help_text="Notify about appointment reschedules")
+    notify_emergencies = models.BooleanField(default=True, help_text="Notify about medical emergencies")
+    
+    # Priority (2 or 3 only - 1 is handled by EnhancedPatient primary contact)
+    priority = models.PositiveIntegerField(
+        validators=[MinValueValidator(2), MaxValueValidator(3)],
+        help_text="Contact priority (2=secondary, 3=tertiary)"
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'emergency_contacts'
+        verbose_name = 'Emergency Contact'
+        verbose_name_plural = 'Emergency Contacts'
+        unique_together = ['patient', 'priority']
+        ordering = ['patient', 'priority']
+        indexes = [
+            models.Index(fields=['patient', 'is_active']),
+            models.Index(fields=['patient', 'priority']),
+            models.Index(fields=['email']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_relationship_display()}) - Priority {self.priority}"
+    
+    def clean(self):
+        """Validate emergency contact data"""
+        super().clean()
+        
+        # Validate priority uniqueness per patient
+        if self.priority and self.patient:
+            existing = EmergencyContact.objects.filter(
+                patient=self.patient,
+                priority=self.priority
+            ).exclude(id=self.id)
+            
+            if existing.exists():
+                raise ValidationError(f"A contact with priority {self.priority} already exists for this patient.")
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
 # Export all models
 __all__ = [
     'Hospital',
@@ -850,4 +1005,5 @@ __all__ = [
     'EnhancedStaffProfile', 
     'Specialization',
     'StaffCredential',
+    'EmergencyContact',
 ]

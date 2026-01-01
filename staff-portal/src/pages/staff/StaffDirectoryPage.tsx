@@ -19,32 +19,27 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+
   FormControl,
   InputLabel,
   Select,
   Fab,
-  Tooltip,
+
   Card,
   CardContent,
-  CardActions,
+
   Stack,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
-  FilterList as FilterIcon,
+
   MoreVert as MoreVertIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
   Visibility as ViewIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  Person as PersonIcon,
   Clear as ClearIcon,
   Badge as BadgeIcon,
   Schedule as ScheduleIcon,
@@ -120,7 +115,7 @@ const mockStaffData: StaffMember[] = [
 export const StaffDirectoryPage: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(mockStaffData);
+  const [staffMembers] = useState<StaffMember[]>(mockStaffData);
   const [filteredStaff, setFilteredStaff] = useState<StaffMember[]>(mockStaffData);
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');

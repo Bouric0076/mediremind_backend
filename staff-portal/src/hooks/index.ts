@@ -237,7 +237,7 @@ export const useToast = () => {
     action?: Toast['action']
   ) => {
     const id = Math.random().toString(36).substr(2, 9);
-    dispatch(addToast({ id, type, title: message, message: '', duration, action }));
+    dispatch(addToast({ type, title: message, message: '', duration, action }));
     return id;
   }, [dispatch]);
 

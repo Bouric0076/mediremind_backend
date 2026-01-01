@@ -76,8 +76,10 @@ class TextSMSClient:
             
     def _format_mobile_number(self, mobile: str) -> str:
         """Format mobile number to Kenyan format (254XXXXXXXXX)"""
-        # Remove any spaces, dashes, or plus signs
-        mobile = mobile.replace(' ', '').replace('-', '').replace('+', '')
+        import re
+        
+        # Remove any spaces, dashes, parentheses, or plus signs
+        mobile = re.sub(r'[\s\-\(\)\+]', '', mobile)
         
         # Handle different formats
         if mobile.startswith('0'):
@@ -86,9 +88,24 @@ class TextSMSClient:
         elif mobile.startswith('7') and len(mobile) == 9:
             # Convert 7XXXXXXXX to 2547XXXXXXXX
             mobile = '254' + mobile
-        elif not mobile.startswith('254'):
-            # Assume it's a Kenyan number and add 254
+        elif mobile.startswith('1') and len(mobile) == 10 and mobile[1:4] == '26':
+            # Handle format like "12608815999" (appears to be US format but actually Kenyan)
+            # Remove the "1" prefix and add "254"
+            mobile = '254' + mobile[3:]
+        elif mobile.startswith('254') and len(mobile) == 12:
+            # Already in correct format
+            pass
+        elif not mobile.startswith('254') and len(mobile) == 9:
+            # Assume it's a Kenyan number (7XXXXXXXX) and add 254
             mobile = '254' + mobile
+        else:
+            # For any other format, try to extract 9 digits starting with 7
+            match = re.search(r'7\d{8}', mobile)
+            if match:
+                mobile = '254' + match.group()
+            else:
+                # If no valid Kenyan format found, return as-is and let validation handle it
+                pass
             
         return mobile
     

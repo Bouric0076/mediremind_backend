@@ -17,6 +17,7 @@ urlpatterns = [
     path('patients/', views.get_all_patients, name='patient-list'),  # GET /patients/
     path('patients/<uuid:pk>/', views.get_patient_detail, name='patient-detail'),  # GET /patients/{id}/
     path('patients/create/', views.create_patient, name='patient-create'),  # POST /patients/create/
+    path('patients/check-existing/', views.check_existing_patient, name='check-existing-patient'),  # POST /patients/check-existing/
     path('patients/<uuid:pk>/update/', views.update_patient, name='patient-update'),  # PUT /patients/{id}/update/
     path('patients/<uuid:pk>/delete/', views.delete_patient, name='patient-delete'),  # DELETE /patients/{id}/delete/
     

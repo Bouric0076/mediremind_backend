@@ -33,12 +33,10 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider,
+
   Alert,
   Avatar,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+
 } from '@mui/material';
 import {
   Timeline,
@@ -53,29 +51,24 @@ import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
+
   MedicalServices as MedicalIcon,
   Assignment as RecordIcon,
-  Note as NoteIcon,
+
   Science as LabIcon,
   Medication as MedicationIcon,
   LocalHospital as HospitalIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
+
   Print as PrintIcon,
   Download as DownloadIcon,
   Person as PersonIcon,
-  CalendarToday as CalendarIcon,
+
   Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-  AttachFile as AttachFileIcon,
-  ExpandMore as ExpandMoreIcon,
+
   History as HistoryIcon,
-  Bloodtype as BloodIcon,
-  MonitorHeart as VitalsIcon,
-  Psychology as MentalHealthIcon,
+
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 
@@ -348,8 +341,8 @@ const mockPatients: Patient[] = [
 
 export const MedicalRecordsPage: React.FC = () => {
   const dispatch = useDispatch();
-  const [records, setRecords] = useState<MedicalRecord[]>(mockMedicalRecords);
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const [records] = useState<MedicalRecord[]>(mockMedicalRecords);
+  const [patients] = useState<Patient[]>(mockPatients);
   const [filteredRecords, setFilteredRecords] = useState<MedicalRecord[]>(mockMedicalRecords);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');

@@ -13,8 +13,10 @@ import LandingPage from './pages/landing/LandingPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { PatientsPage } from './pages/patients/PatientsPage';
 import { AddPatientPage } from './pages/patients/AddPatientPage';
+import { EditPatientPage } from './pages/patients/EditPatientPage';
 import { PatientDetailPage } from './pages/patients/PatientDetailPage';
-import { AppointmentsPage } from './pages/appointments/AppointmentsPage';
+import AppointmentsPage from './pages/appointments/AppointmentsPage';
+import { AppointmentDetailPage } from './pages/appointments/AppointmentDetailPage';
 import { NotificationsPage } from './pages/notifications/NotificationsPage';
 import { PrescriptionsPage } from './pages/prescriptions/PrescriptionsPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
@@ -83,9 +85,11 @@ function App() {
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/patients" element={<PatientsPage />} />
                         <Route path="/patients/new" element={<AddPatientPage />} />
+                        <Route path="/patients/:id/edit" element={<EditPatientPage />} />
                         <Route path="/patients/:id" element={<PatientDetailPage />} />
                         <Route path="/appointments" element={<AppointmentsPage />} />
-                        <Route path="/appointments/:id" element={<AppointmentsPage />} />
+                        <Route path="/appointments/schedule" element={<Navigate to="/app/appointments" replace />} />
+                        <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
                         <Route path="/notifications" element={<NotificationsPage />} />
                         <Route path="/prescriptions" element={<PrescriptionsPage />} />
                         <Route path="/reports" element={<ReportsPage />} />

@@ -305,12 +305,12 @@ export const MedicalHistoryTimelinePage: React.FC = () => {
   const dispatch = useDispatch();
   const [events] = useState<TimelineEvent[]>(mockTimelineEvents);
   const [filteredEvents, setFilteredEvents] = useState<TimelineEvent[]>(mockTimelineEvents);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(mockPatients[0]);
+  const [selectedPatient] = useState<Patient | null>(mockPatients[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter] = useState('all');
   const [dateRangeFilter, setDateRangeFilter] = useState('all');
   const [showSignificantOnly, setShowSignificantOnly] = useState(false);
   const [showChronicOnly, setShowChronicOnly] = useState(false);

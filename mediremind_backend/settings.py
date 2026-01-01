@@ -415,6 +415,18 @@ if not all([TEXTSMS_API_KEY, TEXTSMS_PARTNER_ID]):
 # This key should be stored securely and never committed to version control
 FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=')
 
+# Enhanced encryption key management
+ENCRYPTION_KEY_VERSION = os.getenv('ENCRYPTION_KEY_VERSION', 'v1')
+ENCRYPTION_BACKUP_KEYS = {
+    # Store backup keys for data encrypted with previous keys
+    # Format: 'v0': 'old_encryption_key_here'
+    'legacy': 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='  # Legacy key for existing encrypted data
+}
+
+# Force consistent encryption key across environments
+# This ensures all deployments use the same key for encryption/decryption
+FORCE_CONSISTENT_ENCRYPTION_KEY = True
+
 # Patient Notification Settings
 PATIENT_NOTIFICATION_SETTINGS = {
     # Email settings for patient communications

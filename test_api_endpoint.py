@@ -1,64 +1,56 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
-Test the API endpoint directly to debug the 401 error
+Test the API endpoint with the new encryption system
 """
+import os
+import sys
+import django
+
+# Setup Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mediremind_backend.settings')
+django.setup()
 
 import requests
 import json
+from encryption.key_manager import key_manager
 
-def test_api_endpoint():
-    print("🌐 Testing API Endpoint")
-    print("=" * 50)
+def test_patient_api():
+    """Test the patient detail API endpoint"""
     
-    # Test credentials
-    email = "admin@mediremind.test"
-    password = "TestAdmin123!"
+    # Use the patient ID from the previous test
+    patient_id = "6fe9d5da-05fa-4469-8f7f-f423949361c4"
     
-    # Test with HTTP (not HTTPS)
-    url = "http://127.0.0.1:8000/api/auth/login/"
+    # Test the API endpoint
+    base_url = "http://localhost:8000"  # Adjust if different
+    api_url = f"{base_url}/api/accounts/patients/{patient_id}/"
     
-    print(f"Testing URL: {url}")
-    print(f"Credentials: {email}")
+    print(f"Testing API endpoint: {api_url}")
     
     try:
-        response = requests.post(
-            url,
-            json={
-                'email': email,
-                'password': password
-            },
-            headers={
-                'Content-Type': 'application/json',
-                'User-Agent': 'Test Script'
-            },
-            timeout=10
-        )
-        
-        print(f"\nResponse Status: {response.status_code}")
-        print(f"Response Headers: {dict(response.headers)}")
-        print(f"Response Content: {response.text}")
+        response = requests.get(api_url)
+        print(f"Status Code: {response.status_code}")
         
         if response.status_code == 200:
-            print("✅ Authentication successful!")
             data = response.json()
-            if 'token' in data:
-                print(f"Token: {data['token'][:20]}...")
-        elif response.status_code == 401:
-            print("❌ Authentication failed (401 Unauthorized)")
-            try:
-                error_data = response.json()
-                print(f"Error details: {error_data}")
-            except:
-                print("No JSON error details available")
-        else:
-            print(f"❌ Unexpected status code: {response.status_code}")
+            print("API Response:")
+            print(json.dumps(data, indent=2))
             
-    except requests.exceptions.ConnectionError as e:
-        print(f"❌ Connection error: {e}")
-    except requests.exceptions.Timeout as e:
-        print(f"❌ Timeout error: {e}")
+            # Check if encrypted fields are properly decrypted
+            patient_data = data.get('patient', {})
+            print(f"\nDecrypted fields from API:")
+            print(f"Phone: {patient_data.get('phone', 'N/A')}")
+            print(f"Address: {patient_data.get('address_line1', 'N/A')}")
+            print(f"Allergies: {patient_data.get('allergies', 'N/A')}")
+            print(f"Insurance: {patient_data.get('insurance_provider', 'N/A')}")
+            
+        else:
+            print(f"Error response: {response.text}")
+            
+    except requests.exceptions.ConnectionError:
+        print("❌ Could not connect to API server. Make sure Django is running.")
+        print("You can start it with: python manage.py runserver")
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"❌ Error testing API: {e}")
 
 if __name__ == "__main__":
-    test_api_endpoint()
+    test_patient_api()

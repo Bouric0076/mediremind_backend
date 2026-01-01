@@ -23,7 +23,11 @@ services:
       - key: CALENDAR_TOKEN_ENCRYPTION_KEY
         generateValue: true
       - key: FIELD_ENCRYPTION_KEY
-        generateValue: true
+        value: "ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg="
+      - key: ENCRYPTION_KEY_VERSION
+        value: "v1"
+      - key: ENCRYPTION_BACKUP_KEYS
+        value: "{}"
       - key: VAPID_PUBLIC_KEY
         value: "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFbld6TEFmcm1mK1RlZ1NpUkpPMWdoVlcxN3Z0ZgpNbmdiS1JqTERxRE9mTnZKTTY3S1BybmYxY3M4RTVIT2JUckowS1hqeXlXNHUwN3ArOGNZakRhSzBnPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg"
       - key: VAPID_PRIVATE_KEY
@@ -33,13 +37,17 @@ services:
       - key: DEFAULT_FROM_EMAIL
         value: "noreply@mediremind.com"
       - key: EMAIL_SERVICE
-        value: "sendgrid"
-      - key: SENDGRID_API_KEY
-        generateValue: true  # Set this in Render dashboard
-      - key: SENDGRID_FROM_EMAIL
+        value: "smtp"
+      - key: EMAIL_HOST
+        value: "smtp.gmail.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
         value: "bouricenos0@gmail.com"
-      - key: SENDGRID_FROM_NAME
-        value: "MediRemind"
+      - key: EMAIL_HOST_PASSWORD
+        generateValue: true  # Set this in Render dashboard
+      - key: DEFAULT_FROM_EMAIL
+        value: "noreply@mediremind.com"
       - key: FRONTEND_URL
         fromService:
           type: web

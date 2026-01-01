@@ -33,38 +33,26 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider,
   Alert,
-  LinearProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
   LocalHospital as InsuranceIcon,
   Assignment as ClaimIcon,
   Send as SendIcon,
   Visibility as VisibilityIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Error as ErrorIcon,
-  Warning as WarningIcon,
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
-  AttachMoney as MoneyIcon,
-  Description as DocumentIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  History as HistoryIcon,
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 
@@ -301,8 +289,8 @@ const mockInsuranceProviders: InsuranceProvider[] = [
 
 export const InsuranceClaimsPage: React.FC = () => {
   const dispatch = useDispatch();
-  const [claims, setClaims] = useState<InsuranceClaim[]>(mockClaims);
-  const [providers, setProviders] = useState<InsuranceProvider[]>(mockInsuranceProviders);
+  const [claims] = useState<InsuranceClaim[]>(mockClaims);
+  const [providers] = useState<InsuranceProvider[]>(mockInsuranceProviders);
   const [filteredClaims, setFilteredClaims] = useState<InsuranceClaim[]>(mockClaims);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -410,7 +398,7 @@ export const InsuranceClaimsPage: React.FC = () => {
       case 'denied': return <ErrorIcon />;
       case 'appealed': return <RefreshIcon />;
       case 'draft': return <EditIcon />;
-      default: return null;
+      default: return <></>; // Return empty fragment instead of null
     }
   };
 
@@ -435,20 +423,6 @@ export const InsuranceClaimsPage: React.FC = () => {
   const handleViewClaim = (claim: InsuranceClaim) => {
     setSelectedClaim(claim);
     setViewDialogOpen(true);
-  };
-
-  const getClaimProgress = (claim: InsuranceClaim) => {
-    const steps = ['Draft', 'Submitted', 'Pending', 'Approved/Denied', 'Paid'];
-    const statusMap = {
-      'draft': 0,
-      'submitted': 1,
-      'pending': 2,
-      'approved': 3,
-      'denied': 3,
-      'appealed': 3,
-      'paid': 4,
-    };
-    return statusMap[claim.status] || 0;
   };
 
   const stats = getClaimStats();

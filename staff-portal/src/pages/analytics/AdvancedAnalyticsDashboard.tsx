@@ -56,13 +56,7 @@ interface KPIMetric {
   format: 'number' | 'currency' | 'percentage';
 }
 
-interface ChartData {
-  id: string;
-  title: string;
-  type: 'line' | 'bar' | 'pie' | 'area';
-  data: any[];
-  timeframe: string;
-}
+
 
 interface SystemAlert {
   id: string;

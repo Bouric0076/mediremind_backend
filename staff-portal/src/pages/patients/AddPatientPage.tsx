@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -12,7 +11,6 @@ import {
   Select,
   MenuItem,
   Grid,
-  Divider,
   Alert,
   CircularProgress,
   IconButton,
@@ -38,10 +36,36 @@ import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 import type { RootState } from '../../store';
 import { API_CONFIG } from '../../constants';
 
+// Custom debounce hook
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+  email: string;
+  priority: number;
+}
+
 interface PatientFormData {
   firstName: string;
   lastName: string;
   email: string;
+  nationalId: string;
   phone: string;
   dateOfBirth: string;
   gender: 'male' | 'female' | 'other' | '';
@@ -52,11 +76,7 @@ interface PatientFormData {
     zipCode: string;
     country: string;
   };
-  emergencyContact: {
-    name: string;
-    relationship: string;
-    phone: string;
-  };
+  emergencyContacts: EmergencyContact[];
   medicalInfo: {
     bloodType: string;
     allergies: string;
@@ -84,6 +104,7 @@ const initialFormData: PatientFormData = {
   firstName: '',
   lastName: '',
   email: '',
+  nationalId: '',
   phone: '',
   dateOfBirth: '',
   gender: '',
@@ -94,11 +115,11 @@ const initialFormData: PatientFormData = {
     zipCode: '',
     country: 'Kenya',
   },
-  emergencyContact: {
-    name: '',
-    relationship: '',
-    phone: '',
-  },
+  emergencyContacts: [
+    { name: '', relationship: '', phone: '', email: '', priority: 1 }, // Primary contact
+    { name: '', relationship: '', phone: '', email: '', priority: 2 }, // Secondary contact
+    { name: '', relationship: '', phone: '', email: '', priority: 3 }, // Tertiary contact
+  ],
   medicalInfo: {
     bloodType: '',
     allergies: '',
@@ -130,9 +151,66 @@ export const AddPatientPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [existingPatientFound, setExistingPatientFound] = useState(false);
+  const [checkingExistingPatient, setCheckingExistingPatient] = useState(false);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [patientAge, setPatientAge] = useState<number | null>(null);
+  const [nationalIdRequired, setNationalIdRequired] = useState(true);
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set());
+  const [noPatientFound, setNoPatientFound] = useState(false);
+  
+  // Ref to track the current check request for cancellation
+  const currentCheckRequest = useRef<AbortController | null>(null);
+  
+  // Helper function to check if a field is auto-filled
+  const isFieldAutoFilled = (fieldName: string): boolean => {
+    return autoFilledFields.has(fieldName);
+  };
+  
+  // Helper function to get field styling for auto-filled fields
+  const getAutoFilledFieldProps = (fieldName: string) => {
+    return isFieldAutoFilled(fieldName) ? {
+      sx: {
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: '#e3f2fd', // Light blue background
+          '& fieldset': {
+            borderColor: '#2196f3', // Blue border
+          },
+        },
+        '& .MuiInputLabel-root': {
+          color: '#1976d2', // Darker blue for label
+        },
+      },
+      InputProps: {
+        endAdornment: (
+          <InputAdornment position="end">
+            <Typography variant="caption" color="primary" sx={{ fontSize: '0.7rem' }}>
+              AUTO-FILLED
+            </Typography>
+          </InputAdornment>
+        ),
+      },
+    } : {};
+  };
+
+  // Helper function for auto-filled Select components
+  const getAutoFilledSelectProps = (fieldName: string) => {
+    return isFieldAutoFilled(fieldName) ? {
+      sx: {
+        backgroundColor: '#e3f2fd', // Light blue background
+        '& .MuiOutlinedInput-notchedOutline': {
+          borderColor: '#2196f3', // Blue border
+        },
+      },
+    } : {};
+  };
+  
+  // Debounced values for real-time lookup
+  const debouncedEmail = useDebounce(formData.email, 1200); // 1200ms delay - better for user experience
+  const debouncedNationalId = useDebounce(formData.nationalId, 1200);
 
   useEffect(() => {
     dispatch(setCurrentPage('patients'));
@@ -140,7 +218,241 @@ export const AddPatientPage: React.FC = () => {
       { label: 'Patients', path: '/app/patients' },
       { label: 'Add New Patient', path: '/app/patients/new' }
     ]));
+    
+    // Cleanup function to abort any pending requests when component unmounts
+    return () => {
+      if (currentCheckRequest.current) {
+        currentCheckRequest.current.abort();
+      }
+    };
   }, [dispatch]);
+
+  // Real-time patient lookup when email or national ID changes
+  useEffect(() => {
+    if (debouncedEmail || debouncedNationalId) {
+      checkExistingPatient(debouncedNationalId, debouncedEmail);
+    }
+  }, [debouncedEmail, debouncedNationalId]);
+
+  const calculateAge = (birthDate: string): number => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
+  const checkExistingPatient = async (nationalId: string, email: string) => {
+    // Reset states
+    setExistingPatientFound(false);
+    setNoPatientFound(false);
+    setAutoFilledFields(new Set());
+    
+    // Check if we have enough information to look up an existing patient
+    if (!email?.trim() && !nationalId?.trim()) {
+      return;
+    }
+    
+    // Cancel any previous request
+    if (currentCheckRequest.current) {
+      currentCheckRequest.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    currentCheckRequest.current = new AbortController();
+    
+    setCheckingExistingPatient(true);
+    
+    // Show loading indicator after a short delay to avoid flickering for fast responses
+    const loadingTimeout = setTimeout(() => {
+      setShowLoadingIndicator(true);
+    }, 300);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token && token !== 'session_based_auth') {
+        headers['Authorization'] = `Token ${token}`;
+      }
+      
+      // Prepare request data based on what's available
+      const requestData: Record<string, string> = {};
+      if (email?.trim()) requestData.email = email.trim();
+      if (nationalId?.trim()) requestData.nationalId = nationalId.trim();
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/accounts/patients/check-existing/`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify(requestData),
+        signal: currentCheckRequest.current.signal,
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setExistingPatientFound(data.exists);
+        
+        if (!data.exists) {
+          setNoPatientFound(true);
+        }
+        
+        // Auto-fill form data if patient exists
+        if (data.exists && data.patient_data) {
+          const patientData = data.patient_data;
+          const newAutoFilledFields = new Set<string>();
+          
+          setFormData(prev => {
+            const updatedData = { ...prev };
+            
+            // Auto-fill basic information
+            if (patientData.first_name) {
+              updatedData.firstName = patientData.first_name;
+              newAutoFilledFields.add('firstName');
+            }
+            if (patientData.last_name) {
+              updatedData.lastName = patientData.last_name;
+              newAutoFilledFields.add('lastName');
+            }
+            if (patientData.email) {
+              updatedData.email = patientData.email;
+              newAutoFilledFields.add('email');
+            }
+            if (patientData.national_id) {
+              updatedData.nationalId = patientData.national_id;
+              newAutoFilledFields.add('nationalId');
+            }
+            if (patientData.phone) {
+              updatedData.phone = patientData.phone;
+              newAutoFilledFields.add('phone');
+            }
+            if (patientData.date_of_birth) {
+              updatedData.dateOfBirth = patientData.date_of_birth;
+              newAutoFilledFields.add('dateOfBirth');
+            }
+            if (patientData.gender) {
+              updatedData.gender = patientData.gender;
+              newAutoFilledFields.add('gender');
+            }
+            
+            // Auto-fill address
+            if (patientData.address) {
+              if (patientData.address.street) {
+                updatedData.address.street = patientData.address.street;
+                newAutoFilledFields.add('address.street');
+              }
+              if (patientData.address.city) {
+                updatedData.address.city = patientData.address.city;
+                newAutoFilledFields.add('address.city');
+              }
+              if (patientData.address.state) {
+                updatedData.address.state = patientData.address.state;
+                newAutoFilledFields.add('address.state');
+              }
+              if (patientData.address.zip_code) {
+                updatedData.address.zipCode = patientData.address.zip_code;
+                newAutoFilledFields.add('address.zipCode');
+              }
+              if (patientData.address.country) {
+                updatedData.address.country = patientData.address.country;
+                newAutoFilledFields.add('address.country');
+              }
+            }
+            
+            // Auto-fill emergency contact
+            if (patientData.emergency_contact) {
+              // Auto-fill primary emergency contact (priority 1)
+              if (patientData.emergency_contact.name) {
+                updatedData.emergencyContacts[0].name = patientData.emergency_contact.name;
+                newAutoFilledFields.add('emergencyContacts.0.name');
+              }
+              if (patientData.emergency_contact.relationship) {
+                updatedData.emergencyContacts[0].relationship = patientData.emergency_contact.relationship;
+                newAutoFilledFields.add('emergencyContacts.0.relationship');
+              }
+              if (patientData.emergency_contact.phone) {
+                updatedData.emergencyContacts[0].phone = patientData.emergency_contact.phone;
+                newAutoFilledFields.add('emergencyContacts.0.phone');
+              }
+              if (patientData.emergency_contact.email) {
+                updatedData.emergencyContacts[0].email = patientData.emergency_contact.email;
+                newAutoFilledFields.add('emergencyContacts.0.email');
+              }
+            }
+            
+            // Auto-fill medical info
+            if (patientData.medical_info) {
+              if (patientData.medical_info.blood_type) {
+                updatedData.medicalInfo.bloodType = patientData.medical_info.blood_type;
+                newAutoFilledFields.add('medicalInfo.bloodType');
+              }
+              if (patientData.medical_info.allergies) {
+                updatedData.medicalInfo.allergies = patientData.medical_info.allergies;
+                newAutoFilledFields.add('medicalInfo.allergies');
+              }
+              if (patientData.medical_info.medications) {
+                updatedData.medicalInfo.medications = patientData.medical_info.medications;
+                newAutoFilledFields.add('medicalInfo.medications');
+              }
+              if (patientData.medical_info.medical_history) {
+                updatedData.medicalInfo.medicalHistory = patientData.medical_info.medical_history;
+                newAutoFilledFields.add('medicalInfo.medicalHistory');
+              }
+            }
+            
+            // Auto-fill insurance
+            if (patientData.insurance) {
+              if (patientData.insurance.provider) {
+                updatedData.insurance.provider = patientData.insurance.provider;
+                newAutoFilledFields.add('insurance.provider');
+              }
+              if (patientData.insurance.policy_number) {
+                updatedData.insurance.policyNumber = patientData.insurance.policy_number;
+                newAutoFilledFields.add('insurance.policyNumber');
+              }
+              if (patientData.insurance.group_number) {
+                updatedData.insurance.groupNumber = patientData.insurance.group_number;
+                newAutoFilledFields.add('insurance.groupNumber');
+              }
+            }
+            
+            return updatedData;
+          });
+          
+          setAutoFilledFields(newAutoFilledFields);
+          
+          // Calculate age if date of birth is available
+          if (patientData.date_of_birth) {
+            const age = calculateAge(patientData.date_of_birth);
+            setPatientAge(age);
+            setNationalIdRequired(age >= 18);
+          }
+        }
+      }
+    } catch (error) {
+      // Don't log errors for aborted requests - this is expected behavior
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error checking existing patient:', error);
+      }
+      setExistingPatientFound(false);
+    } finally {
+      setCheckingExistingPatient(false);
+      // Clear the loading timeout and hide indicator
+      clearTimeout(loadingTimeout);
+      setShowLoadingIndicator(false);
+      // Clear the current request reference
+      if (currentCheckRequest.current) {
+        currentCheckRequest.current = null;
+      }
+    }
+  };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     if (field.includes('.')) {
@@ -167,6 +479,14 @@ export const AddPatientPage: React.FC = () => {
         ...prev,
         [field]: value,
       }));
+    }
+    
+    // Calculate age and update national ID requirement when date of birth changes
+    if (field === 'dateOfBirth' && value) {
+      const age = calculateAge(value as string);
+      setPatientAge(age);
+      // National ID is typically required for adults (18+), optional for minors
+      setNationalIdRequired(age >= 18);
     }
   };
 
@@ -205,6 +525,10 @@ export const AddPatientPage: React.FC = () => {
       setError('Email is required');
       return false;
     }
+    if (nationalIdRequired && !formData.nationalId.trim()) {
+      setError('National ID is required for patients 18 years and older');
+      return false;
+    }
     if (!formData.phone.trim()) {
       setError('Phone number is required');
       return false;
@@ -225,8 +549,8 @@ export const AddPatientPage: React.FC = () => {
       return false;
     }
 
-    // Password validation (only if creating account)
-    if (formData.account.createAccount) {
+    // Password validation (only if creating account and patient doesn't exist)
+    if (formData.account.createAccount && !existingPatientFound) {
       if (!formData.account.password.trim()) {
         setError('Password is required when creating an account');
         return false;
@@ -270,8 +594,13 @@ export const AddPatientPage: React.FC = () => {
       // Prepare the data for submission
       const submissionData = {
         ...formData,
-        // Only include account data if creating an account
-        account: formData.account.createAccount ? {
+        // Transform emergency contacts for backend API
+        emergencyContact: formData.emergencyContacts[0], // Primary contact goes to existing field
+        additionalEmergencyContacts: formData.emergencyContacts.slice(1).filter(contact => 
+          contact.name.trim() || contact.relationship.trim() || contact.phone.trim() || contact.email.trim()
+        ), // Additional contacts (2-3) go to new field
+        // Only include account data if creating an account and patient doesn't exist
+        account: formData.account.createAccount && !existingPatientFound ? {
           createAccount: true,
           password: formData.account.password,
           // Don't send confirmPassword to the backend
@@ -305,8 +634,15 @@ export const AddPatientPage: React.FC = () => {
 
       setSuccess(true);
       
+      // Handle existing patient case
+      if (data.existing_patient) {
+        setError(null);
+        // Show success message for existing patient association
+        // You could show a different success message here
+      }
+      
       // Show success message with account creation info
-      if (formData.account.createAccount) {
+      if (formData.account.createAccount && data.account_created) {
         setError(null);
         // You could show a different success message here
       }
@@ -323,6 +659,12 @@ export const AddPatientPage: React.FC = () => {
 
   const handleCancel = () => {
     navigate('/app/patients');
+  };
+
+  const clearAutoFilledFields = () => {
+    setAutoFilledFields(new Set());
+    setExistingPatientFound(false);
+    setNoPatientFound(false);
   };
 
   return (
@@ -342,12 +684,39 @@ export const AddPatientPage: React.FC = () => {
         </Alert>
       )}
 
+      {patientAge !== null && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Patient age: {patientAge} years old
+          {patientAge < 18 ? ' (National ID optional for minors)' : ' (National ID required for adults)'}
+        </Alert>
+      )}
+
       {success && (
         <Alert severity="success" sx={{ mb: 3 }}>
           {formData.account.createAccount 
             ? 'Patient created successfully with login account! The patient can now log in using their email and password. Redirecting...'
             : 'Patient created successfully! Redirecting...'
           }
+        </Alert>
+      )}
+
+      {existingPatientFound && autoFilledFields.size > 0 && (
+        <Alert 
+          severity="info" 
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={clearAutoFilledFields}>
+              Clear Auto-filled
+            </Button>
+          }
+        >
+          Found existing patient! {autoFilledFields.size} field{autoFilledFields.size !== 1 ? 's' : ''} auto-filled from existing records.
+        </Alert>
+      )}
+
+      {noPatientFound && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No existing patient found. Please fill in all required information.
         </Alert>
       )}
 
@@ -365,10 +734,30 @@ export const AddPatientPage: React.FC = () => {
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
+                      label="Email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      required
+                      InputProps={{
+                        endAdornment: showLoadingIndicator ? (
+                          <InputAdornment position="end">
+                            <CircularProgress size={20} color="primary" />
+                          </InputAdornment>
+                        ) : null,
+                      }}
+                      helperText={formData.email ? "We'll check for existing patient records" : "Enter email to check for existing patient"}
+                      {...getAutoFilledFieldProps('email')}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth
                       label="First Name"
                       value={formData.firstName}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
                       required
+                      {...getAutoFilledFieldProps('firstName')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -378,16 +767,23 @@ export const AddPatientPage: React.FC = () => {
                       value={formData.lastName}
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
                       required
+                      {...getAutoFilledFieldProps('lastName')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
-                      label="Email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      required
+                      label="National ID Number"
+                      value={formData.nationalId}
+                      onChange={(e) => handleInputChange('nationalId', e.target.value)}
+                      required={nationalIdRequired}
+                      helperText={
+                        nationalIdRequired 
+                          ? "Required for patients 18 years and older" 
+                          : "Optional for minors - can be added later when they obtain ID"
+                      }
+                      disabled={!nationalIdRequired && existingPatientFound}
+                      {...getAutoFilledFieldProps('nationalId')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -397,6 +793,7 @@ export const AddPatientPage: React.FC = () => {
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                       required
+                      {...getAutoFilledFieldProps('phone')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -408,6 +805,7 @@ export const AddPatientPage: React.FC = () => {
                       onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                       InputLabelProps={{ shrink: true }}
                       required
+                      {...getAutoFilledFieldProps('dateOfBirth')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -417,6 +815,7 @@ export const AddPatientPage: React.FC = () => {
                         value={formData.gender}
                         label="Gender"
                         onChange={(e) => handleInputChange('gender', e.target.value)}
+                        {...getAutoFilledSelectProps('gender')}
                       >
                         <MenuItem value="male">Male</MenuItem>
                         <MenuItem value="female">Female</MenuItem>
@@ -475,40 +874,109 @@ export const AddPatientPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Emergency Contact */}
+          {/* Emergency Contacts */}
           <Grid size={12}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6">Emergency Contact</Typography>
+                  <Typography variant="h6">Emergency Contacts</Typography>
                 </Box>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Contact Name"
-                      value={formData.emergencyContact.name}
-                      onChange={(e) => handleInputChange('emergencyContact.name', e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Relationship"
-                      value={formData.emergencyContact.relationship}
-                      onChange={(e) => handleInputChange('emergencyContact.relationship', e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="Phone Number"
-                      value={formData.emergencyContact.phone}
-                      onChange={(e) => handleInputChange('emergencyContact.phone', e.target.value)}
-                    />
-                  </Grid>
-                </Grid>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  You can add up to 3 emergency contacts. The primary contact (priority 1) is required.
+                </Typography>
+                
+                {formData.emergencyContacts.map((contact, index) => (
+                  <Box key={index} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: '#fafafa' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+                        {index === 0 ? 'Primary Contact' : index === 1 ? 'Secondary Contact' : 'Tertiary Contact'} 
+                        (Priority {contact.priority})
+                      </Typography>
+                      {index > 0 && (
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            const updatedContacts = [...formData.emergencyContacts];
+                            updatedContacts[index] = { name: '', relationship: '', phone: '', email: '', priority: contact.priority };
+                            setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </Box>
+                    
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Contact Name"
+                          value={contact.name}
+                          onChange={(e) => {
+                            const updatedContacts = [...formData.emergencyContacts];
+                            updatedContacts[index].name = e.target.value;
+                            setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
+                          }}
+                          required={index === 0}
+                          error={index === 0 && !contact.name.trim()}
+                          helperText={index === 0 && !contact.name.trim() ? 'Primary contact name is required' : ''}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Relationship"
+                          value={contact.relationship}
+                          onChange={(e) => {
+                            const updatedContacts = [...formData.emergencyContacts];
+                            updatedContacts[index].relationship = e.target.value;
+                            setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
+                          }}
+                          required={index === 0}
+                          error={index === 0 && !contact.relationship.trim()}
+                          helperText={index === 0 && !contact.relationship.trim() ? 'Primary contact relationship is required' : ''}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Phone Number"
+                          value={contact.phone}
+                          onChange={(e) => {
+                            const updatedContacts = [...formData.emergencyContacts];
+                            updatedContacts[index].phone = e.target.value;
+                            setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
+                          }}
+                          required={index === 0}
+                          error={index === 0 && !contact.phone.trim()}
+                          helperText={index === 0 && !contact.phone.trim() ? 'Primary contact phone is required' : ''}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Email Address"
+                          type="email"
+                          value={contact.email}
+                          onChange={(e) => {
+                            const updatedContacts = [...formData.emergencyContacts];
+                            updatedContacts[index].email = e.target.value;
+                            setFormData(prev => ({ ...prev, emergencyContacts: updatedContacts }));
+                          }}
+                          placeholder="Optional - for notifications"
+                        />
+                      </Grid>
+                    </Grid>
+                  </Box>
+                ))}
+                
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    💡 Tip: Emergency contacts will receive appointment notifications when enabled below.
+                  </Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -703,13 +1171,27 @@ export const AddPatientPage: React.FC = () => {
                       checked={formData.account.createAccount}
                       onChange={(e) => handleInputChange('account.createAccount', e.target.checked.toString())}
                       color="primary"
+                      disabled={existingPatientFound}
                     />
                   }
-                  label="Create patient login account"
+                  label={existingPatientFound ? "Patient account already exists" : "Create patient login account"}
                   sx={{ mb: 2 }}
                 />
 
-                {formData.account.createAccount && (
+                {existingPatientFound && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    A patient with this national ID or email already exists in the system. 
+                    The patient will be associated with your hospital without creating a new account.
+                  </Alert>
+                )}
+
+                {checkingExistingPatient && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Checking for existing patient account...
+                  </Alert>
+                )}
+
+                {formData.account.createAccount && !existingPatientFound && (
                   <>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       Creating an account will allow the patient to log in and access their medical records, appointments, and other information.
@@ -818,3 +1300,5 @@ export const AddPatientPage: React.FC = () => {
     </Box>
   );
 };
+
+export default AddPatientPage;

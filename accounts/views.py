@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from authentication.utils import get_authenticated_user
 from authentication.middleware import api_csrf_exempt, get_request_user
-from .models import EnhancedPatient, EnhancedStaffProfile, Hospital
+from .models import EnhancedPatient, EnhancedStaffProfile, Hospital, EmergencyContact
 from .serializers import (
     HospitalSerializer, HospitalListSerializer, HospitalUpdateSerializer,
     EnhancedPatientSerializer, EnhancedStaffProfileSerializer
@@ -871,6 +871,31 @@ def update_patient(request, pk):
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
+        # Get staff profile and hospital context
+        logger.info(f"Before staff profile lookup - pk: {pk}, type: {type(pk)}")
+        try:
+            staff_profile = EnhancedStaffProfile.objects.get(user=user)
+            logger.info(f"Found staff profile: {staff_profile}")
+        except EnhancedStaffProfile.DoesNotExist:
+            return JsonResponse({"error": "Staff profile not found"}, status=404)
+        
+        # Check if the staff profile is associated with a hospital
+        hospital = getattr(staff_profile, 'hospital', None)
+        logger.info(f"Hospital: {hospital}")
+        if not hospital:
+            return JsonResponse({"error": "No hospital associated with staff profile"}, status=400)
+        
+        # Verify the patient belongs to this hospital
+        from .models import HospitalPatient
+        try:
+            hospital_patient = HospitalPatient.objects.get(
+                hospital=hospital,
+                patient_id=pk,
+                status='active'
+            )
+        except HospitalPatient.DoesNotExist:
+            return JsonResponse({"error": "Patient not found in this hospital"}, status=404)
+        
         # Get patient from database
         patient = get_object_or_404(
             EnhancedPatient.objects.select_related('user'),
@@ -998,35 +1023,231 @@ def update_patient(request, pk):
 @api_csrf_exempt
 @require_http_methods(["DELETE", "OPTIONS"])
 def delete_patient(request, pk):
-    """Soft delete a patient (deactivate)"""
+    """Remove patient from hospital (delete HospitalPatient association)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Debug logging
+    logger.info(f"delete_patient called with pk: {pk}, type: {type(pk)}")
+    logger.info(f"Request path: {request.path}")
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"URL kwargs: {getattr(request, 'resolver_match', None) and getattr(request.resolver_match, 'kwargs', None)}")
+    
     user = get_request_user(request)
+    logger.info(f"User from auth: {user}, type: {type(user)}")
+    logger.info(f"After getting user - pk: {pk}, type: {type(pk)}")
+    
     if not user:
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # Get patient from database
-        patient = get_object_or_404(
-            EnhancedPatient.objects.select_related('user'),
-            id=pk,
-            is_active=True
-        )
+        # Extract the actual Django user from the AuthenticatedUser wrapper
+        if hasattr(user, 'user'):
+            django_user = user.user
+        else:
+            django_user = user
         
-        # Soft delete by setting is_active to False
-        patient.is_active = False
-        patient.user.is_active = False
+        logger.info(f"Extracted Django user: {django_user}, type: {type(django_user)}")
+            
+        # Get staff profile and hospital context
+        try:
+            staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
+            logger.info(f"Found staff profile: {staff_profile}")
+        except EnhancedStaffProfile.DoesNotExist:
+            logger.error(f"Staff profile not found for user: {django_user}")
+            return JsonResponse({"error": "Staff profile not found"}, status=404)
         
-        with transaction.atomic():
-            patient.save()
-            patient.user.save()
+        # Check if the staff profile is associated with a hospital
+        hospital = getattr(staff_profile, 'hospital', None)
+        logger.info(f"Hospital associated with staff: {hospital}")
+        if not hospital:
+            return JsonResponse({"error": "No hospital associated with staff profile"}, status=400)
+        
+        # Verify the patient exists and belongs to this hospital
+        from .models import HospitalPatient
+        logger.info(f"Looking for HospitalPatient with hospital={hospital}, patient__id={pk}, status='active'")
+        logger.info(f"pk type: {type(pk)}, value: {pk}")
+        
+        # First, get the actual patient object to ensure it exists
+        from .models import EnhancedPatient
+        try:
+            patient = EnhancedPatient.objects.get(id=pk)
+            logger.info(f"Found patient object: {patient}")
+        except EnhancedPatient.DoesNotExist:
+            logger.info(f"Patient not found with id={pk}")
+            return JsonResponse({"error": "Patient not found"}, status=404)
+        except Exception as e:
+            logger.error(f"Error getting patient: {e}")
+            return JsonResponse({"error": f"Error getting patient: {str(e)}"}, status=500)
+        
+        # Now use the patient object in the HospitalPatient query
+        try:
+            hospital_patient = HospitalPatient.objects.filter(
+                hospital=hospital,
+                patient=patient,
+                status='active'
+            ).first()
+            
+            if not hospital_patient:
+                logger.info(f"HospitalPatient not found with patient_id={pk}")
+                return JsonResponse({"error": "Patient not found in this hospital"}, status=404)
+            logger.info(f"Found hospital_patient: {hospital_patient}")
+        except Exception as e:
+            logger.error(f"Error getting HospitalPatient: {e}")
+            return JsonResponse({"error": f"Error getting HospitalPatient: {str(e)}"}, status=500)
+        
+        # Delete the hospital-patient association (not the patient account itself)
+        try:
+            hospital_patient.delete()
+            logger.info(f"Successfully deleted hospital_patient association: {hospital_patient}")
+        except Exception as e:
+            logger.error(f"Error deleting hospital_patient association: {e}")
+            return JsonResponse({"error": f"Failed to remove patient from hospital: {str(e)}"}, status=500)
         
         return JsonResponse({
-            "message": "Patient deactivated successfully",
-            "patient_id": str(patient.id)
+            "message": "Patient removed from hospital successfully",
+            "patient_id": str(pk),
+            "hospital_id": str(hospital.id),
+            "status": "success"
         })
         
     except Exception as e:
-        logging.error(f"Error deleting patient: {str(e)}")
+        logging.error(f"Error deleting patient from hospital: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
+def check_existing_patient(request):
+    """Check if a patient exists by national ID or email"""
+    logger = logging.getLogger(__name__)
+    
+    # Get authenticated user using unified middleware
+    auth_user = get_request_user(request)
+    if not auth_user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    logger.debug(f"Authenticated user: {auth_user}")
+    
+    # Extract the actual Django user from the AuthenticatedUser wrapper
+    if hasattr(auth_user, 'user'):
+        user = auth_user.user
+    else:
+        user = auth_user
+    
+    try:
+        data = json.loads(request.body)
+        national_id = data.get('nationalId')
+        email = data.get('email')
+        
+        if not national_id and not email:
+            return JsonResponse({"error": "National ID or email is required"}, status=400)
+        
+        # Check by national ID first (if provided)
+        if national_id:
+            try:
+                patient = EnhancedPatient.objects.get(national_id=national_id)
+                patient_data = {
+                    "first_name": patient.user.first_name,
+                    "last_name": patient.user.last_name,
+                    "email": patient.user.email,
+                    "national_id": patient.national_id,
+                    "phone": patient.phone,
+                    "date_of_birth": patient.date_of_birth.isoformat(),
+                    "gender": patient.gender.lower(),
+                    "address": {
+                        "street": patient.address_line1,
+                        "city": patient.city,
+                        "state": patient.state,
+                        "zip_code": patient.zip_code,
+                        "country": patient.country,
+                    },
+                    "emergency_contact": {
+                        "name": patient.emergency_contact_name,
+                        "relationship": patient.emergency_contact_relationship,
+                        "phone": patient.emergency_contact_phone,
+                    },
+                    "medical_info": {
+                        "blood_type": patient.blood_type,
+                        "allergies": patient.allergies,
+                        "medications": patient.current_medications,
+                        "medical_history": patient.medical_conditions,
+                    },
+                    "insurance": {
+                        "provider": patient.insurance_provider,
+                        "policy_number": patient.insurance_policy_number,
+                        "group_number": patient.insurance_group_number,
+                    },
+                }
+                return JsonResponse({
+                    "exists": True,
+                    "found_by": "national_id",
+                    "patient_id": str(patient.id),
+                    "email": patient.user.email,
+                    "full_name": patient.user.full_name,
+                    "patient_data": patient_data
+                })
+            except EnhancedPatient.DoesNotExist:
+                pass
+        
+        # Check by email if national ID not found or not provided
+        if email:
+            try:
+                patient = EnhancedPatient.objects.get(user__email=email)
+                patient_data = {
+                    "first_name": patient.user.first_name,
+                    "last_name": patient.user.last_name,
+                    "email": patient.user.email,
+                    "national_id": patient.national_id,
+                    "phone": patient.phone,
+                    "date_of_birth": patient.date_of_birth.isoformat(),
+                    "gender": patient.gender.lower(),
+                    "address": {
+                        "street": patient.address_line1,
+                        "city": patient.city,
+                        "state": patient.state,
+                        "zip_code": patient.zip_code,
+                        "country": patient.country,
+                    },
+                    "emergency_contact": {
+                        "name": patient.emergency_contact_name,
+                        "relationship": patient.emergency_contact_relationship,
+                        "phone": patient.emergency_contact_phone,
+                    },
+                    "medical_info": {
+                        "blood_type": patient.blood_type,
+                        "allergies": patient.allergies,
+                        "medications": patient.current_medications,
+                        "medical_history": patient.medical_conditions,
+                    },
+                    "insurance": {
+                        "provider": patient.insurance_provider,
+                        "policy_number": patient.insurance_policy_number,
+                        "group_number": patient.insurance_group_number,
+                    },
+                }
+                return JsonResponse({
+                    "exists": True,
+                    "found_by": "email",
+                    "patient_id": str(patient.id),
+                    "email": patient.user.email,
+                    "full_name": patient.user.full_name,
+                    "patient_data": patient_data
+                })
+            except EnhancedPatient.DoesNotExist:
+                pass
+        
+        # Patient not found
+        return JsonResponse({
+            "exists": False,
+            "message": "No existing patient found with the provided information."
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        logger.error(f"Error checking existing patient: {str(e)}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @api_csrf_exempt
@@ -1087,6 +1308,41 @@ def create_patient(request):
             if not data.get(field):
                 return JsonResponse({"error": f"{field} is required"}, status=400)
         
+        # Check if national ID is required based on age
+        from datetime import datetime
+        try:
+            birth_date = datetime.strptime(data['dateOfBirth'], '%Y-%m-%d').date()
+            today = datetime.now().date()
+            age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            
+            # National ID is required for adults (18+), optional for minors
+            if age >= 18 and not data.get('nationalId'):
+                return JsonResponse({"error": "National ID is required for patients 18 years and older"}, status=400)
+        except ValueError:
+            return JsonResponse({"error": "Invalid date of birth format"}, status=400)
+        
+        # Check if patient already exists by national ID or email
+        existing_patient = None
+        patient_found_by = None
+        
+        # First, try to find by national ID (if provided)
+        if data.get('nationalId'):
+            try:
+                existing_patient = EnhancedPatient.objects.get(national_id=data['nationalId'])
+                patient_found_by = 'national_id'
+                logger.info(f"Found existing patient by national ID: {data['nationalId']}")
+            except EnhancedPatient.DoesNotExist:
+                logger.info(f"No patient found with national ID: {data['nationalId']}")
+        
+        # If not found by national ID, try by email
+        if not existing_patient:
+            try:
+                existing_patient = EnhancedPatient.objects.get(user__email=data['email'])
+                patient_found_by = 'email'
+                logger.info(f"Found existing patient by email: {data['email']}")
+            except EnhancedPatient.DoesNotExist:
+                logger.info(f"No patient found with email: {data['email']}")
+        
         # Handle account creation
         account_data = data.get('account', {})
         create_account = account_data.get('createAccount', False)
@@ -1101,6 +1357,47 @@ def create_patient(request):
             'is_active': True
         }
         
+        # Handle existing patient logic
+        if existing_patient:
+            # Check if this patient is already associated with this hospital
+            if HospitalPatient.objects.filter(hospital=hospital, patient=existing_patient).exists():
+                return JsonResponse({
+                    "error": f"Patient already exists in this hospital (found by {patient_found_by})"
+                }, status=400)
+            
+            # Patient exists but not in this hospital - just create the association
+            patient_user = existing_patient.user
+            patient = existing_patient
+            logger.info(f"Using existing patient {patient.id} found by {patient_found_by}")
+            
+            # Create hospital-patient relationship
+            HospitalPatient.objects.create(
+                hospital=hospital,
+                patient=patient,
+                relationship_type='admin_added',
+                status='active',
+                added_by=user,
+                notes=f"Patient associated with hospital by {user.full_name} (found by {patient_found_by})"
+            )
+            
+            # Return existing patient data
+            response_data = {
+                "id": str(patient.id),
+                "user_id": str(patient_user.id),
+                "email": patient_user.email,
+                "full_name": patient_user.full_name,
+                "phone": patient.phone,
+                "date_of_birth": patient.date_of_birth.isoformat(),
+                "gender": patient.gender,
+                "national_id": existing_patient.national_id or data.get('nationalId', ''),
+                "existing_patient": True,
+                "found_by": patient_found_by,
+                "message": f"Existing patient associated with hospital (found by {patient_found_by})"
+            }
+            
+            return JsonResponse(response_data, status=200)
+        
+        # New patient - proceed with normal creation flow
         # Check if user with this email already exists
         if User.objects.filter(email=data['email']).exists():
             return JsonResponse({"error": "A user with this email already exists"}, status=400)
@@ -1154,6 +1451,10 @@ def create_patient(request):
             'created_by': user,
         }
         
+        # Add national ID if provided
+        if data.get('nationalId'):
+            patient_data['national_id'] = data['nationalId']
+        
         # Add address information if provided
         address = data.get('address', {})
         if address.get('street'):
@@ -1175,6 +1476,10 @@ def create_patient(request):
             patient_data['emergency_contact_relationship'] = emergency['relationship']
         if emergency.get('phone'):
             patient_data['emergency_contact_phone'] = emergency['phone']
+        if emergency.get('email'):
+            patient_data['emergency_contact_email'] = emergency['email']
+        
+        # Add medical information if provided
         
         # Add medical information if provided
         medical = data.get('medicalInfo', {})
@@ -1198,6 +1503,32 @@ def create_patient(request):
         
         # Create the patient (hospital relationship is managed separately)
         patient = EnhancedPatient.objects.create(**patient_data)
+        
+        # Create additional emergency contacts if provided
+        additional_contacts = data.get('additionalEmergencyContacts', [])
+        for contact_data in additional_contacts:
+            if contact_data.get('name') and contact_data.get('priority'):
+                try:
+                    EmergencyContact.objects.create(
+                        patient=patient,
+                        name=contact_data['name'],
+                        relationship=contact_data.get('relationship', ''),
+                        phone=contact_data.get('phone', ''),
+                        email=contact_data.get('email', ''),
+                        priority=contact_data['priority'],
+                        notify_appointments=contact_data.get('notifyAppointments', True),
+                        notify_confirmations=contact_data.get('notifyConfirmations', True),
+                        notify_reminders=contact_data.get('notifyReminders', True),
+                        notify_cancellations=contact_data.get('notifyCancellations', True),
+                        notify_reschedules=contact_data.get('notifyReschedules', True),
+                        notify_emergencies=contact_data.get('notifyEmergencies', True)
+                    )
+                    logger.info(f"Created additional emergency contact for patient {patient.id} with priority {contact_data['priority']}")
+                except Exception as e:
+                    logger.error(f"Failed to create additional emergency contact for patient {patient.id}: {str(e)}")
+                    # Continue with other contacts even if one fails
+        
+        # Create hospital-patient relationship
         
         # Create hospital-patient relationship
         logger.debug(f"Hospital for relationship: {hospital}")
@@ -1231,10 +1562,13 @@ def create_patient(request):
             "firstName": data['firstName'],
             "lastName": data['lastName'],
             "email": data['email'],
+            "nationalId": data.get('nationalId', ''),
             "phone": data['phone'],
             "dateOfBirth": data['dateOfBirth'],
             "gender": data['gender'],
-            "status": "active"
+            "status": "active",
+            "existing_patient": False,
+            "account_created": account_created
         }
         
         # Prepare response message

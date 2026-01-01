@@ -8,10 +8,7 @@ import {
   Card,
   Stack,
   Avatar,
-  AccordionSummary,
-  AccordionDetails,
-  TextField,
-  InputAdornment,
+
   IconButton,
   Drawer,
   List,
@@ -23,7 +20,6 @@ import {
 import {
   CalendarToday,
   LocationOn,
-  LocalHospital,
   Person,
   Schedule,
   Phone,
@@ -31,27 +27,18 @@ import {
   MedicalServices,
   PhoneAndroid,
   Chat,
-  Language,
   Sms,
   Notifications,
   Call,
-  ExpandMore,
-  CheckCircle,
-  Star,
-  TrendingUp,
-  Security,
-  Speed,
   Menu as MenuIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { medicalColors, easings, durations } from '../../theme/colors';
-import { animations, animationMixins } from '../../utils/animations';
+import { animations } from '../../utils/animations';
 
 // Import medical images
 import healthcareProfessionalImg from '../../assets/images/healthcare-professional.jpg';
-import medicinesImg from '../../assets/images/medicines.jpg';
-import stethoscopeImg from '../../assets/images/stethoscope.jpg';
 
 // Custom hook for scroll-triggered animations
 const useScrollAnimation = (threshold = 0.1) => {

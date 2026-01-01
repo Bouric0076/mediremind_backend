@@ -104,7 +104,7 @@ def get_appointment_data(appointment_id):
             "id": str(appointment.id),
             "doctor_name": appointment.provider.user.get_full_name(),
             "patient_name": appointment.patient.user.get_full_name(),
-            "patient_phone": getattr(appointment.patient.user, 'phone', ''),
+            "patient_phone": getattr(appointment.patient, 'phone', ''),
             "patient_id": str(appointment.patient.user.id),
             "doctor_id": str(appointment.provider.user.id),
             "appointment_time": f"{appointment.appointment_date} {appointment.start_time}",

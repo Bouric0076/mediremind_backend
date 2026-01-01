@@ -185,15 +185,15 @@ const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> = ({
                       Conflict #{index + 1}
                     </Typography>
                     <Chip
-                      label={conflict.type.replace('_', ' ').toUpperCase()}
-                      color={getConflictTypeColor(conflict.type) as any}
+                      label={conflict.conflict_type.replace('_', ' ').toUpperCase()}
+                      color={getConflictTypeColor(conflict.conflict_type) as any}
                       size="small"
                     />
                   </Box>
                 </Box>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {conflict.description}
+                  {conflict.conflict_details?.description || 'No description available'}
                 </Typography>
 
                 {/* Internal Appointment */}
@@ -206,14 +206,14 @@ const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> = ({
                       <Box display="flex" alignItems="center" gap={2} mb={1}>
                         <PersonIcon fontSize="small" />
                         <Typography variant="body2">
-                          {conflict.internal_appointment.patientName} - {conflict.internal_appointment.appointmentType}
+                          {conflict.conflict_details?.internal_appointment?.patientName} - {conflict.conflict_details?.internal_appointment?.appointmentType}
                         </Typography>
                       </Box>
                       <Box display="flex" alignItems="center" gap={2}>
                         <ScheduleIcon fontSize="small" />
                         <Typography variant="body2">
-                          {formatDateTime(conflict.internal_appointment.date + 'T' + conflict.internal_appointment.time)}
-                          {' '}({conflict.internal_appointment.duration} min)
+                          {formatDateTime(conflict.conflict_details?.internal_appointment?.date + 'T' + conflict.conflict_details?.internal_appointment?.time)}
+                          {' '}({conflict.conflict_details?.internal_appointment?.duration} min)
                         </Typography>
                       </Box>
                     </CardContent>
@@ -230,18 +230,18 @@ const ConflictResolutionDialog: React.FC<ConflictResolutionDialogProps> = ({
                       <Box display="flex" alignItems="center" gap={2} mb={1}>
                         <CalendarIcon fontSize="small" />
                         <Typography variant="body2">
-                          {conflict.external_event.title}
+                          {conflict.conflict_details?.external_event?.title}
                         </Typography>
                       </Box>
                       <Box display="flex" alignItems="center" gap={2}>
                         <ScheduleIcon fontSize="small" />
                         <Typography variant="body2">
-                          {formatDateTime(conflict.external_event.start_time)} - {formatDateTime(conflict.external_event.end_time)}
+                          {formatDateTime(conflict.conflict_details?.external_event?.start_time)} - {formatDateTime(conflict.conflict_details?.external_event?.end_time)}
                         </Typography>
                       </Box>
-                      {conflict.external_event.calendar_name && (
+                      {conflict.conflict_details?.external_event?.calendar_name && (
                         <Typography variant="caption" color="text.secondary">
-                          From: {conflict.external_event.calendar_name}
+                          From: {conflict.conflict_details.external_event.calendar_name}
                         </Typography>
                       )}
                     </CardContent>

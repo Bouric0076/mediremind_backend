@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGetPatientQuery } from '../../store/api/apiSlice';
-import type { Patient } from '../../types';
+
 import { decryptField, isEncrypted } from '../../utils/decryptionService';
 
 export const PatientDetailPage: React.FC = () => {
@@ -70,13 +70,25 @@ export const PatientDetailPage: React.FC = () => {
     // Try to decrypt if it appears to be encrypted
     const decryptedPhone = isEncrypted(phone) ? decryptField(phone) : phone;
     
-    // Basic phone formatting
+    // Use Kenyan phone formatting
     const cleaned = decryptedPhone.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-    } else if (cleaned.length === 11 && cleaned.startsWith('1')) {
-      return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+    
+    // Handle Kenyan phone numbers
+    if (cleaned.length === 12 && cleaned.startsWith('254') && cleaned[3] === '7') {
+      // 254712345678 -> +254 712 345 678
+      return `+254 ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)} ${cleaned.slice(9)}`;
+    } else if (cleaned.length === 10 && cleaned.startsWith('07')) {
+      // 0712345678 -> +254 712 345 678
+      return `+254 ${cleaned.slice(1, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
+    } else if (cleaned.length === 9 && cleaned.startsWith('7')) {
+      // 712345678 -> +254 712 345 678
+      return `+254 ${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+    } else if (cleaned.length === 11 && cleaned.startsWith('126')) {
+      // Handle US format like "12608815999" -> +254 088 159 99
+      return `+254 ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)} ${cleaned.slice(9)}`;
     }
+    
+    // Fallback to original format if not recognized
     return decryptedPhone;
   };
 

@@ -18,6 +18,11 @@ class AuthenticatedUser:
         self.user = user
         self.profile = self._get_profile_data(user)
     
+    @property
+    def role(self):
+        """Get the user's role"""
+        return self.profile.get('role', 'patient')
+    
     def _get_profile_data(self, user):
         """Get profile data based on user role"""
         profile_data = {

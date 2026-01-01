@@ -42,7 +42,7 @@ import {
   Visibility as ViewIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  Person as PersonIcon,
+
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { RootState } from '../../store';
@@ -53,7 +53,7 @@ import {
   clearFilters 
 } from '../../store/slices/patientsSlice';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
-import { useGetPatientsQuery } from '../../store/api/apiSlice';
+import { useGetPatientsQuery, useDeletePatientMutation } from '../../store/api/apiSlice';
 
 interface Patient {
   id: string;
@@ -81,14 +81,18 @@ export const PatientsPage: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [tempFilters, setTempFilters] = useState(filters);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Real API query
-  const { data: patientsData, isLoading, error } = useGetPatientsQuery({
+  const { data: patientsData, isLoading, error, refetch } = useGetPatientsQuery({
     page: pagination.page + 1, // Backend uses 1-based pagination
     limit: pagination.limit,
     search: searchQuery,
     ...filters,
   });
+  
+  // Delete patient mutation
+  const [deletePatient, { isLoading: isDeleting }] = useDeletePatientMutation();
 
   useEffect(() => {
     dispatch(setCurrentPage('patients'));
@@ -113,13 +117,15 @@ export const PatientsPage: React.FC = () => {
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, patient: Patient) => {
+    event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedPatient(patient);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedPatient(null);
+    // Don't clear selectedPatient if we're opening the delete dialog
+    // It will be cleared when the dialog closes
   };
 
   const handleViewPatient = () => {
@@ -137,9 +143,28 @@ export const PatientsPage: React.FC = () => {
   };
 
   const handleDeletePatient = () => {
-    // Implement delete logic
-    console.log('Delete patient:', selectedPatient?.id);
+    setDeleteDialogOpen(true);
     handleMenuClose();
+  };
+
+
+
+  const confirmDeletePatient = async () => {
+    if (!selectedPatient?.id) {
+      return;
+    }
+
+    try {
+      await deletePatient(selectedPatient.id).unwrap();
+      // Refetch the patients list after successful deletion
+      refetch();
+      setDeleteDialogOpen(false);
+      setSelectedPatient(null); // Clear selected patient after successful deletion
+    } catch (error) {
+      // You might want to show an error notification here
+      setDeleteDialogOpen(false);
+      setSelectedPatient(null); // Clear selected patient even on error
+    }
   };
 
   const handleApplyFilters = () => {
@@ -359,8 +384,10 @@ export const PatientsPage: React.FC = () => {
                     </TableCell>
                     <TableCell align="right">
                       <IconButton
+                        id="patient-menu-button"
                         onClick={(e) => handleMenuClick(e, patient)}
                         size="small"
+                        aria-label="Patient actions"
                       >
                         <MoreVertIcon />
                       </IconButton>
@@ -387,6 +414,17 @@ export const PatientsPage: React.FC = () => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
+        MenuListProps={{
+          'aria-labelledby': 'patient-menu-button',
+        }}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
       >
         <MenuItem onClick={handleViewPatient}>
           <ViewIcon sx={{ mr: 1 }} />
@@ -460,6 +498,43 @@ export const PatientsPage: React.FC = () => {
           <Button onClick={() => setFilterDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleClearFilters} color="secondary">Clear All</Button>
           <Button onClick={handleApplyFilters} variant="contained">Apply Filters</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setSelectedPatient(null);
+        }} 
+        maxWidth="sm" 
+        fullWidth
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography id="delete-dialog-description">
+            Are you sure you want to remove <strong>{selectedPatient?.name}</strong> from this hospital?
+            This action will only remove the patient's association with this hospital and will not delete the patient's account.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setDeleteDialogOpen(false);
+            setSelectedPatient(null);
+          }} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDeletePatient} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+          >
+            {isDeleting ? <CircularProgress size={24} /> : 'Remove Patient'}
+          </Button>
         </DialogActions>
       </Dialog>
 

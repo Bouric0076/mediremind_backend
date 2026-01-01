@@ -361,11 +361,6 @@ class PatientEmailService:
             bool: True if email was sent successfully, False otherwise
         """
         try:
-            # Check if emergency contact email is available
-            if not patient.emergency_contact_email:
-                logger.warning(f"No emergency contact email for patient {patient.id}")
-                return False
-            
             # Check if emergency contact notifications are enabled
             if not patient.notify_emergency_contact:
                 logger.info(f"Emergency contact notifications disabled for patient {patient.id}")
@@ -383,38 +378,75 @@ class PatientEmailService:
                 logger.info(f"Email notifications not enabled for emergency contact of patient {patient.id}")
                 return False
             
-            # Prepare email context
-            context = self._prepare_emergency_contact_context(patient)
+            # Get all emergency contacts with email addresses
+            emergency_contacts = patient.get_emergency_contacts_for_notification('emergency_contact_added')
             
-            # Render email template
-            html_content = render_to_string(
-                'notifications/email/emergency_contact_notification.html',
-                context
-            )
-            
-            # Send email
-            subject = f"You've been added as an emergency contact for {context['patient_name']}"
-            
-            success, error_msg = self.email_client.send_email(
-                subject=subject,
-                message=strip_tags(html_content),
-                recipient_list=[patient.emergency_contact_email],
-                html_message=html_content
-            )
-            
-            if success:
-                logger.info(f"Emergency contact notification sent successfully for patient {patient.id}")
-                return True
-            else:
-                logger.error(f"Failed to send emergency contact notification for patient {patient.id}")
+            if not emergency_contacts:
+                logger.warning(f"No emergency contacts with email addresses found for patient {patient.id}")
                 return False
+            
+            success_count = 0
+            for contact in emergency_contacts:
+                if not contact['email']:
+                    continue
+                    
+                # Prepare email context for this specific contact
+                context = self._prepare_emergency_contact_context_for_contact(patient, contact)
+                
+                # Render email template
+                html_content = render_to_string(
+                    'notifications/email/emergency_contact_notification.html',
+                    context
+                )
+                
+                # Send email
+                subject = f"You've been added as an emergency contact for {context['patient_name']}"
+                
+                success, error_msg = self.email_client.send_email(
+                    subject=subject,
+                    message=strip_tags(html_content),
+                    recipient_list=[contact['email']],
+                    html_message=html_content
+                )
+                
+                if success:
+                    logger.info(f"Emergency contact notification sent to {contact['email']} for patient {patient.id}")
+                    success_count += 1
+                else:
+                    logger.error(f"Failed to send emergency contact notification to {contact['email']} for patient {patient.id}")
+            
+            return success_count > 0
                 
         except Exception as e:
             logger.error(f"Error sending emergency contact notification for patient {patient.id}: {str(e)}")
             return False
 
+    def _prepare_emergency_contact_context_for_contact(self, patient: EnhancedPatient, contact: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare template context for emergency contact notification email for a specific contact."""
+        # Get hospital from patient's hospital relationships
+        hospital = self._get_patient_hospital(patient)
+        
+        return {
+            'emergency_contact_name': contact['name'] or 'Emergency Contact',
+            'patient_name': patient.user.full_name or 'Patient',
+            'patient_first_name': patient.user.full_name.split(' ')[0] if patient.user.full_name else 'Patient',
+            'patient_last_name': ' '.join(patient.user.full_name.split(' ')[1:]) if patient.user.full_name and ' ' in patient.user.full_name else '',
+            'patient_id': str(patient.id),
+            'emergency_contact_relationship': contact['relationship'] or 'Emergency Contact',
+            'hospital_name': hospital.name if hospital else 'Healthcare Provider',
+            'hospital_phone': self._get_hospital_phone(hospital),
+            'hospital_email': self._get_hospital_email(hospital),
+            'hospital_website': self._get_hospital_website(hospital),
+            'hospital_address': self._get_hospital_address(hospital),
+            'primary_doctor': self._get_primary_doctor_name(patient),
+            'registration_date': patient.created_at.strftime('%B %d, %Y'),
+            'support_url': self._get_support_url(),
+            'privacy_url': self._get_privacy_url(),
+            'current_year': timezone.now().year,
+        }
+    
     def _prepare_emergency_contact_context(self, patient: EnhancedPatient) -> Dict[str, Any]:
-        """Prepare template context for emergency contact notification email."""
+        """DEPRECATED: Use _prepare_emergency_contact_context_for_contact instead."""
         # Get hospital from patient's hospital relationships
         hospital = self._get_patient_hospital(patient)
         

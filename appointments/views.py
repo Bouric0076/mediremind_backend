@@ -122,7 +122,7 @@ def create_appointment(request):
                         appointment.provider.hospital = user_hospital
                         appointment.provider.save()
                 
-                # Send notifications
+                # Store appointment data for notifications (to be sent after commit)
                 appointment_data = {
                     'id': appointment.id,
                     'date': appointment.appointment_date,
@@ -132,22 +132,25 @@ def create_appointment(request):
                     'provider': appointment.provider.user.get_full_name()
                 }
                 
-                send_appointment_notification(
-                    appointment_data, 
-                    'created',
-                    appointment.patient.user.email,
-                    appointment.provider.user.email
-                )
-
-                # Schedule reminder
+                # Schedule reminder (this is database-only, safe inside transaction)
                 appointment_reminder_service.schedule_appointment_reminders(appointment)
                 
                 # Return detailed appointment data
                 response_serializer = AppointmentSerializer(appointment)
-                return Response({
+                response_data = {
                     "message": "Appointment created successfully",
                     "appointment": response_serializer.data
-                }, status=status.HTTP_201_CREATED)
+                }
+                
+                # Send notifications AFTER transaction commits successfully
+                transaction.on_commit(lambda: send_appointment_notification(
+                    appointment_data, 
+                    'created',
+                    appointment.patient.user.email,
+                    appointment.provider.user.email
+                ))
+                
+                return Response(response_data, status=status.HTTP_201_CREATED)
         
         return Response({
             "error": "Validation failed",
@@ -220,8 +223,8 @@ def update_appointment(request, appointment_id):
                     if old_data.get(key) != new_data.get(key):
                         changes[key] = {'old': old_data.get(key), 'new': new_data.get(key)}
                 
+                # Store appointment data for notifications (to be sent after commit)
                 if changes:
-                    # Send update notifications
                     appointment_data = {
                         'id': updated_appointment.id,
                         'date': updated_appointment.appointment_date,
@@ -231,19 +234,23 @@ def update_appointment(request, appointment_id):
                         'provider': updated_appointment.provider.user.get_full_name(),
                         'changes': changes
                     }
-                    
-                    send_appointment_notification(
+
+                response_data = {
+                    "message": "Appointment updated successfully",
+                    "appointment": AppointmentSerializer(updated_appointment).data,
+                    "changes": changes
+                }
+                
+                # Send notifications AFTER transaction commits successfully
+                if changes:
+                    transaction.on_commit(lambda: send_appointment_notification(
                         appointment_data,
                         'updated',
                         updated_appointment.patient.user.email,
                         updated_appointment.provider.user.email
-                    )
-
-                return Response({
-                    "message": "Appointment updated successfully",
-                    "appointment": AppointmentSerializer(updated_appointment).data,
-                    "changes": changes
-                }, status=status.HTTP_200_OK)
+                    ))
+                
+                return Response(response_data, status=status.HTTP_200_OK)
         
         return Response({
             "error": "Validation failed",
@@ -274,7 +281,7 @@ def cancel_appointment(request, appointment_id):
         
         if user_role != 'patient':
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                staff_profile = EnhancedStaffProfile.objects.get(user=user.user)
                 user_hospital = staff_profile.hospital
             except EnhancedStaffProfile.DoesNotExist:
                 return JsonResponse({
@@ -284,9 +291,9 @@ def cancel_appointment(request, appointment_id):
         appointment = get_object_or_404(Appointment, id=appointment_id)
         
         # Check permissions
-        if user_role == 'patient' and appointment.patient.user != user:
+        if user_role == 'patient' and appointment.patient.user != user.user:
             return JsonResponse({"error": "Permission denied"}, status=403)
-        elif user_role == 'doctor' and appointment.provider.user != user:
+        elif user_role == 'doctor' and appointment.provider.user != user.user:
             return JsonResponse({"error": "Permission denied"}, status=403)
         elif user_role not in ['patient', 'doctor']:
             # For admin/staff, check hospital association
@@ -309,15 +316,15 @@ def cancel_appointment(request, appointment_id):
         with transaction.atomic():
             appointment.status = 'cancelled'
             appointment.cancellation_reason = cancellation_reason
-            appointment.cancelled_by = user
+            appointment.cancelled_by = user.user
             appointment.cancelled_at = timezone.now()
             appointment.save()
 
             # Send cancellation notifications
             appointment_data = {
                 'id': appointment.id,
-                'date': appointment.date,
-                'time': appointment.time,
+                'date': appointment.appointment_date,
+                'time': appointment.start_time,
                 'type': appointment.appointment_type.name,
                 'patient': appointment.patient.user.get_full_name(),
                 'provider': appointment.provider.user.get_full_name(),
@@ -364,7 +371,7 @@ def get_appointment_detail(request, appointment_id):
         appointment = get_object_or_404(
             Appointment.objects.select_related(
                 'patient__user', 'provider__user', 'appointment_type', 'room'
-            ).prefetch_related('equipment'),
+            ).prefetch_related('equipment_needed'),
             id=appointment_id
         )
         
@@ -1025,18 +1032,13 @@ def send_manual_sms_reminder(request, appointment_id):
                 "error": "Patient phone number not found"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Validate and format phone number
+        # Validate and format phone number for Kenyan SMS service
         try:
-            parsed_number = phonenumbers.parse(patient_phone, "KE")  # Default to Kenya
-            if not phonenumbers.is_valid_number(parsed_number):
-                return Response({
-                    "error": "Invalid phone number format"
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            formatted_phone = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
-        except NumberParseException:
+            from notifications.phone_utils import format_kenyan_phone_number
+            formatted_phone = format_kenyan_phone_number(patient_phone)
+        except ValueError as e:
             return Response({
-                "error": "Invalid phone number format"
+                "error": f"Invalid phone number format: {str(e)}"
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Compose SMS message

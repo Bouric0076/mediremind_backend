@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -139,10 +139,6 @@ export const HospitalRegistrationPage: React.FC = () => {
         return hospitalInfoForm;
     }
   };
-
-  // Watch for form changes to update button state
-  const currentForm = getCurrentForm();
-  const watchedValues = currentForm.watch();
 
   const handleNext = async () => {
     const currentForm = getCurrentForm();

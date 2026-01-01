@@ -33,32 +33,25 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider,
   Alert,
-  LinearProgress,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
   Payment as PaymentIcon,
   CreditCard as CreditCardIcon,
   AccountBalance as BankIcon,
   Money as CashIcon,
   Receipt as ReceiptIcon,
   Visibility as VisibilityIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Error as ErrorIcon,
-  Warning as WarningIcon,
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
-  AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
 import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
 
@@ -244,8 +237,8 @@ const mockPaymentMethods: PaymentMethod[] = [
 
 export const PaymentProcessingPage: React.FC = () => {
   const dispatch = useDispatch();
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods);
+  const [payments] = useState<Payment[]>(mockPayments);
+  const [paymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>(mockPayments);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -346,7 +339,7 @@ export const PaymentProcessingPage: React.FC = () => {
       case 'failed': return <ErrorIcon />;
       case 'refunded': return <RefreshIcon />;
       case 'cancelled': return <ErrorIcon />;
-      default: return null;
+      default: return <></>; // Return empty fragment instead of null
     }
   };
 
