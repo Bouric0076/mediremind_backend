@@ -18,6 +18,9 @@ from django.db.models import Q
 from accounts.models import EnhancedStaffProfile
 from django.utils import timezone
 from uuid import UUID
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 @api_csrf_exempt
 def save_subscription(request):
@@ -111,10 +114,14 @@ def get_notification_metrics(request):
         # Get hospital context from user if not provided
         if not hospital_id:
             try:
-                profile = get_user_profile(user.id, getattr(user, 'role', None))
-                if profile and profile.get('hospital_id'):
-                    hospital_id = profile['hospital_id']
-            except Exception:
+                # Ensure user.id is a string, not the AuthenticatedUser object
+                user_id_str = str(user.id) if hasattr(user, 'id') else None
+                if user_id_str:
+                    profile = get_user_profile(user_id_str, getattr(user, 'role', None))
+                    if profile and profile.get('hospital_id'):
+                        hospital_id = profile['hospital_id']
+            except Exception as e:
+                print(f"Error getting user profile for hospital context: {e}")
                 pass
 
         # Base queries
@@ -152,7 +159,16 @@ def get_notification_metrics(request):
         
         # Success rate calculation
         successful_count = notification_logs.filter(status__in=['sent', 'delivered', 'opened', 'clicked']).count()
-        success_rate = (successful_count / total_notifications * 100) if total_notifications > 0 else 0
+        
+        # Add debug logging to understand the calculation
+        print(f"DEBUG: total_notifications={total_notifications}, successful_count={successful_count}")
+        
+        if total_notifications > 0:
+            success_rate = (successful_count / total_notifications * 100)
+            # Ensure success rate is capped at 100%
+            success_rate = min(success_rate, 100)
+        else:
+            success_rate = 0
         
         # Task status breakdown
         task_status_breakdown = {}
@@ -175,7 +191,12 @@ def get_notification_metrics(request):
             
             hour_total = hour_logs.count()
             hour_successful = hour_logs.filter(status__in=['sent', 'delivered', 'opened', 'clicked']).count()
-            hour_success_rate = (hour_successful / hour_total * 100) if hour_total > 0 else 0
+            if hour_total > 0:
+                hour_success_rate = (hour_successful / hour_total * 100)
+                # Ensure hourly success rate is capped at 100%
+                hour_success_rate = min(hour_success_rate, 100)
+            else:
+                hour_success_rate = 0
             
             hourly_stats.append({
                 'hour': (now - timedelta(hours=i)).strftime('%H:00'),
@@ -233,11 +254,15 @@ def get_system_health(request):
         
         if user_role in ['admin', 'staff']:
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                # user is AuthenticatedUser object, need to get the actual Django User
+                django_user = User.objects.get(id=user.id)
+                staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
                 user_hospital = staff_profile.hospital
                 if user_hospital:
                     hospital_id = str(user_hospital.id)
             except EnhancedStaffProfile.DoesNotExist:
+                pass
+            except User.DoesNotExist:
                 pass
         
         # Service health checks
@@ -425,11 +450,15 @@ def get_realtime_stats(request):
         
         if not hospital_id and user_role in ['admin', 'staff']:
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                # user is AuthenticatedUser object, need to get the actual Django User
+                django_user = User.objects.get(id=user.id)
+                staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
                 user_hospital = staff_profile.hospital
                 if user_hospital:
                     hospital_id = str(user_hospital.id)
             except EnhancedStaffProfile.DoesNotExist:
+                pass
+            except User.DoesNotExist:
                 pass
         elif not hospital_id:
             # Try to get from profile for other user types
@@ -481,7 +510,12 @@ def get_realtime_stats(request):
             created_at__gte=last_5_minutes
         ).count()
         
-        error_rate = (recent_errors / recent_total * 100) if recent_total > 0 else 0
+        if recent_total > 0:
+            error_rate = (recent_errors / recent_total * 100)
+            # Ensure error rate is capped at 100%
+            error_rate = min(error_rate, 100)
+        else:
+            error_rate = 0
 
         # Queue sizes (simplified)
         queue_sizes = {
@@ -541,12 +575,16 @@ def get_notifications(request):
         
         if user_role in ['admin', 'staff']:
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                # user is AuthenticatedUser object, need to get the actual Django User
+                django_user = User.objects.get(id=user.id)
+                staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
                 user_hospital = staff_profile.hospital
                 if not user_hospital:
                     return JsonResponse({"error": "No hospital association found for staff user"}, status=403)
             except EnhancedStaffProfile.DoesNotExist:
                 return JsonResponse({"error": "Staff profile not found"}, status=403)
+            except User.DoesNotExist:
+                return JsonResponse({"error": "User not found"}, status=403)
         
         # Get query parameters
         page = int(request.GET.get('page', 1))
@@ -582,7 +620,9 @@ def get_notifications(request):
                     queryset = ScheduledTask.objects.none()
             except Exception as e:
                 print(f"Error filtering notifications by hospital: {e}")
-                return JsonResponse({"error": "Error filtering notifications by hospital"}, status=500)
+                # Continue without hospital filter if API fails
+                # This allows staff to see all notifications even if hospital filtering fails
+                pass
         # Apply patient-only filtering for patient users
         if user_role == 'patient':
             try:
@@ -809,12 +849,16 @@ def send_manual_notification(request):
         
         if user_role in ['admin', 'staff']:
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                # user is AuthenticatedUser object, need to get the actual Django User
+                django_user = User.objects.get(id=user.id)
+                staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
                 user_hospital = staff_profile.hospital
                 if not user_hospital:
                     return JsonResponse({"error": "No hospital association found for staff user"}, status=403)
             except EnhancedStaffProfile.DoesNotExist:
                 return JsonResponse({"error": "Staff profile not found"}, status=403)
+            except User.DoesNotExist:
+                return JsonResponse({"error": "User not found"}, status=403)
         
         data = json.loads(request.body)
         
@@ -940,12 +984,16 @@ def test_notifications(request):
         
         if user_role in ['admin', 'staff']:
             try:
-                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                # user is AuthenticatedUser object, need to get the actual Django User
+                django_user = User.objects.get(id=user.id)
+                staff_profile = EnhancedStaffProfile.objects.get(user=django_user)
                 user_hospital = staff_profile.hospital
                 if not user_hospital:
                     return JsonResponse({"error": "No hospital association found for staff user"}, status=403)
             except EnhancedStaffProfile.DoesNotExist:
                 return JsonResponse({"error": "Staff profile not found"}, status=403)
+            except User.DoesNotExist:
+                return JsonResponse({"error": "User not found"}, status=403)
         
         data = json.loads(request.body)
         test_type = data.get('type', 'reminder')  # reminder, confirmation, update

@@ -162,6 +162,14 @@ def get_user_by_id(user_id):
 def get_user_profile(user_id, role=None):
     """Get user profile based on role using Django models"""
     try:
+        # Ensure user_id is a string/UUID, not an object
+        if hasattr(user_id, 'id'):
+            # If user_id is an AuthenticatedUser object, get the actual ID
+            user_id = str(user_id.id)
+        elif not isinstance(user_id, str):
+            # Convert to string if not already
+            user_id = str(user_id)
+        
         user = User.objects.get(id=user_id)
         user_role = role or user.role
         

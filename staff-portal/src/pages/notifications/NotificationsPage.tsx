@@ -253,6 +253,7 @@ export const NotificationsPage: React.FC = () => {
   const {
     data: metricsData,
     isLoading: metricsLoading,
+    error: metricsError,
     refetch: refetchMetrics
   } = useGetNotificationMetricsQuery({
     start_date: dateRange.start,
@@ -262,11 +263,13 @@ export const NotificationsPage: React.FC = () => {
 
   const {
     data: systemHealthData,
-    isLoading: systemHealthLoading
+    isLoading: systemHealthLoading,
+    error: systemHealthError
   } = useGetSystemHealthQuery();
 
   const {
     data: realTimeStatsData,
+    error: realTimeStatsError,
     refetch: refetchRealTimeStats
   } = useGetRealTimeStatsQuery();
 
@@ -356,7 +359,7 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
-  const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
+  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
   const formatNumber = (value: number) => value.toLocaleString();
 
   return (
@@ -378,7 +381,7 @@ export const NotificationsPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {/* System Health Indicator */}
-          {!systemHealthLoading && systemHealthData && (
+          {!systemHealthLoading && systemHealthData && !systemHealthError && (
             <Tooltip title={`System Status: ${systemHealthData.status}`}>
               <Badge 
                 color={getHealthStatusColor(systemHealthData.status) as any}
@@ -386,6 +389,17 @@ export const NotificationsPage: React.FC = () => {
                 overlap="circular"
               >
                 <HealthIcon />
+              </Badge>
+            </Tooltip>
+          )}
+          {systemHealthError && (
+            <Tooltip title="System health check failed">
+              <Badge 
+                color="error"
+                variant="dot"
+                overlap="circular"
+              >
+                <HealthIcon color="error" />
               </Badge>
             </Tooltip>
           )}
@@ -427,72 +441,140 @@ export const NotificationsPage: React.FC = () => {
       {!metricsLoading && metricsData && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
+            <Card 
+              sx={{ 
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <CardContent sx={{ py: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="text.secondary" gutterBottom variant="body2">
+                    <Typography color="text.secondary" gutterBottom variant="body2" sx={{ fontWeight: 500 }}>
                       Total Notifications
                     </Typography>
-                    <Typography variant="h4">
+                    <Typography variant="h4" sx={{ fontWeight: 700 }}>
                       {formatNumber(metricsData.total_notifications)}
                     </Typography>
                   </Box>
-                  <BarChartIcon color="primary" sx={{ fontSize: 40 }} />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    backgroundColor: 'primary.lightest',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <BarChartIcon color="primary" sx={{ fontSize: 32 }} />
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
+            <Card 
+              sx={{ 
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <CardContent sx={{ py: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="text.secondary" gutterBottom variant="body2">
+                    <Typography color="text.secondary" gutterBottom variant="body2" sx={{ fontWeight: 500 }}>
                       Success Rate
                     </Typography>
-                    <Typography variant="h4" color="success.main">
+                    <Typography variant="h4" color="success.main" sx={{ fontWeight: 700 }}>
                       {formatPercentage(metricsData.success_rate)}
                     </Typography>
                   </Box>
-                  <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    backgroundColor: 'success.lightest',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <TrendingUpIcon color="success" sx={{ fontSize: 32 }} />
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
+            <Card 
+              sx={{ 
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <CardContent sx={{ py: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="text.secondary" gutterBottom variant="body2">
+                    <Typography color="text.secondary" gutterBottom variant="body2" sx={{ fontWeight: 500 }}>
                       Pending
                     </Typography>
-                    <Typography variant="h4" color="warning.main">
+                    <Typography variant="h4" color="warning.main" sx={{ fontWeight: 700 }}>
                       {formatNumber(metricsData.pending_count)}
                     </Typography>
                   </Box>
-                  <PendingIcon color="warning" sx={{ fontSize: 40 }} />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    backgroundColor: 'warning.lightest',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <PendingIcon color="warning" sx={{ fontSize: 32 }} />
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
+            <Card 
+              sx={{ 
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
+              }}
+            >
+              <CardContent sx={{ py: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="text.secondary" gutterBottom variant="body2">
+                    <Typography color="text.secondary" gutterBottom variant="body2" sx={{ fontWeight: 500 }}>
                       Error Rate
                     </Typography>
-                    <Typography variant="h4" color="error.main">
+                    <Typography variant="h4" color="error.main" sx={{ fontWeight: 700 }}>
                       {formatPercentage(metricsData.failure_rate)}
                     </Typography>
                   </Box>
-                  <TrendingDownIcon color="error" sx={{ fontSize: 40 }} />
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    backgroundColor: 'error.lightest',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <TrendingDownIcon color="error" sx={{ fontSize: 32 }} />
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
@@ -567,76 +649,142 @@ export const NotificationsPage: React.FC = () => {
 
           {/* Notifications List */}
           {notificationsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <CircularProgress size={60} sx={{ mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Loading notifications...
+              </Typography>
             </Box>
           ) : notificationsError ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              Failed to load notifications. Please try again.
-            </Alert>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <ErrorIcon color="error" sx={{ fontSize: 60, mb: 2 }} />
+              <Typography variant="h6" color="error" gutterBottom>
+                Failed to load notifications
+              </Typography>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Please check your connection and try again.
+              </Typography>
+              <Button 
+                variant="outlined" 
+                onClick={handleRefreshAll}
+                startIcon={<RefreshIcon />}
+              >
+                Try Again
+              </Button>
+            </Box>
           ) : notifications.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              No notifications found.
-            </Alert>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <NotificationsIcon color="action" sx={{ fontSize: 60, mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No notifications found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" align="center">
+                There are no notifications matching your current filters.
+              </Typography>
+            </Box>
           ) : (
             <>
               <List>
                 {notifications.map((notification: Notification) => (
-                  <ListItem key={notification.id} divider>
+                  <ListItem 
+                    key={notification.id} 
+                    divider
+                    sx={{ 
+                      py: 2, 
+                      px: 3,
+                      transition: 'background-color 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: 'action.hover'
+                      }
+                    }}
+                  >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <Avatar 
+                        sx={{ 
+                          bgcolor: notification.status === 'failed' ? 'error.main' : 'primary.main',
+                          width: 48,
+                          height: 48
+                        }}
+                      >
                         {getTypeIcon(notification.type)}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                             {notification.subject}
                           </Typography>
                           <Chip
-                            label={notification.status}
+                            label={notification.status.toUpperCase()}
                             size="small"
                             color={getStatusColor(notification.status) as any}
                             icon={getStatusIcon(notification.status)}
+                            sx={{ fontWeight: 500 }}
                           />
                           <Chip
-                            label={notification.priority}
+                            label={notification.priority.toUpperCase()}
                             size="small"
                             color={getPriorityColor(notification.priority) as any}
+                            variant="outlined"
+                            sx={{ fontWeight: 500 }}
                           />
                         </Box>
                       }
                       secondary={
                         <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            To: {notification.recipient.name} ({notification.recipient.contact})
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            <strong>To:</strong> {notification.recipient.name} ({notification.recipient.contact})
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{ mb: 1, lineHeight: 1.5 }}>
                             {notification.message}
                           </Typography>
                           {notification.appointment && (
-                            <Typography variant="body2" color="text.secondary">
-                              Appointment: {notification.appointment.date} at {notification.appointment.time}
-                              {notification.appointment.location && ` - ${notification.appointment.location}`}
-                            </Typography>
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
+                                📅 Appointment: {notification.appointment.date} at {notification.appointment.time}
+                              </Typography>
+                              {notification.appointment.location && (
+                                <Typography variant="body2" color="text.secondary">
+                                  📍 {notification.appointment.location}
+                                </Typography>
+                              )}
+                            </Box>
                           )}
                           {notification.error_message && (
-                            <Typography variant="body2" color="error">
-                              Error: {notification.error_message}
-                            </Typography>
+                            <Alert 
+                              severity="error" 
+                              sx={{ mb: 1, py: 0.5, fontSize: '0.8rem' }}
+                            >
+                              {notification.error_message}
+                            </Alert>
                           )}
-                          <Typography variant="caption" color="text.secondary">
-                            Created: {new Date(notification.created_at).toLocaleString()}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              Created: {new Date(notification.created_at).toLocaleString()}
+                            </Typography>
                             {notification.retry_count && notification.retry_count > 0 && (
-                              ` • Retries: ${notification.retry_count}`
+                              <Chip
+                                label={`${notification.retry_count} retries`}
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                sx={{ fontSize: '0.7rem' }}
+                              />
                             )}
-                          </Typography>
+                          </Box>
                         </Box>
                       }
                     />
                     <ListItemSecondaryAction>
-                      <IconButton edge="end">
+                      <IconButton 
+                        edge="end"
+                        sx={{ 
+                          '&:hover': { 
+                            backgroundColor: 'action.selected' 
+                          } 
+                        }}
+                      >
                         <MoreVertIcon />
                       </IconButton>
                     </ListItemSecondaryAction>
@@ -662,13 +810,29 @@ export const NotificationsPage: React.FC = () => {
         <TabPanel value={tabValue} index={1}>
           {/* Templates */}
           {templatesLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <CircularProgress size={60} sx={{ mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Loading templates...
+              </Typography>
             </Box>
           ) : templatesError ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              Failed to load templates. Please try again.
-            </Alert>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <ErrorIcon color="error" sx={{ fontSize: 60, mb: 2 }} />
+              <Typography variant="h6" color="error" gutterBottom>
+                Failed to load templates
+              </Typography>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Unable to load notification templates. Please check your connection and try again.
+              </Typography>
+              <Button 
+                variant="outlined" 
+                onClick={() => refetchNotifications()}
+                startIcon={<RefreshIcon />}
+              >
+                Try Again
+              </Button>
+            </Box>
           ) : (
             <Grid container spacing={3}>
                {templates.map((template: NotificationTemplate) => (
@@ -723,6 +887,31 @@ export const NotificationsPage: React.FC = () => {
 
         <TabPanel value={tabValue} index={2}>
           {/* Enhanced Analytics Dashboard */}
+          {metricsLoading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <CircularProgress size={60} sx={{ mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Loading analytics data...
+              </Typography>
+            </Box>
+          ) : metricsError ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 6, minHeight: 300 }}>
+              <ErrorIcon color="error" sx={{ fontSize: 60, mb: 2 }} />
+              <Typography variant="h6" color="error" gutterBottom>
+                Failed to load analytics
+              </Typography>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Unable to load notification analytics. Please check your connection and try again.
+              </Typography>
+              <Button 
+                variant="outlined" 
+                onClick={() => refetchMetrics()}
+                startIcon={<RefreshIcon />}
+              >
+                Try Again
+              </Button>
+            </Box>
+          ) : (
           <Grid container spacing={3}>
             {/* Delivery by Type Chart */}
             <Grid size={{ xs: 12, md: 6 }}>
@@ -827,7 +1016,7 @@ export const NotificationsPage: React.FC = () => {
                           </Typography>
                           <LinearProgress 
                             variant="determinate" 
-                            value={stat.success_rate * 100}
+                            value={stat.success_rate}
                             sx={{ flex: 1, height: 8, borderRadius: 4 }}
                             color={stat.success_rate > 0.9 ? 'success' : stat.success_rate > 0.7 ? 'warning' : 'error'}
                           />
@@ -845,7 +1034,7 @@ export const NotificationsPage: React.FC = () => {
             </Grid>
 
             {/* Real-time System Stats */}
-            {realTimeStatsData && (
+            {realTimeStatsData && !realTimeStatsError && (
               <Grid size={{ xs: 12 }}>
                 <Card>
                   <CardHeader 
@@ -863,7 +1052,7 @@ export const NotificationsPage: React.FC = () => {
                         )}
                         {realTimeStatsData.error_rate && (
                           <Chip 
-                            label={`${(realTimeStatsData.error_rate * 100).toFixed(1)}% errors`} 
+                            label={`${formatPercentage(realTimeStatsData.error_rate)} errors`} 
                             size="small" 
                             color={realTimeStatsData.error_rate < 0.05 ? 'success' : 'warning'}
                             icon={<WarningIcon />}
@@ -929,7 +1118,17 @@ export const NotificationsPage: React.FC = () => {
                 </Card>
               </Grid>
             )}
+            {realTimeStatsError && (
+              <Grid size={{ xs: 12 }}>
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    Real-time system stats are currently unavailable. This may affect monitoring accuracy.
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
           </Grid>
+          )}
         </TabPanel>
       </Paper>
 

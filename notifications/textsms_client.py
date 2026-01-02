@@ -7,11 +7,13 @@ import os
 import requests
 import json
 import logging
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass
 from django.conf import settings
 from django.utils import timezone
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,47 @@ class TextSMSClient:
         # Validate configuration
         if not all([self.api_key, self.partner_id]):
             logger.warning("TextSMS settings not configured properly")
+    
+    def _generate_message_idempotency_key(self, recipient: str, message: str, shortcode: str) -> str:
+        """Generate a unique key for message deduplication"""
+        content = f"{recipient}:{message}:{shortcode}"
+        return hashlib.md5(content.encode()).hexdigest()
+    
+    def _is_duplicate_message(self, message_key: str, ttl_seconds: int = 300) -> bool:
+        """
+        Check if this message was recently sent
+        
+        Args:
+            message_key: The idempotency key
+            ttl_seconds: Time to live in seconds (default 5 minutes)
+            
+        Returns:
+            True if message was recently sent, False otherwise
+        """
+        try:
+            cache_key = f"sms_idempotency:{message_key}"
+            if cache.get(cache_key):
+                logger.warning(f"Duplicate SMS detected for key: {message_key}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error checking SMS idempotency: {str(e)}")
+            # If cache fails, assume it's not a duplicate to avoid blocking legitimate messages
+            return False
+    
+    def _mark_message_sent(self, message_key: str, ttl_seconds: int = 300) -> None:
+        """
+        Mark a message as sent to prevent duplicates
+        
+        Args:
+            message_key: The idempotency key
+            ttl_seconds: Time to live in seconds (default 5 minutes)
+        """
+        try:
+            cache_key = f"sms_idempotency:{message_key}"
+            cache.set(cache_key, True, ttl_seconds)
+        except Exception as e:
+            logger.error(f"Error marking SMS as sent: {str(e)}")
             
     def _format_mobile_number(self, mobile: str) -> str:
         """Format mobile number to Kenyan format (254XXXXXXXXX)"""
@@ -133,7 +176,7 @@ class TextSMSClient:
             raise
     
     def send_sms(self, recipient: str, message: str, shortcode: Optional[str] = None, 
-                 schedule_time: Optional[str] = None) -> Tuple[bool, str]:
+                 schedule_time: Optional[str] = None, enable_idempotency: bool = True) -> Tuple[bool, str]:
         """
         Send single SMS message
         
@@ -142,6 +185,7 @@ class TextSMSClient:
             message: SMS message content
             shortcode: Sender ID (optional, defaults to configured sender_id)
             schedule_time: Schedule time in format "YYYY-MM-DD HH:MM" (optional)
+            enable_idempotency: Whether to enable duplicate prevention (default: True)
             
         Returns:
             Tuple of (success: bool, message: str)
@@ -161,6 +205,13 @@ class TextSMSClient:
 
             # Format mobile number
             formatted_mobile = self._format_mobile_number(recipient)
+            
+            # Check for duplicate messages if idempotency is enabled
+            if enable_idempotency:
+                message_key = self._generate_message_idempotency_key(formatted_mobile, message, shortcode or self.sender_id)
+                if self._is_duplicate_message(message_key):
+                    logger.warning(f"Duplicate SMS prevented for {formatted_mobile}")
+                    return True, "SMS skipped - duplicate prevention"
             
             # Prepare request data
             data = {
@@ -188,6 +239,11 @@ class TextSMSClient:
                 if response_code == 0 or response_code == 200:
                     message_id = first_response.get('messageid')
                     logger.info(f"SMS sent successfully to {formatted_mobile}, Message ID: {message_id}")
+                    
+                    # Mark message as sent to prevent duplicates
+                    if enable_idempotency:
+                        self._mark_message_sent(message_key)
+                    
                     return True, f"SMS sent successfully. Message ID: {message_id}"
                 else:
                     error_msg = self.RESPONSE_CODES.get(response_code, f"Unknown error code: {response_code}")

@@ -13,6 +13,7 @@ import json
 import os
 from django.utils import timezone
 from django.db import models
+from django.core.cache import cache
 from appointments.models import Appointment, AppointmentType
 from accounts.models import EnhancedPatient, EnhancedStaffProfile
 from .utils import (
@@ -98,6 +99,15 @@ class AppointmentReminderService:
     def schedule_appointment_reminders(self, appointment: Appointment) -> bool:
         """Schedule all reminders for an appointment"""
         try:
+            # Check if reminders are already scheduled for this appointment
+            appointment_lock_key = f"appointment_reminders_scheduled:{appointment.id}"
+            if cache.get(appointment_lock_key):
+                logger.warning(f"Reminders already scheduled for appointment {appointment.id}, skipping duplicate scheduling")
+                return False
+            
+            # Set lock to prevent duplicate scheduling (5 minute TTL)
+            cache.set(appointment_lock_key, True, 300)
+            
             appointment_datetime = datetime.combine(appointment.appointment_date, appointment.start_time)
             if timezone.is_naive(appointment_datetime):
                 appointment_datetime = timezone.make_aware(appointment_datetime)

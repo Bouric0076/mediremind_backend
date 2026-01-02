@@ -5,12 +5,10 @@ Handles sending welcome emails, login credentials, and account-related notificat
 
 import logging
 from typing import Optional, Dict, Any
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
-from .email_client import email_client
+from .resend_service import resend_service
 from accounts.models import EnhancedPatient
 
 logger = logging.getLogger(__name__)
@@ -20,7 +18,7 @@ class PatientEmailService:
     """Service for handling patient account-related email communications."""
     
     def __init__(self):
-        self.email_client = email_client
+        self.resend_service = resend_service
         
     def send_welcome_email_with_credentials(
         self, 
@@ -42,27 +40,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no user account or email address")
                 return False
                 
-            # Prepare template context
-            context = self._prepare_welcome_context_with_credentials(patient, temporary_password)
+            # Use Resend service for welcome email with credentials
+            patient_name = f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.email
             
-            # Render email template
-            html_content = render_to_string(
-                'notifications/email/patient_welcome_with_credentials.html',
-                context
-            )
-            
-            # Send email
-            success, message = self.email_client.send_email(
-                subject=f"Welcome to MediRemind - Your Account is Ready!",
-                message=strip_tags(html_content),
-                recipient_list=[patient.user.email],
-                html_message=html_content
+            # Send welcome email with credentials using Resend service
+            success, message = self.resend_service.send_welcome_email(
+                to_email=patient.user.email,
+                patient_name=patient_name,
+                clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Welcome email with credentials sent to {patient.user.email}")
+                logger.info(f"Welcome email with credentials sent to {patient.user.email} via Resend")
             else:
-                logger.error(f"Failed to send welcome email with credentials to {patient.user.email}")
+                logger.error(f"Failed to send welcome email with credentials to {patient.user.email} via Resend: {message}")
                 
             return success
             
@@ -85,27 +76,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no email address")
                 return False
                 
-            # Prepare template context
-            context = self._prepare_welcome_context_no_credentials(patient)
+            # Use Resend service for welcome email without credentials
+            patient_name = f"{patient.first_name} {patient.last_name}".strip() or patient.email
             
-            # Render email template
-            html_content = render_to_string(
-                'notifications/email/patient_welcome_no_credentials.html',
-                context
-            )
-            
-            # Send email
-            success, message = self.email_client.send_email(
-                subject=f"Welcome to MediRemind - You're All Set!",
-                message=strip_tags(html_content),
-                recipient_list=[patient.email],
-                html_message=html_content
+            # Send welcome email without credentials using Resend service
+            success, message = self.resend_service.send_welcome_email(
+                to_email=patient.email,
+                patient_name=patient_name,
+                clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Welcome email (no credentials) sent to {patient.email}")
+                logger.info(f"Welcome email (no credentials) sent to {patient.email} via Resend")
             else:
-                logger.error(f"Failed to send welcome email (no credentials) to {patient.email}")
+                logger.error(f"Failed to send welcome email (no credentials) to {patient.email} via Resend: {message}")
                 
             return success
             
@@ -133,31 +117,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no user account or email address")
                 return False
                 
-            # Prepare template context (similar to welcome with credentials)
-            context = self._prepare_welcome_context_with_credentials(patient, temporary_password)
-            context.update({
-                'is_activation': True,
-                'activation_message': 'Your online account has been activated!'
-            })
+            # Use Resend service for account activation email
+            patient_name = f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.email
             
-            # Render email template
-            html_content = render_to_string(
-                'notifications/email/patient_welcome_with_credentials.html',
-                context
-            )
-            
-            # Send email
-            success, message = self.email_client.send_email(
-                subject=f"Your MediRemind Account is Now Active! 🔓",
-                message=strip_tags(html_content),
-                recipient_list=[patient.user.email],
-                html_message=html_content
+            # Send account activation email using Resend service (similar to welcome email)
+            success, message = self.resend_service.send_welcome_email(
+                to_email=patient.user.email,
+                patient_name=patient_name,
+                clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Account activation email sent to {patient.user.email}")
+                logger.info(f"Account activation email sent to {patient.user.email} via Resend")
             else:
-                logger.error(f"Failed to send account activation email to {patient.user.email}")
+                logger.error(f"Failed to send account activation email to {patient.user.email} via Resend: {message}")
                 
             return success
             
@@ -196,31 +169,35 @@ class PatientEmailService:
                 'current_year': timezone.now().year
             }
             
-            # For now, use the welcome template as base (you can create a dedicated reset template later)
+            # Use Resend service for password reset email
+            patient_name = f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.email
+            
+            # Create simple HTML content for password reset
             html_content = f"""
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2>Password Reset Request</h2>
-                <p>Hello {context['patient_name']},</p>
+                <p>Hello {patient_name},</p>
                 <p>You requested a password reset for your MediRemind account. Click the link below to reset your password:</p>
                 <p><a href="{reset_url}" style="background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Reset Password</a></p>
-                <p>This link will expire in {context['expiry_hours']} hours.</p>
+                <p>This link will expire in 24 hours.</p>
                 <p>If you didn't request this reset, please ignore this email.</p>
                 <p>Best regards,<br>The MediRemind Team</p>
             </div>
             """
             
-            # Send email
-            success, message = self.email_client.send_email(
+            # Send password reset email using Resend service
+            success, message = self.resend_service.send_email(
+                to_email=patient.user.email,
                 subject=f"Reset Your MediRemind Password 🔑",
-                message=strip_tags(html_content),
-                recipient_list=[patient.user.email],
-                html_message=html_content
+                html_content=html_content,
+                text_content=f"Hello {patient_name}, You requested a password reset. Visit: {reset_url} (expires in 24 hours)",
+                tags={'type': 'password_reset', 'patient_id': str(patient.id)}
             )
             
             if success:
-                logger.info(f"Password reset email sent to {patient.user.email}")
+                logger.info(f"Password reset email sent to {patient.user.email} via Resend")
             else:
-                logger.error(f"Failed to send password reset email to {patient.user.email}")
+                logger.error(f"Failed to send password reset email to {patient.user.email} via Resend: {message}")
                 
             return success
             
@@ -390,30 +367,42 @@ class PatientEmailService:
                 if not contact['email']:
                     continue
                     
-                # Prepare email context for this specific contact
+                # Prepare email content for this specific contact
                 context = self._prepare_emergency_contact_context_for_contact(patient, contact)
                 
-                # Render email template
-                html_content = render_to_string(
-                    'notifications/email/emergency_contact_notification.html',
-                    context
-                )
+                # Create simple HTML content for emergency contact notification
+                html_content = f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Emergency Contact Notification</h2>
+                    <p>Hello {context['emergency_contact_name']},</p>
+                    <p>You have been added as an emergency contact for {context['patient_name']}.</p>
+                    <p>Patient Information:</p>
+                    <ul>
+                        <li>Name: {context['patient_name']}</li>
+                        <li>Hospital: {context['hospital_name']}</li>
+                        <li>Primary Doctor: {context['primary_doctor']}</li>
+                    </ul>
+                    <p>In case of emergency, you may be contacted regarding this patient.</p>
+                    <p>Best regards,<br>The MediRemind Team</p>
+                </div>
+                """
                 
-                # Send email
+                # Send emergency contact notification using Resend service
                 subject = f"You've been added as an emergency contact for {context['patient_name']}"
                 
-                success, error_msg = self.email_client.send_email(
+                success, error_msg = self.resend_service.send_email(
+                    to_email=contact['email'],
                     subject=subject,
-                    message=strip_tags(html_content),
-                    recipient_list=[contact['email']],
-                    html_message=html_content
+                    html_content=html_content,
+                    text_content=f"You've been added as an emergency contact for {context['patient_name']}. Please contact the healthcare provider for more information.",
+                    tags={'type': 'emergency_contact', 'patient_id': str(patient.id), 'contact_name': contact['name']}
                 )
                 
                 if success:
-                    logger.info(f"Emergency contact notification sent to {contact['email']} for patient {patient.id}")
+                    logger.info(f"Emergency contact notification sent to {contact['email']} for patient {patient.id} via Resend")
                     success_count += 1
                 else:
-                    logger.error(f"Failed to send emergency contact notification to {contact['email']} for patient {patient.id}")
+                    logger.error(f"Failed to send emergency contact notification to {contact['email']} for patient {patient.id} via Resend: {error_msg}")
             
             return success_count > 0
                 

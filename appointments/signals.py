@@ -7,6 +7,7 @@ import logging
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.core.cache import cache
 from .models import Appointment
 from notifications.appointment_reminders import AppointmentReminderService
 from notifications.scheduler import NotificationScheduler
@@ -29,6 +30,15 @@ def handle_appointment_created_or_updated(sender, instance, created, **kwargs):
         # Initialize services
         reminder_service = AppointmentReminderService()
         scheduler = NotificationScheduler()
+        
+        # Add idempotency check to prevent duplicate signal processing
+        signal_key = f"appointment_signal_processed:{instance.id}:{created}"
+        if cache.get(signal_key):
+            logger.warning(f"Signal already processed for appointment {instance.id}, skipping duplicate processing")
+            return
+        
+        # Set signal processing lock (2 minute TTL to prevent race conditions)
+        cache.set(signal_key, True, 120)
         
         if created:
             # New appointment created - schedule reminders

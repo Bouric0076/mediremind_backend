@@ -340,7 +340,7 @@ if DEBUG:
     print("Development mode: Emails will be printed to console")
 else:
     # Production mode - use transactional email service or SMTP
-    EMAIL_SERVICE = os.getenv('EMAIL_SERVICE', 'smtp').lower()
+    EMAIL_SERVICE = os.getenv('EMAIL_SERVICE', 'resend').lower()
     
     if EMAIL_SERVICE == 'sendgrid':
         # SendGrid configuration
