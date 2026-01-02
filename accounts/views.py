@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from authentication.utils import get_authenticated_user
 from authentication.middleware import api_csrf_exempt, get_request_user
-from .models import EnhancedPatient, EnhancedStaffProfile, Hospital, EmergencyContact
+from .models import EnhancedPatient, EnhancedStaffProfile, Hospital, EmergencyContact, HospitalPatient
 from .serializers import (
     HospitalSerializer, HospitalListSerializer, HospitalUpdateSerializer,
     EnhancedPatientSerializer, EnhancedStaffProfileSerializer
@@ -221,7 +221,6 @@ def get_all_patients(request):
         search = request.GET.get('search', '').strip()
         
         # Build query - only get patients associated with this hospital
-        from .models import HospitalPatient
         hospital_patient_ids = HospitalPatient.objects.filter(
             hospital=hospital,
             status='active'
@@ -329,7 +328,6 @@ def get_patient_detail(request, pk):
         patient = get_object_or_404(EnhancedPatient, id=pk)
         
         # Check if this patient belongs to the user's hospital
-        from .models import HospitalPatient
         hospital_patient = HospitalPatient.objects.filter(
             hospital=hospital,
             patient=patient,
@@ -886,7 +884,6 @@ def update_patient(request, pk):
             return JsonResponse({"error": "No hospital associated with staff profile"}, status=400)
         
         # Verify the patient belongs to this hospital
-        from .models import HospitalPatient
         try:
             hospital_patient = HospitalPatient.objects.get(
                 hospital=hospital,
@@ -1064,7 +1061,6 @@ def delete_patient(request, pk):
             return JsonResponse({"error": "No hospital associated with staff profile"}, status=400)
         
         # Verify the patient exists and belongs to this hospital
-        from .models import HospitalPatient
         logger.info(f"Looking for HospitalPatient with hospital={hospital}, patient__id={pk}, status='active'")
         logger.info(f"pk type: {type(pk)}, value: {pk}")
         
@@ -1533,7 +1529,6 @@ def create_patient(request):
         # Create hospital-patient relationship
         logger.debug(f"Hospital for relationship: {hospital}")
         if hospital:
-            from .models import HospitalPatient
             HospitalPatient.objects.create(
                 hospital=hospital,
                 patient=patient,
