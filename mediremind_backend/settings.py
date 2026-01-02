@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'analytics',  # Analytics and dashboard system
     'calendar_integrations',  # Calendar integration system
     'patient_mobile_api',  # Patient mobile app API endpoints
+    'api_integration',  # Hospital Management System API integration with KDPA compliance
 ]
 
 MIDDLEWARE = [

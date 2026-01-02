@@ -46,7 +46,7 @@ export const API_ENDPOINTS = {
   // Appointments
   APPOINTMENTS: {
     LIST: '/api/appointments/',
-    CREATE: '/api/appointments/',
+    CREATE: '/api/appointments/create/',
     GET: (id: string) => `/api/appointments/${id}/`,
     UPDATE: (id: string) => `/api/appointments/${id}/update/`,
     DELETE: (id: string) => `/api/appointments/${id}/`,

@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/calendar/', include('calendar_integrations.urls')),
     path('api/scheduler/', include(scheduler_api_urls)),
     path('api/patient/', include('patient_mobile_api.urls')),
+    path('api/integration/', include('api_integration.urls')),  # Hospital Management System API integration
     
     # Health check
     path('health/', health_check, name='health_check'),
