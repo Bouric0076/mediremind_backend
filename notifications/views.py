@@ -80,6 +80,447 @@ def save_subscription(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+# MONITORING ENDPOINTS
+
+@api_csrf_exempt
+def get_notification_metrics(request):
+    """Get comprehensive notification metrics with filtering"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        # Get query parameters
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        hospital_id = request.GET.get('hospital_id')
+        
+        # Build filters
+        filters = {}
+        if start_date:
+            filters['created_at__gte'] = start_date
+        if end_date:
+            filters['created_at__lte'] = end_date
+        
+        # Get hospital context from user if not provided
+        if not hospital_id:
+            try:
+                profile = get_user_profile(user.id, getattr(user, 'role', None))
+                if profile and profile.get('hospital_id'):
+                    hospital_id = profile['hospital_id']
+            except Exception:
+                pass
+
+        # Base queries
+        notification_logs = NotificationLog.objects.filter(**filters)
+        scheduled_tasks = ScheduledTask.objects.filter(**filters)
+        
+        # Apply hospital filtering if available
+        if hospital_id:
+            # Filter by hospital through patient appointments
+            try:
+                # Get patients for this hospital
+                patients_result = admin_client.table("patients").select("id").eq("hospital_id", hospital_id).execute()
+                if patients_result.data:
+                    patient_ids = [p['id'] for p in patients_result.data]
+                    notification_logs = notification_logs.filter(patient_id__in=patient_ids)
+                    scheduled_tasks = scheduled_tasks.filter(appointment_id__in=[
+                        appt['id'] for appt in admin_client.table("appointments").select("id").in_("patient_id", patient_ids).execute().data or []
+                    ])
+            except Exception:
+                # Fallback: continue without hospital filter if API fails
+                pass
+
+        # Calculate metrics
+        total_notifications = notification_logs.count()
+        
+        # Status breakdown
+        status_breakdown = {}
+        for status, _ in NotificationLog.STATUSES:
+            status_breakdown[status] = notification_logs.filter(status=status).count()
+        
+        # Delivery method breakdown
+        delivery_breakdown = {}
+        for method in ['email', 'sms', 'push', 'whatsapp']:
+            delivery_breakdown[method] = notification_logs.filter(delivery_method=method).count()
+        
+        # Success rate calculation
+        successful_count = notification_logs.filter(status__in=['sent', 'delivered', 'opened', 'clicked']).count()
+        success_rate = (successful_count / total_notifications * 100) if total_notifications > 0 else 0
+        
+        # Task status breakdown
+        task_status_breakdown = {}
+        for status, _ in ScheduledTask.STATUSES:
+            task_status_breakdown[status] = scheduled_tasks.filter(status=status).count()
+        
+        # Hourly statistics (last 24 hours)
+        from datetime import datetime, timedelta
+        now = timezone.now()
+        hourly_stats = []
+        
+        for i in range(24):
+            hour_start = now - timedelta(hours=i+1)
+            hour_end = now - timedelta(hours=i)
+            
+            hour_logs = notification_logs.filter(
+                created_at__gte=hour_start,
+                created_at__lt=hour_end
+            )
+            
+            hour_total = hour_logs.count()
+            hour_successful = hour_logs.filter(status__in=['sent', 'delivered', 'opened', 'clicked']).count()
+            hour_success_rate = (hour_successful / hour_total * 100) if hour_total > 0 else 0
+            
+            hourly_stats.append({
+                'hour': (now - timedelta(hours=i)).strftime('%H:00'),
+                'count': hour_total,
+                'success_rate': round(hour_success_rate, 2)
+            })
+        
+        hourly_stats.reverse()  # Oldest to newest
+
+        return JsonResponse({
+            'total_notifications': total_notifications,
+            'success_rate': round(success_rate, 2),
+            'failure_rate': round(100 - success_rate, 2),
+            'pending_count': task_status_breakdown.get('pending', 0),
+            'processing_count': task_status_breakdown.get('processing', 0),
+            'delivery_by_type': delivery_breakdown,
+            'delivery_by_status': status_breakdown,
+            'hourly_stats': hourly_stats,
+            'hospital_id': hospital_id,
+            'time_range': {
+                'start': start_date,
+                'end': end_date
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_csrf_exempt
+def get_system_health(request):
+    """Get system health status for all notification services"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        from datetime import datetime, timedelta
+        from django.db.models import Count, Avg
+        from django.utils import timezone
+        
+        now = timezone.now()
+        last_5_minutes = now - timedelta(minutes=5)
+        last_hour = now - timedelta(hours=1)
+
+        # Get user role and hospital association
+        user_role = getattr(user, 'role', user.profile.get('role') if hasattr(user, 'profile') else None)
+        user_hospital = None
+        hospital_id = None
+        
+        if user_role in ['admin', 'staff']:
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                user_hospital = staff_profile.hospital
+                if user_hospital:
+                    hospital_id = str(user_hospital.id)
+            except EnhancedStaffProfile.DoesNotExist:
+                pass
+        
+        # Service health checks
+        services = {}
+        
+        # Database health
+        try:
+            # Build base query for notifications
+            notification_query = NotificationLog.objects.filter(
+                created_at__gte=last_5_minutes
+            )
+            
+            # Apply hospital filtering for staff/admin users
+            if hospital_id:
+                try:
+                    # Get patients for this hospital
+                    patients_result = admin_client.table("patients").select("id").eq("hospital_id", hospital_id).execute()
+                    if patients_result.data:
+                        patient_ids = [p['id'] for p in patients_result.data]
+                        notification_query = notification_query.filter(patient_id__in=patient_ids)
+                except Exception:
+                    # Continue without hospital filter if API fails
+                    pass
+            
+            # Check recent notification processing
+            recent_notifications = notification_query.aggregate(
+                total=Count('id'),
+                avg_response_time=Avg('metadata__response_time_ms')
+            )
+            
+            db_health = 'healthy'
+            if recent_notifications['total'] == 0:
+                db_health = 'degraded'  # No recent activity
+            elif recent_notifications['avg_response_time'] and recent_notifications['avg_response_time'] > 5000:
+                db_health = 'degraded'  # Slow response times
+                
+            services['database'] = {
+                'status': db_health,
+                'response_time': recent_notifications['avg_response_time'],
+                'last_check': now.isoformat()
+            }
+        except Exception as e:
+            services['database'] = {
+                'status': 'unhealthy',
+                'error': str(e),
+                'last_check': now.isoformat()
+            }
+
+        # Redis health (through scheduled tasks)
+        try:
+            # Build base query for scheduled tasks
+            task_query = ScheduledTask.objects.filter()
+            
+            # Apply hospital filtering for staff/admin users
+            if hospital_id:
+                try:
+                    # Get patients for this hospital
+                    patients_result = admin_client.table("patients").select("id").eq("hospital_id", hospital_id).execute()
+                    if patients_result.data:
+                        patient_ids = [p['id'] for p in patients_result.data]
+                        # Get appointments for these patients
+                        appt_result = admin_client.table("appointments").select("id").in_("patient_id", patient_ids).execute()
+                        if appt_result.data:
+                            appointment_ids = [a['id'] for a in appt_result.data]
+                            task_query = task_query.filter(appointment_id__in=appointment_ids)
+                except Exception:
+                    # Continue without hospital filter if API fails
+                    pass
+            
+            pending_tasks = task_query.filter(
+                status='pending',
+                scheduled_time__lte=now
+            ).count()
+            
+            processing_tasks = task_query.filter(
+                status='processing',
+                last_attempt__gte=last_5_minutes
+            ).count()
+            
+            redis_health = 'healthy'
+            if pending_tasks > 100:
+                redis_health = 'degraded'  # Too many pending tasks
+            elif processing_tasks > 50:
+                redis_health = 'degraded'  # Too many processing tasks
+                
+            services['redis'] = {
+                'status': redis_health,
+                'pending_tasks': pending_tasks,
+                'processing_tasks': processing_tasks,
+                'last_check': now.isoformat()
+            }
+        except Exception as e:
+            services['redis'] = {
+                'status': 'unhealthy',
+                'error': str(e),
+                'last_check': now.isoformat()
+            }
+
+        # Email service health (Resend)
+        try:
+            recent_email_failures = NotificationLog.objects.filter(
+                delivery_method='email',
+                created_at__gte=last_hour,
+                status='failed'
+            ).count()
+            
+            recent_email_total = NotificationLog.objects.filter(
+                delivery_method='email',
+                created_at__gte=last_hour
+            ).count()
+            
+            email_error_rate = (recent_email_failures / recent_email_total * 100) if recent_email_total > 0 else 0
+            
+            email_health = 'healthy'
+            if email_error_rate > 10:
+                email_health = 'degraded'
+            elif email_error_rate > 25:
+                email_health = 'unhealthy'
+                
+            services['email'] = {
+                'status': email_health,
+                'error_rate': round(email_error_rate, 2),
+                'last_hour_total': recent_email_total,
+                'last_hour_failures': recent_email_failures,
+                'last_check': now.isoformat()
+            }
+        except Exception as e:
+            services['email'] = {
+                'status': 'unhealthy',
+                'error': str(e),
+                'last_check': now.isoformat()
+            }
+
+        # Overall system status
+        unhealthy_services = sum(1 for s in services.values() if s['status'] == 'unhealthy')
+        degraded_services = sum(1 for s in services.values() if s['status'] == 'degraded')
+        
+        if unhealthy_services > 0:
+            overall_status = 'unhealthy'
+        elif degraded_services > 0:
+            overall_status = 'degraded'
+        else:
+            overall_status = 'healthy'
+
+        return JsonResponse({
+            'status': overall_status,
+            'services': services,
+            'last_check': now.isoformat(),
+            'summary': {
+                'healthy': sum(1 for s in services.values() if s['status'] == 'healthy'),
+                'degraded': degraded_services,
+                'unhealthy': unhealthy_services
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_csrf_exempt
+def get_realtime_stats(request):
+    """Get real-time processing statistics"""
+    if request.method == "OPTIONS":
+        return JsonResponse({"message": "OK"}, status=200)
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    user = get_request_user(request)
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        from datetime import datetime, timedelta
+        from django.db.models import Count, Avg
+        from django.utils import timezone
+        
+        now = timezone.now()
+        last_minute = now - timedelta(minutes=1)
+        last_5_minutes = now - timedelta(minutes=5)
+
+        # Get user role and hospital association
+        user_role = getattr(user, 'role', user.profile.get('role') if hasattr(user, 'profile') else None)
+        user_hospital = None
+        hospital_id = request.GET.get('hospital_id')
+        
+        if not hospital_id and user_role in ['admin', 'staff']:
+            try:
+                staff_profile = EnhancedStaffProfile.objects.get(user=user)
+                user_hospital = staff_profile.hospital
+                if user_hospital:
+                    hospital_id = str(user_hospital.id)
+            except EnhancedStaffProfile.DoesNotExist:
+                pass
+        elif not hospital_id:
+            # Try to get from profile for other user types
+            try:
+                profile = get_user_profile(user.id, user_role)
+                if profile and profile.get('hospital_id'):
+                    hospital_id = profile['hospital_id']
+            except Exception:
+                pass
+
+        # Build base queries with hospital filtering
+        notification_query = NotificationLog.objects.filter()
+        task_query = ScheduledTask.objects.filter()
+        
+        # Apply hospital filtering for staff/admin users
+        if hospital_id:
+            try:
+                # Get patients for this hospital
+                patients_result = admin_client.table("patients").select("id").eq("hospital_id", hospital_id).execute()
+                if patients_result.data:
+                    patient_ids = [p['id'] for p in patients_result.data]
+                    notification_query = notification_query.filter(patient_id__in=patient_ids)
+                    
+                    # Get appointments for these patients
+                    appt_result = admin_client.table("appointments").select("id").in_("patient_id", patient_ids).execute()
+                    if appt_result.data:
+                        appointment_ids = [a['id'] for a in appt_result.data]
+                        task_query = task_query.filter(appointment_id__in=appointment_ids)
+            except Exception:
+                # Continue without hospital filter if API fails
+                pass
+
+        # Real-time metrics
+        active_queues = 1  # Simplified - would integrate with actual queue system
+        
+        # Processing rate (last minute)
+        recent_processed = notification_query.filter(
+            created_at__gte=last_minute
+        ).count()
+        processing_rate = recent_processed  # per minute
+
+        # Error rate (last 5 minutes)
+        recent_errors = notification_query.filter(
+            created_at__gte=last_5_minutes,
+            status='failed'
+        ).count()
+        
+        recent_total = notification_query.filter(
+            created_at__gte=last_5_minutes
+        ).count()
+        
+        error_rate = (recent_errors / recent_total * 100) if recent_total > 0 else 0
+
+        # Queue sizes (simplified)
+        queue_sizes = {
+            'pending': task_query.filter(status='pending').count(),
+            'processing': task_query.filter(status='processing').count(),
+            'failed': task_query.filter(status='failed').count(),
+            'retrying': task_query.filter(status='retrying').count()
+        }
+
+        # Recent errors with details
+        recent_errors_detailed = []
+        error_logs = notification_query.filter(
+            created_at__gte=last_5_minutes,
+            status='failed'
+        ).values('error_message').annotate(
+            count=Count('id')
+        ).order_by('-count')[:5]
+
+        for error in error_logs:
+            if error['error_message']:
+                recent_errors_detailed.append({
+                    'timestamp': now.isoformat(),
+                    'error': error['error_message'][:200],  # Truncate long errors
+                    'count': error['count']
+                })
+
+        return JsonResponse({
+            'active_queues': active_queues,
+            'processing_rate': processing_rate,
+            'error_rate': round(error_rate, 2),
+            'queue_sizes': queue_sizes,
+            'recent_errors': recent_errors_detailed,
+            'hospital_id': hospital_id,
+            'last_updated': now.isoformat()
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 @api_csrf_exempt
 def get_notifications(request):
     """Get paginated list of notifications/scheduled tasks"""

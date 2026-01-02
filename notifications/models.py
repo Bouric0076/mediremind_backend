@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 import uuid
+from notifications.dead_letter_queue import EnhancedRetryMixin
 
 class PushSubscription(models.Model):
     """Model to store web push subscriptions"""
@@ -30,8 +31,8 @@ class PushSubscription(models.Model):
         }
 
 
-class ScheduledTask(models.Model):
-    """Model for persistent task storage"""
+class ScheduledTask(EnhancedRetryMixin, models.Model):
+    """Model for persistent task storage with enhanced retry logic"""
     
     TASK_TYPES = [
         ('reminder', 'Appointment Reminder'),
@@ -92,6 +93,11 @@ class ScheduledTask(models.Model):
             models.Index(fields=['delivery_method', 'status']),
             models.Index(fields=['priority', 'scheduled_time']),
             models.Index(fields=['created_at']),
+            # Additional indexes for monitoring queries
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['task_type', 'status']),
+            models.Index(fields=['delivery_method', 'created_at']),
+            models.Index(fields=['scheduled_time', 'status']),
         ]
         ordering = ['priority', 'scheduled_time']
     
@@ -143,6 +149,12 @@ class NotificationLog(models.Model):
             models.Index(fields=['delivery_method', 'status']),
             models.Index(fields=['created_at']),
             models.Index(fields=['external_id']),
+            # Additional indexes for monitoring queries
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['delivery_method', 'created_at']),
+            models.Index(fields=['patient_id', 'status']),
+            models.Index(fields=['appointment_id', 'status']),
+            models.Index(fields=['task', 'status']),
         ]
         ordering = ['-created_at']
     

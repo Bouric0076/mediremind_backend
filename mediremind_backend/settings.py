@@ -375,6 +375,15 @@ else:
         EMAIL_HOST_PASSWORD = os.getenv('AWS_SES_SMTP_PASSWORD')
         EMAIL_TIMEOUT = 30
         
+    elif EMAIL_SERVICE == 'resend':
+        # Resend configuration - using Resend service via their API
+        # Note: Resend doesn't use traditional SMTP, it's API-based
+        # The actual email sending is handled by the resend_service.py module
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Fallback for Django
+        RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+        RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'noreply@mediremind.com')
+        RESEND_FROM_NAME = os.getenv('RESEND_FROM_NAME', 'MediRemind')
+        
     else:
         # Fallback to Gmail SMTP (original configuration)
         EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -387,13 +396,17 @@ else:
         EMAIL_TIMEOUT = 30  # Increased timeout
     
     # Warn if email settings are not configured
-    if not EMAIL_HOST_PASSWORD:
+    if EMAIL_SERVICE == 'resend' and not os.getenv('RESEND_API_KEY'):
+        print(f"Warning: Resend email service not properly configured. Email notifications will not work.")
+        print("Required: RESEND_API_KEY")
+    elif EMAIL_SERVICE != 'resend' and not EMAIL_HOST_PASSWORD:
         print(f"Warning: Email service '{EMAIL_SERVICE}' not properly configured. Email notifications will not work.")
         print("Required environment variables depend on EMAIL_SERVICE:")
         print("- sendgrid: SENDGRID_API_KEY")
         print("- mailgun: MAILGUN_SMTP_LOGIN, MAILGUN_SMTP_PASSWORD")
         print("- aws_ses: AWS_SES_SMTP_USERNAME, AWS_SES_SMTP_PASSWORD, AWS_REGION")
         print("- smtp (gmail): EMAIL_HOST_USER, EMAIL_HOST_PASSWORD")
+        print("- resend: RESEND_API_KEY")
 
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
 

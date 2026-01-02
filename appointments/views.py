@@ -49,25 +49,44 @@ def check_patient_hospital_relationship(patient, hospital):
 
 
 def send_appointment_notification(appointment_data, action, patient_email, doctor_email):
-    """Send appointment notifications"""
+    """Send appointment notifications using async tasks"""
     try:
-        # Format the notification message based on action
+        from notifications.tasks import send_appointment_confirmation_async
+        
+        # Only send confirmation emails for new appointments
         if action == "created":
-            message = f"New appointment scheduled for {appointment_data['date']} at {appointment_data['time']}"
+            # Extract patient name from appointment data
+            patient_name = appointment_data.get('patient', 'Patient')
+            
+            # Prepare appointment details for email
+            appointment_details = {
+                'id': appointment_data['id'],
+                'date': appointment_data['date'],
+                'time': appointment_data['time'],
+                'doctor_name': appointment_data.get('provider', 'Doctor'),
+                'appointment_type': appointment_data.get('type', 'Consultation'),
+                'location': 'MediRemind Clinic',  # You can customize this
+                'patient_id': appointment_data.get('patient_id'),
+            }
+            
+            # Send async email confirmation
+            send_appointment_confirmation_async.delay(
+                appointment_id=appointment_data['id'],
+                patient_email=patient_email,
+                patient_name=patient_name,
+                appointment_details=appointment_details
+            )
+            
+            logger.info(f"Async appointment confirmation scheduled for {patient_email}")
+        
+        # For other actions (updated, cancelled), you can add similar async tasks
         elif action == "updated":
-            message = f"Appointment updated for {appointment_data['date']} at {appointment_data['time']}"
+            logger.info(f"Appointment updated notification would be sent to {patient_email}")
         elif action == "cancelled":
-            message = f"Appointment cancelled for {appointment_data['date']} at {appointment_data['time']}"
-        else:
-            message = f"Appointment {action} for {appointment_data['date']} at {appointment_data['time']}"
-        
-        # Send notifications using the notification system
-        send_appointment_confirmation(appointment_data['id'], patient_email, doctor_email)
-        send_appointment_update(appointment_data, action, patient_email, doctor_email)
-        logger.info(f"Notification sent: {message} to {patient_email} and {doctor_email}")
-        
+            logger.info(f"Appointment cancelled notification would be sent to {patient_email}")
+            
     except Exception as e:
-        logger.error(f"Failed to send notification: {str(e)}")
+        logger.error(f"Failed to schedule appointment notification: {str(e)}")
 
 
 @api_view(['POST'])

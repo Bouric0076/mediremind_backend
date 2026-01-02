@@ -11,38 +11,13 @@ from collections import defaultdict, deque
 from supabase_client import admin_client
 from celery import Celery
 from celery.result import AsyncResult
-from redis_config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+from redis_pool_config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND, celery_config
 
 logger = logging.getLogger(__name__)
 
-# Celery configuration with Redis Cloud
+# Celery configuration with Redis Cloud and connection pooling
 celery_app = Celery('mediremind_notifications')
-celery_app.conf.update(
-    broker_url=CELERY_BROKER_URL,
-    result_backend=CELERY_RESULT_BACKEND,
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='UTC',
-    enable_utc=True,
-    task_track_started=True,
-    task_time_limit=30 * 60,  # 30 minutes
-    task_soft_time_limit=25 * 60,  # 25 minutes
-    worker_prefetch_multiplier=1,
-    task_acks_late=True,
-    worker_disable_rate_limits=False,
-    task_compression='gzip',
-    result_compression='gzip',
-    task_routes={
-        'notifications.tasks.send_sms': {'queue': 'sms'},
-        'notifications.tasks.send_email': {'queue': 'email'},
-        'notifications.tasks.send_push': {'queue': 'push'},
-    },
-    # Redis Cloud specific settings
-    broker_connection_retry_on_startup=True,
-    broker_connection_retry=True,
-    broker_connection_max_retries=10
-)
+celery_app.conf.update(celery_config)
 
 class QueueType(Enum):
     """Types of notification queues"""

@@ -6,6 +6,7 @@ from .interactive_email_views import (
 )
 from . import fcm_views
 from . import medication_views
+from . import dead_letter_queue_api
 
 app_name = 'notifications'
 
@@ -43,6 +44,16 @@ urlpatterns = [
     path('send/', views.send_manual_notification, name='send_manual_notification'),
      path('preferences/', views.notification_preferences, name='notification_preferences'),
     path('mark-read/<str:notification_id>/', views.mark_notification_read, name='mark_notification_read'),
+    
+    # Monitoring endpoints
+    path('metrics/', views.get_notification_metrics, name='get_notification_metrics'),
+    path('health/', views.get_system_health, name='get_system_health'),
+    path('realtime/', views.get_realtime_stats, name='get_realtime_stats'),
+    
+    # Dead Letter Queue endpoints
+    path('dead-letter-queue/', dead_letter_queue_api.get_dead_letter_queue, name='get_dead_letter_queue'),
+    path('dead-letter-queue/statistics/', dead_letter_queue_api.get_dead_letter_statistics, name='get_dead_letter_statistics'),
+    path('dead-letter-queue/<str:entry_id>/review/', dead_letter_queue_api.review_dead_letter_entry, name='review_dead_letter_entry'),
     
     # Interactive email action endpoints
     path('interactive/<str:action_type>/<str:user_id>/<str:resource_id>/', 

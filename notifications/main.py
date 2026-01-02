@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 import uvicorn
-from redis_config import test_redis_connection, REDIS_CONFIGS
+from redis_pool_config import test_redis_connection, REDIS_CONFIGS
 
 # Import all notification system components
 from .logging_config import NotificationLogger

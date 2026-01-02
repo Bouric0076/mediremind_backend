@@ -14,7 +14,7 @@ from supabase_client import supabase
 from .logging_config import notification_logger, LogCategory
 from .monitoring import metrics_collector
 from .performance import MemoryCache, CacheConfig, CacheStrategy
-from redis_config import get_redis_connection, REDIS_CACHE_DB
+from redis_pool_config import get_redis_connection, REDIS_CACHE_DB, get_redis_client
 
 class CacheLevel(Enum):
     MEMORY = "memory"        # In-memory cache (fastest)
@@ -100,9 +100,9 @@ class RedisCache:
         self.lock = threading.RLock()
         
         try:
-            # Use cloud Redis configuration by default
+            # Use cloud Redis configuration with connection pooling by default
             if all(param is None for param in [host, port, password, db]):
-                self.redis_client = get_redis_connection(db=REDIS_CACHE_DB)
+                self.redis_client = get_redis_client(db=REDIS_CACHE_DB)
             else:
                 # Fallback to custom configuration if provided
                 self.redis_client = redis.Redis(
@@ -111,7 +111,18 @@ class RedisCache:
                     db=db or 0, 
                     password=password,
                     decode_responses=True, 
-                    socket_timeout=5
+                    socket_timeout=5,
+                    connection_pool=redis.ConnectionPool(
+                        host=host or 'localhost',
+                        port=port or 6379,
+                        db=db or 0,
+                        password=password,
+                        max_connections=10,
+                        socket_connect_timeout=5,
+                        socket_timeout=5,
+                        retry_on_timeout=True,
+                        health_check_interval=30
+                    )
                 )
             # Test connection
             self.redis_client.ping()

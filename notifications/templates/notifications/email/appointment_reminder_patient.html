@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }
+        .appointment-details { background: white; padding: 20px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+        .btn { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📅 Appointment Reminder</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hello {{ recipient_name }},</h2>
+            
+            <p>This is a friendly reminder about your upcoming appointment:</p>
+            
+            <div class="appointment-details">
+                <h3>Appointment Details</h3>
+                <p><strong>Date:</strong> {{ appointment.date }}</p>
+                <p><strong>Time:</strong> {{ appointment.time }}</p>
+                <p><strong>Doctor:</strong> {{ appointment.doctor_name }}</p>
+                {% if appointment.location %}
+                <p><strong>Location:</strong> {{ appointment.location }}</p>
+                {% endif %}
+                {% if appointment.type %}
+                <p><strong>Type:</strong> {{ appointment.type }}</p>
+                {% endif %}
+            </div>
+            
+            <p>Please arrive 15 minutes early for check-in. If you need to reschedule or cancel, please contact us as soon as possible.</p>
+            
+            <div style="text-align: center;">
+                <a href="#" class="btn">Confirm Attendance</a>
+            </div>
+            
+            <p>If you have any questions or need to make changes, please don't hesitate to contact us.</p>
+            
+            <p>Best regards,<br>
+            The MediRemind Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated reminder. Please do not reply to this email.</p>
+            <p>&copy; 2024 MediRemind. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -32,6 +31,11 @@ import {
   Alert,
   CircularProgress,
   Pagination,
+  LinearProgress,
+  Tooltip,
+  Badge,
+  CardHeader,
+  Stack,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import {
@@ -49,13 +53,24 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  BarChart as BarChartIcon,
+  Warning as WarningIcon,
+  HealthAndSafety as HealthIcon,
+  Speed as SpeedIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 
-import { setBreadcrumbs, setCurrentPage } from '../../store/slices/uiSlice';
+
 import { 
   useGetNotificationsQuery, 
   useGetTemplatesQuery,
-  useSendNotificationMutation 
+  useSendNotificationMutation,
+  useGetNotificationMetricsQuery,
+  useGetSystemHealthQuery,
+  useGetRealTimeStatsQuery,
+  useGetCurrentUserQuery
 } from '../../store/api/apiSlice';
 
 interface Notification {
@@ -186,7 +201,11 @@ const getTypeIcon = (type: string) => {
 };
 
 export const NotificationsPage: React.FC = () => {
-  const dispatch = useDispatch();
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Get current user and hospital context
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const hospitalId = currentUser?.hospital_id || currentUser?.profile?.hospital_id;
   
   const [tabValue, setTabValue] = useState(0);
   const [newNotificationOpen, setNewNotificationOpen] = useState(false);
@@ -197,6 +216,8 @@ export const NotificationsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [dateRange] = useState<{start?: string; end?: string}>({});
+  const [autoRefresh, setAutoRefresh] = useState(true);
   
   // New notification form state
   const [newNotification, setNewNotification] = useState({
@@ -208,6 +229,7 @@ export const NotificationsPage: React.FC = () => {
   });
 
   // API queries
+  // API queries with hospital context
   const { 
     data: notificationsData, 
     isLoading: notificationsLoading, 
@@ -227,14 +249,58 @@ export const NotificationsPage: React.FC = () => {
     error: templatesError 
   } = useGetTemplatesQuery();
 
+  // Monitoring queries
+  const {
+    data: metricsData,
+    isLoading: metricsLoading,
+    refetch: refetchMetrics
+  } = useGetNotificationMetricsQuery({
+    start_date: dateRange.start,
+    end_date: dateRange.end,
+    hospital_id: hospitalId || undefined
+  });
+
+  const {
+    data: systemHealthData,
+    isLoading: systemHealthLoading
+  } = useGetSystemHealthQuery();
+
+  const {
+    data: realTimeStatsData,
+    refetch: refetchRealTimeStats
+  } = useGetRealTimeStatsQuery();
+
   const [sendNotification, { isLoading: sendingNotification }] = useSendNotificationMutation();
 
   useEffect(() => {
-    dispatch(setCurrentPage('notifications'));
-    dispatch(setBreadcrumbs([
-      { label: 'Notifications', path: '/notifications' }
-    ]));
-  }, [dispatch]);
+    // Set page title and breadcrumbs
+    document.title = 'Notifications - MediRemind';
+  }, []);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (autoRefresh) {
+      refreshIntervalRef.current = setInterval(() => {
+        refetchNotifications();
+        refetchMetrics();
+        refetchRealTimeStats();
+      }, 30000); // Refresh every 30 seconds
+    }
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [autoRefresh, refetchNotifications, refetchMetrics, refetchRealTimeStats]);
+
+  const handleRefreshAll = () => {
+    refetchNotifications();
+    refetchMetrics();
+    refetchRealTimeStats();
+  };
+
+
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -280,30 +346,159 @@ export const NotificationsPage: React.FC = () => {
   const pagination = notificationsData?.pagination;
   const templates = templatesData?.templates || [];
 
+  // Helper functions for metrics display
+  const getHealthStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy': return 'success';
+      case 'degraded': return 'warning';
+      case 'unhealthy': return 'error';
+      default: return 'default';
+    }
+  };
+
+  const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
+  const formatNumber = (value: number) => value.toLocaleString();
+
   return (
     <Box sx={{ p: 3 }}>
+      {/* Header with monitoring controls */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Notifications
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4" component="h1">
+            Notifications
+          </Typography>
+          {hospitalId && (
+            <Chip 
+              label={`Hospital: ${hospitalId}`} 
+              color="primary" 
+              size="small"
+              icon={<HealthIcon />}
+            />
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {/* System Health Indicator */}
+          {!systemHealthLoading && systemHealthData && (
+            <Tooltip title={`System Status: ${systemHealthData.status}`}>
+              <Badge 
+                color={getHealthStatusColor(systemHealthData.status) as any}
+                variant="dot"
+                overlap="circular"
+              >
+                <HealthIcon />
+              </Badge>
+            </Tooltip>
+          )}
+          
+          {/* Auto-refresh toggle */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Auto-refresh"
+            sx={{ ml: 1 }}
+          />
+          
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={() => refetchNotifications()}
-            disabled={notificationsLoading}
+            onClick={handleRefreshAll}
+            disabled={notificationsLoading || metricsLoading}
+            size="small"
           >
-            Refresh
+            Refresh All
           </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setNewNotificationOpen(true)}
+            size="small"
           >
             Send Notification
           </Button>
         </Box>
       </Box>
+
+      {/* Real-time Stats Cards */}
+      {!metricsLoading && metricsData && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom variant="body2">
+                      Total Notifications
+                    </Typography>
+                    <Typography variant="h4">
+                      {formatNumber(metricsData.total_notifications)}
+                    </Typography>
+                  </Box>
+                  <BarChartIcon color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom variant="body2">
+                      Success Rate
+                    </Typography>
+                    <Typography variant="h4" color="success.main">
+                      {formatPercentage(metricsData.success_rate)}
+                    </Typography>
+                  </Box>
+                  <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom variant="body2">
+                      Pending
+                    </Typography>
+                    <Typography variant="h4" color="warning.main">
+                      {formatNumber(metricsData.pending_count)}
+                    </Typography>
+                  </Box>
+                  <PendingIcon color="warning" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom variant="body2">
+                      Error Rate
+                    </Typography>
+                    <Typography variant="h4" color="error.main">
+                      {formatPercentage(metricsData.failure_rate)}
+                    </Typography>
+                  </Box>
+                  <TrendingDownIcon color="error" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
 
       <Paper sx={{ width: '100%' }}>
         <Tabs
@@ -527,11 +722,214 @@ export const NotificationsPage: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          {/* Analytics placeholder */}
-          <Alert severity="info">
-            Analytics dashboard coming soon. This will show notification delivery rates, 
-            response times, and other metrics.
-          </Alert>
+          {/* Enhanced Analytics Dashboard */}
+          <Grid container spacing={3}>
+            {/* Delivery by Type Chart */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card>
+                <CardHeader 
+                  title="Delivery by Type" 
+                  avatar={<BarChartIcon />}
+                  action={
+                    <Tooltip title="Distribution of notifications by delivery method">
+                      <IconButton size="small">
+                        <MoreVertIcon />
+                      </IconButton>
+                    </Tooltip>
+                  }
+                />
+                <CardContent>
+                  {metricsData?.delivery_by_type && Object.entries(metricsData.delivery_by_type).length > 0 ? (
+                    <Stack spacing={2}>
+                      {Object.entries(metricsData.delivery_by_type).map(([type, count]) => (
+                        <Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="body2" sx={{ minWidth: 60, textTransform: 'capitalize' }}>
+                            {type}
+                          </Typography>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={metricsData.total_notifications > 0 ? (count / metricsData.total_notifications) * 100 : 0}
+                            sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            {count}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">No delivery data available</Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Status Distribution */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card>
+                <CardHeader 
+                  title="Status Distribution" 
+                  avatar={<CheckCircleIcon />}
+                />
+                <CardContent>
+                  {metricsData?.delivery_by_status && Object.entries(metricsData.delivery_by_status).length > 0 ? (
+                    <Stack spacing={2}>
+                      {Object.entries(metricsData.delivery_by_status).map(([status, count]) => (
+                        <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Chip 
+                            label={status} 
+                            size="small" 
+                            color={getStatusColor(status) as any}
+                            sx={{ minWidth: 80 }}
+                          />
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={metricsData.total_notifications > 0 ? (count / metricsData.total_notifications) * 100 : 0}
+                            sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            color={getStatusColor(status) as any}
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            {count}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">No status data available</Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Hourly Performance */}
+            <Grid size={{ xs: 12 }}>
+              <Card>
+                <CardHeader 
+                  title="Hourly Performance" 
+                  avatar={<SpeedIcon />}
+                  action={
+                    <Stack direction="row" spacing={1}>
+                      <Chip label="24h" size="small" variant="outlined" />
+                      <Chip label="Success Rate" size="small" color="success" />
+                    </Stack>
+                  }
+                />
+                <CardContent>
+                  {metricsData?.hourly_stats && metricsData.hourly_stats.length > 0 ? (
+                    <Stack spacing={2}>
+                      {metricsData.hourly_stats.map((stat) => (
+                        <Box key={stat.hour} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography variant="body2" sx={{ minWidth: 60 }}>
+                            {stat.hour}:00
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 40 }}>
+                            {stat.count}
+                          </Typography>
+                          <LinearProgress 
+                            variant="determinate" 
+                            value={stat.success_rate * 100}
+                            sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                            color={stat.success_rate > 0.9 ? 'success' : stat.success_rate > 0.7 ? 'warning' : 'error'}
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            {formatPercentage(stat.success_rate)}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Alert severity="info">No hourly data available</Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Real-time System Stats */}
+            {realTimeStatsData && (
+              <Grid size={{ xs: 12 }}>
+                <Card>
+                  <CardHeader 
+                    title="Real-time System Status" 
+                    avatar={<StorageIcon />}
+                    action={
+                      <Stack direction="row" spacing={1}>
+                        {realTimeStatsData.processing_rate && (
+                          <Chip 
+                            label={`${realTimeStatsData.processing_rate.toFixed(1)}/s`} 
+                            size="small" 
+                            color="primary" 
+                            icon={<SpeedIcon />}
+                          />
+                        )}
+                        {realTimeStatsData.error_rate && (
+                          <Chip 
+                            label={`${(realTimeStatsData.error_rate * 100).toFixed(1)}% errors`} 
+                            size="small" 
+                            color={realTimeStatsData.error_rate < 0.05 ? 'success' : 'warning'}
+                            icon={<WarningIcon />}
+                          />
+                        )}
+                      </Stack>
+                    }
+                  />
+                  <CardContent>
+                    <Grid container spacing={3}>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Active Queues
+                        </Typography>
+                        <Typography variant="h5">
+                          {realTimeStatsData.active_queues}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Processing Rate
+                        </Typography>
+                        <Typography variant="h5" color="primary">
+                          {realTimeStatsData.processing_rate?.toFixed(1) || 0}/s
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Error Rate
+                        </Typography>
+                        <Typography variant="h5" color={realTimeStatsData.error_rate < 0.05 ? 'success.main' : 'warning.main'}>
+                          {formatPercentage(realTimeStatsData.error_rate || 0)}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Total Queue Size
+                        </Typography>
+                        <Typography variant="h5">
+                          {Object.values(realTimeStatsData.queue_sizes || {}).reduce((a, b) => a + b, 0)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    
+                    {realTimeStatsData.recent_errors && realTimeStatsData.recent_errors.length > 0 && (
+                      <Box sx={{ mt: 3 }}>
+                        <Typography variant="h6" gutterBottom>
+                          Recent Errors
+                        </Typography>
+                        <Stack spacing={1}>
+                          {realTimeStatsData.recent_errors.slice(0, 5).map((error, index) => (
+                            <Alert key={index} severity="error" sx={{ fontSize: '0.875rem' }}>
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                {new Date(error.timestamp).toLocaleString()}
+                              </Typography>
+                              {error.error} (Count: {error.count})
+                            </Alert>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
+          </Grid>
         </TabPanel>
       </Paper>
 

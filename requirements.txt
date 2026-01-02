@@ -54,6 +54,7 @@ msgraph-sdk
 
 # Email services
 sendgrid
+resend
 
 # Push notifications
 pywebpush

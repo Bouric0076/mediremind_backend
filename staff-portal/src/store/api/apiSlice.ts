@@ -121,6 +121,9 @@ export const apiSlice = createApi({
     'Staff',
     'CareTeam',
     'StaffCredential',
+    'NotificationMetrics',
+    'SystemHealth',
+    'RealTimeStats',
   ],
   endpoints: (builder) => ({
     // Authentication endpoints
@@ -393,6 +396,62 @@ export const apiSlice = createApi({
       invalidatesTags: ['Template'],
     }),
     
+    // Basic metrics using existing endpoints (simplified monitoring)
+    getNotificationMetrics: builder.query<{
+      total_notifications: number;
+      success_rate: number;
+      failure_rate: number;
+      pending_count: number;
+      processing_count: number;
+      delivery_by_type: Record<string, number>;
+      delivery_by_status: Record<string, number>;
+      hourly_stats: Array<{hour: string; count: number; success_rate: number}>;
+    }, { start_date?: string; end_date?: string; hospital_id?: string }>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params?.start_date) searchParams.append('start_date', params.start_date);
+        if (params?.end_date) searchParams.append('end_date', params.end_date);
+        if (params?.hospital_id) searchParams.append('hospital_id', params.hospital_id);
+        return `/api/notifications/metrics?${searchParams}`;
+      },
+      providesTags: ['NotificationMetrics'],
+    }),
+    
+    getSystemHealth: builder.query<{
+      status: string;
+      services: Record<string, {
+        status: string;
+        response_time?: number;
+        pending_tasks?: number;
+        processing_tasks?: number;
+        error_rate?: number;
+        last_hour_total?: number;
+        last_hour_failures?: number;
+        error?: string;
+      }>;
+      last_check: string;
+      summary: {
+        healthy: number;
+        degraded: number;
+        unhealthy: number;
+      };
+    }, void>({
+      query: () => '/api/notifications/health',
+      providesTags: ['SystemHealth'],
+    }),
+    
+    getRealTimeStats: builder.query<{
+      active_queues: number;
+      processing_rate: number;
+      error_rate: number;
+      queue_sizes: Record<string, number>;
+      recent_errors: Array<{timestamp: string; error: string; count: number}>;
+      last_updated: string;
+    }, void>({
+      query: () => '/api/notifications/realtime',
+      providesTags: ['RealTimeStats'],
+    }),
+    
     // Medical Records
     getMedicalRecords: builder.query<any[], string>({
       query: (patientId) => `/api/accounts/patients/${patientId}/medical-records`,
@@ -581,4 +640,7 @@ export const {
   useGetStaffCredentialsQuery,
   useGetStaffCredentialQuery,
   useSendManualSmsReminderMutation,
+  useGetNotificationMetricsQuery,
+  useGetSystemHealthQuery,
+  useGetRealTimeStatsQuery,
 } = apiSlice;

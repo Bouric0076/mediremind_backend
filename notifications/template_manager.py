@@ -812,6 +812,62 @@ class TemplateManager:
                     "screen_reader_optimized": True,
                     "alt_text_images": True
                 }
+            ),
+            
+            # Additional missing template configurations
+            "appointment_reminder_patient": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_REMINDER,
+                recipient_type=RecipientType.PATIENT,
+                subject_template="📅 Appointment Reminder - {{ appointment.date }} at {{ appointment.time }} with {{ appointment.doctor_name }}",
+                variants=[
+                    TemplateVariant(
+                        name="reminder_v1",
+                        template_path="notifications/email/appointment_reminder_patient.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.time"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "emergency_notification_admin": TemplateConfig(
+                template_type=TemplateType.EMERGENCY_NOTIFICATION,
+                recipient_type=RecipientType.ADMIN,
+                subject_template="🚨 Emergency Alert - {{ emergency_type }} - {{ patient_name }}",
+                variants=[
+                    TemplateVariant(
+                        name="emergency_admin_v1",
+                        template_path="notifications/email/emergency_notification_admin.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "patient_name", "emergency_type", "emergency_message"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "welcome_patient": TemplateConfig(
+                template_type=TemplateType.WELCOME,
+                recipient_type=RecipientType.PATIENT,
+                subject_template="🎉 Welcome to {{ clinic_name }} - Your Health Journey Starts Here!",
+                variants=[
+                    TemplateVariant(
+                        name="welcome_v1",
+                        template_path="notifications/email/welcome_patient.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "clinic_name"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
             )
         }
         return configs
@@ -1112,7 +1168,8 @@ class TemplateManager:
             TemplateType.STAFF_SCHEDULE_CHANGE: "staff_schedule_change_doctor",
             TemplateType.INSURANCE_VERIFICATION: "insurance_verification_admin",
             TemplateType.SURVEY_REQUEST: "survey_request_patient",
-            TemplateType.EMERGENCY_NOTIFICATION: "emergency_notification_admin"
+            TemplateType.EMERGENCY_NOTIFICATION: "emergency_notification_admin",
+            TemplateType.WELCOME: "welcome_patient"
         }
         
         template_key = type_to_key_mapping.get(template_type)

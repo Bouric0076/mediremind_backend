@@ -8,6 +8,9 @@ from django.conf import settings
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mediremind_backend.settings')
 
+# Import celery signals for monitoring
+from notifications import celery_signals
+
 app = Celery('mediremind_backend')
 
 # Using a string here means the worker doesn't have to serialize
@@ -44,6 +47,22 @@ app.conf.update(
     broker_connection_retry=True,
     broker_connection_max_retries=10,
     broker_connection_retry_delay=5.0,
+    # Enhanced error handling and monitoring
+    task_send_sent_event=True,
+    task_store_errors_even_if_ignored=True,
+    worker_send_task_events=True,
+    task_reject_on_worker_lost=True,
+    # Task result expiration (1 hour)
+    result_expires=3600,
+    # Rate limiting for email tasks
+    task_annotations={
+        'notifications.tasks.send_appointment_confirmation_async': {
+            'rate_limit': '10/m'  # Max 10 emails per minute
+        },
+        'notifications.tasks.send_appointment_reminder_async': {
+            'rate_limit': '20/m'  # Max 20 reminders per minute
+        },
+    },
 )
 
 @app.task(bind=True)

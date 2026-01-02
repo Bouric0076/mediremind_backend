@@ -483,3 +483,322 @@ def monitor_notification_health():
     except Exception as e:
         logger.error(f"Health monitoring failed: {e}")
         raise
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_appointment_confirmation_async(
+    self,
+    appointment_id: int,
+    patient_email: str,
+    patient_name: str,
+    appointment_details: Dict[str, Any]
+):
+    """
+    Async task to send appointment confirmation email using Resend.
+    This task runs outside the HTTP request to prevent timeouts.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending appointment confirmation email for appointment {appointment_id}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_appointment_confirmation_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            appointment_details=appointment_details
+        )
+        
+        if success:
+            logger.info(f"Appointment confirmation email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "appointment_id": appointment_id,
+                "recipient": patient_email
+            }
+        else:
+            logger.warning(f"Failed to send appointment confirmation email to {patient_email}: {message}")
+            # Don't retry on permanent failures (invalid email, etc.)
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "appointment_id": appointment_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Appointment confirmation email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_appointment_reminder_async(
+    self,
+    appointment_id: int,
+    patient_email: str,
+    patient_name: str,
+    appointment_details: Dict[str, Any]
+):
+    """
+    Async task to send appointment reminder email using Resend.
+    This task runs outside the HTTP request to prevent timeouts.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending appointment reminder email for appointment {appointment_id}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_appointment_reminder_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            appointment_details=appointment_details
+        )
+        
+        if success:
+            logger.info(f"Appointment reminder email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "appointment_id": appointment_id,
+                "recipient": patient_email
+            }
+        else:
+            logger.warning(f"Failed to send appointment reminder email to {patient_email}: {message}")
+            # Don't retry on permanent failures
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "appointment_id": appointment_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Appointment reminder email task failed: {exc}")
+        # Retry with exponential backoff (longer delays for reminders)
+        raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_medication_reminder_async(
+    self,
+    medication_id: int,
+    patient_email: str,
+    patient_name: str,
+    medication_name: str,
+    dosage: str,
+    time: str
+):
+    """
+    Async task to send medication reminder email using Resend.
+    This task runs outside the HTTP request to prevent timeouts.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending medication reminder email for {medication_name} to {patient_email}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_medication_reminder_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            medication_name=medication_name,
+            dosage=dosage,
+            time=time,
+            medication_id=medication_id
+        )
+        
+        if success:
+            logger.info(f"Medication reminder email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "medication_id": medication_id,
+                "recipient": patient_email,
+                "medication_name": medication_name
+            }
+        else:
+            logger.warning(f"Failed to send medication reminder email to {patient_email}: {message}")
+            # Don't retry on permanent failures
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "medication_id": medication_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Medication reminder email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def send_emergency_alert_async(
+    self,
+    alert_id: str,
+    patient_email: str,
+    patient_name: str,
+    alert_message: str,
+    severity: str = 'high'
+):
+    """
+    Async task to send emergency alert email using Resend.
+    High priority task with faster retry for critical notifications.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending emergency alert email to {patient_email}, severity: {severity}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_emergency_alert_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            alert_message=alert_message,
+            severity=severity
+        )
+        
+        if success:
+            logger.info(f"Emergency alert email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "alert_id": alert_id,
+                "recipient": patient_email,
+                "severity": severity
+            }
+        else:
+            logger.warning(f"Failed to send emergency alert email to {patient_email}: {message}")
+            # Don't retry on permanent failures
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "alert_id": alert_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Emergency alert email task failed: {exc}")
+        # Retry with faster backoff for emergency alerts
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_appointment_update_async(
+    self,
+    appointment_id: int,
+    patient_email: str,
+    patient_name: str,
+    appointment_details: Dict[str, Any],
+    update_type: str = 'rescheduled'
+):
+    """
+    Async task to send appointment update email (rescheduled/cancelled) using Resend.
+    This task runs outside the HTTP request to prevent timeouts.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending appointment {update_type} email for appointment {appointment_id}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_appointment_update_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            appointment_details=appointment_details,
+            update_type=update_type
+        )
+        
+        if success:
+            logger.info(f"Appointment {update_type} email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "appointment_id": appointment_id,
+                "recipient": patient_email,
+                "update_type": update_type
+            }
+        else:
+            logger.warning(f"Failed to send appointment {update_type} email to {patient_email}: {message}")
+            # Don't retry on permanent failures
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "appointment_id": appointment_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Appointment {update_type} email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_welcome_email_async(
+    self,
+    user_id: int,
+    patient_email: str,
+    patient_name: str,
+    clinic_name: str = "MediRemind"
+):
+    """
+    Async task to send welcome email using Resend.
+    This task runs outside the HTTP request to prevent timeouts.
+    """
+    try:
+        from .resend_service import resend_service
+        
+        logger.info(f"Sending welcome email to {patient_email}")
+        
+        # Send email via Resend
+        success, message = resend_service.send_welcome_email(
+            to_email=patient_email,
+            patient_name=patient_name,
+            clinic_name=clinic_name
+        )
+        
+        if success:
+            logger.info(f"Welcome email sent successfully to {patient_email}, ID: {message}")
+            return {
+                "status": "success",
+                "email_id": message,
+                "user_id": user_id,
+                "recipient": patient_email,
+                "clinic_name": clinic_name
+            }
+        else:
+            logger.warning(f"Failed to send welcome email to {patient_email}: {message}")
+            # Don't retry on permanent failures
+            if "invalid" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "user_id": user_id,
+                    "recipient": patient_email
+                }
+            # Retry on temporary failures
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Welcome email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
