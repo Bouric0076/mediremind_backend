@@ -10,6 +10,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import json
+import os
 from django.utils import timezone
 from django.db import models
 from appointments.models import Appointment, AppointmentType
@@ -232,14 +233,24 @@ class AppointmentReminderService:
     def _send_email_notification(self, appointment_data: Dict, reminder_type: ReminderType, appointment: Appointment):
         """Send email notification"""
         try:
+            # Skip email notifications in Render environment if network is unreliable
+            if os.getenv('RENDER', 'false').lower() == 'true':
+                logger.info("Skipping email notification in Render environment due to network restrictions")
+                return
+                
             template_name = self._get_email_template_name(reminder_type)
             subject = self._get_email_subject(reminder_type, appointment_data)
             
-            email_client.send_appointment_confirmation_email(
+            success, response_message = email_client.send_appointment_confirmation_email(
                 appointment_data=appointment_data,
                 recipient_email=appointment.patient.user.email,
                 is_patient=True
             )
+            
+            if success:
+                logger.info(f"Email sent successfully to {appointment.patient.user.email}")
+            else:
+                logger.warning(f"Email sending failed to {appointment.patient.user.email}: {response_message}")
             
         except Exception as e:
             logger.error(f"Error sending email notification: {str(e)}")

@@ -100,8 +100,8 @@ class EmailClient:
                     ssl_context.verify_mode = ssl.CERT_NONE
                     logger.warning("Using permissive SSL context - not recommended for production")
 
-                # Reduced timeout for Render environment
-                email_timeout = 15 if os.getenv('RENDER', 'false').lower() == 'true' else getattr(settings, 'EMAIL_TIMEOUT', 30)
+                # Reduced timeout for Render environment - use very short timeout to prevent worker hangs
+                email_timeout = 5 if os.getenv('RENDER', 'false').lower() == 'true' else getattr(settings, 'EMAIL_TIMEOUT', 30)
                 
                 email_backend = EmailBackend(
                     host=settings.EMAIL_HOST,
@@ -127,6 +127,10 @@ class EmailClient:
             logger.info(f"Email sent successfully to {recipient_list}")
             return True, "Email sent successfully"
 
+        except socket.timeout as e:
+            error_msg = f"Email sending timeout: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
         except socket.error as e:
             error_msg = f"Network error sending email: {str(e)}"
             logger.error(error_msg)
