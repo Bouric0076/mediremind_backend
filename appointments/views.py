@@ -137,10 +137,12 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     'changes': appointment_data.get('changes', {})
                 }
                 
-                # Skip sending emails for completed appointments
+                # Handle completed appointments - send completion confirmation
                 if update_type is None:
-                    logger.info(f"Skipping email notification for completed appointment {appointment_data.get('id')}")
-                    return JsonResponse(response_data)
+                    logger.info(f"Sending completion confirmation for appointment {appointment_data.get('id')}")
+                    # For completed appointments, we'll treat it as a special confirmation type
+                    update_type = 'completion'
+                    # Don't return here - let the normal email flow handle it
                 
                 if settings.DEBUG:
                     # Development mode - use Django's console backend
@@ -155,6 +157,8 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         email_update_type = 'cancellation'  # Use cancellation template for no-show
                     elif update_type == 'confirmation':
                         email_update_type = 'created'
+                    elif update_type == 'completion':
+                        email_update_type = 'created'  # Use confirmation template for completion
                     
                     # Send to patient
                     success, response_message = email_client.send_appointment_update_email(
@@ -191,6 +195,8 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         email_update_type = 'no-show'
                     elif update_type == 'confirmation':
                         email_update_type = 'created'
+                    elif update_type == 'completion':
+                        email_update_type = 'created'  # Use confirmation template for completion
                     
                     success, response_message = resend_service.send_appointment_update_email(
                         to_email=patient_email,
