@@ -96,11 +96,162 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
             else:
                 logger.warning(f"Appointment confirmation email failed to {patient_email}: {response_message}")
         
-        # For other actions (updated, cancelled), you can add similar sync tasks
+        # Handle appointment updates - send update notifications
         elif action == "updated":
-            logger.info(f"Appointment updated notification would be sent to {patient_email}")
+            try:
+                # Extract patient name from appointment data
+                patient_name = appointment_data.get('patient', 'Patient')
+                
+                # Determine update type based on status change
+                old_status = appointment_data.get('changes', {}).get('status', {}).get('old', '')
+                new_status = appointment_data.get('changes', {}).get('status', {}).get('new', '')
+                
+                # Default to 'reschedule' for general updates, use 'cancellation' for cancellations and no-shows
+                update_type = 'reschedule'  # Default for most updates
+                if old_status and new_status:
+                    if new_status == 'cancelled':
+                        update_type = 'cancellation'
+                    elif new_status == 'no-show':
+                        update_type = 'no-show'  # Special case for no-show (sends to both patient and emergency contact)
+                    elif old_status == 'scheduled' and new_status == 'confirmed':
+                        update_type = 'confirmation'  # Special case for confirmation
+                    elif old_status != new_status:
+                        update_type = 'reschedule'  # Any other status change
+                
+                # Prepare appointment details for email
+                appointment_details = {
+                    'id': appointment_data['id'],
+                    'appointment_date': appointment_data.get('appointment_date') or appointment_data.get('date'),
+                    'start_time': appointment_data.get('start_time') or appointment_data.get('time'),
+                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or
+                                  (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
+                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or
+                                       (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                    'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
+                    'patient_id': appointment_data.get('patient_id'),
+                    'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
+                    'patient_email': appointment_data.get('patient_email') or appointment_data.get('patient_email', patient_email),
+                    'update_type': update_type,
+                    'changes': appointment_data.get('changes', {})
+                }
+                
+                if settings.DEBUG:
+                    # Development mode - use Django's console backend
+                    from notifications.email_client import email_client
+                    # Convert update type for email client compatibility
+                    email_update_type = update_type
+                    if update_type == 'reschedule':
+                        email_update_type = 'reschedule'
+                    elif update_type == 'cancellation':
+                        email_update_type = 'cancellation'
+                    elif update_type == 'no-show':
+                        email_update_type = 'cancellation'  # Use cancellation template for no-show
+                    elif update_type == 'confirmation':
+                        email_update_type = 'created'
+                    
+                    # Send to patient
+                    success, response_message = email_client.send_appointment_update_email(
+                        appointment_data=appointment_details,
+                        update_type=email_update_type,
+                        recipient_email=patient_email,
+                        is_patient=True
+                    )
+                    
+                    # For no-show, also send to emergency contact if available
+                    if update_type == 'no-show':
+                        emergency_contact_email = appointment_data.get('emergency_contact_email')
+                        if emergency_contact_email:
+                            emergency_success, emergency_response = email_client.send_appointment_update_email(
+                                appointment_data=appointment_details,
+                                update_type=email_update_type,
+                                recipient_email=emergency_contact_email,
+                                is_patient=False  # Send as provider notification to emergency contact
+                            )
+                            if emergency_success:
+                                logger.info(f"No-show notification sent to emergency contact {emergency_contact_email}")
+                            else:
+                                logger.warning(f"Failed to send no-show notification to emergency contact: {emergency_response}")
+                else:
+                    # Production mode - use Resend service
+                    from notifications.resend_service import resend_service
+                    success, response_message = resend_service.send_appointment_update_email(
+                        to_email=patient_email,
+                        patient_name=patient_name,
+                        appointment_details=appointment_details,
+                        update_type=update_type
+                    )
+                    
+                    # For no-show, also send to emergency contact if available
+                    if update_type == 'no-show' and success:
+                        emergency_contact_email = appointment_data.get('emergency_contact_email')
+                        if emergency_contact_email:
+                            emergency_success, emergency_response = resend_service.send_appointment_update_email(
+                                to_email=emergency_contact_email,
+                                patient_name=patient_name,
+                                appointment_details=appointment_details,
+                                update_type=update_type
+                            )
+                            if emergency_success:
+                                logger.info(f"No-show notification sent to emergency contact {emergency_contact_email}")
+                            else:
+                                logger.warning(f"Failed to send no-show notification to emergency contact: {emergency_response}")
+                
+                if success:
+                    logger.info(f"Appointment update notification sent successfully to {patient_email} (type: {update_type})")
+                else:
+                    logger.warning(f"Appointment update notification failed to {patient_email}: {response_message}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to send appointment update notification to {patient_email}: {str(e)}")
+        
+        # Handle appointment cancellations - send cancellation notifications
         elif action == "cancelled":
-            logger.info(f"Appointment cancelled notification would be sent to {patient_email}")
+            try:
+                # Extract patient name from appointment data
+                patient_name = appointment_data.get('patient', 'Patient')
+                
+                # Prepare appointment details for email
+                appointment_details = {
+                    'id': appointment_data['id'],
+                    'appointment_date': appointment_data.get('appointment_date') or appointment_data.get('date'),
+                    'start_time': appointment_data.get('start_time') or appointment_data.get('time'),
+                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or
+                                  (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
+                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or
+                                       (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                    'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
+                    'patient_id': appointment_data.get('patient_id'),
+                    'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
+                    'patient_email': appointment_data.get('patient_email') or appointment_data.get('patient_email', patient_email),
+                    'cancellation_reason': appointment_data.get('cancellation_reason') or appointment_data.get('reason', 'Not specified')
+                }
+                
+                if settings.DEBUG:
+                    # Development mode - use Django's console backend
+                    from notifications.email_client import email_client
+                    success, response_message = email_client.send_appointment_update_email(
+                        appointment_data=appointment_details,
+                        update_type='cancellation',
+                        recipient_email=patient_email,
+                        is_patient=True
+                    )
+                else:
+                    # Production mode - use Resend service
+                    from notifications.resend_service import resend_service
+                    success, response_message = resend_service.send_appointment_update_email(
+                        to_email=patient_email,
+                        patient_name=patient_name,
+                        appointment_details=appointment_details,
+                        update_type='cancellation'
+                    )
+                
+                if success:
+                    logger.info(f"Appointment cancellation notification sent successfully to {patient_email}")
+                else:
+                    logger.warning(f"Appointment cancellation notification failed to {patient_email}: {response_message}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to send appointment cancellation notification to {patient_email}: {str(e)}")
             
     except Exception as e:
         logger.error(f"Failed to send appointment notification: {str(e)}")

@@ -253,6 +253,8 @@ class EmailClient:
                 template_key = "appointment_reschedule_patient" if is_patient else "appointment_reschedule_doctor"
             elif update_type == "cancellation":
                 template_key = "appointment_cancellation_patient" if is_patient else "appointment_cancellation_doctor"
+            elif update_type == "no-show":
+                template_key = "appointment_no_show_patient" if is_patient else "appointment_no_show_emergency"
             elif update_type == "created":
                 template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
             else:

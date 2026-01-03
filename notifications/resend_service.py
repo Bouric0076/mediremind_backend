@@ -694,10 +694,13 @@ class ResendEmailService:
                 return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
             
             # Determine template type based on update type
-            template_type = (
-                TemplateType.APPOINTMENT_RESCHEDULE if update_type.lower() == 'rescheduled'
-                else TemplateType.APPOINTMENT_CANCELLATION
-            )
+            update_type_lower = update_type.lower()
+            if update_type_lower == 'rescheduled':
+                template_type = TemplateType.APPOINTMENT_RESCHEDULE
+            elif update_type_lower == 'no-show':
+                template_type = TemplateType.PATIENT_NO_SHOW_ALERT
+            else:
+                template_type = TemplateType.APPOINTMENT_CANCELLATION
             
             # Prepare template data - use API-aligned field names
             template_data = {
@@ -820,17 +823,25 @@ class ResendEmailService:
             Tuple of (success, message)
         """
         try:
+            # Validate that appointment_details is a dictionary
+            if not isinstance(appointment_details, dict):
+                logger.error(f"appointment_details is not a dictionary: {type(appointment_details)} - {appointment_details}")
+                return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
+            
             # Determine template type based on update type
-            template_type = (
-                TemplateType.APPOINTMENT_RESCHEDULE if update_type.lower() == 'rescheduled'
-                else TemplateType.APPOINTMENT_CANCELLATION
-            )
+            update_type_lower = update_type.lower()
+            if update_type_lower == 'rescheduled':
+                template_type = TemplateType.APPOINTMENT_RESCHEDULE
+            elif update_type_lower == 'no-show':
+                template_type = TemplateType.PATIENT_NO_SHOW_ALERT
+            else:
+                template_type = TemplateType.APPOINTMENT_CANCELLATION
             
             # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
                 'patient_name': patient_name,
-                'update_type': update_type.lower(),
+                'update_type': update_type_lower,
                 'appointment_date': appointment_details.get('appointment_date'),
                 'start_time': appointment_details.get('start_time'),
                 'provider_name': appointment_details.get('provider_name'),
