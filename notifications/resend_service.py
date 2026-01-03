@@ -256,6 +256,11 @@ class ResendEmailService:
             Tuple of (success, message)
         """
         try:
+            # Validate that appointment_details is a dictionary
+            if not isinstance(appointment_details, dict):
+                logger.error(f"appointment_details is not a dictionary: {type(appointment_details)} - {appointment_details}")
+                return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
+            
             # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
@@ -349,6 +354,11 @@ class ResendEmailService:
             Tuple of (success, message)
         """
         try:
+            # Validate that appointment_details is a dictionary
+            if not isinstance(appointment_details, dict):
+                logger.error(f"appointment_details is not a dictionary: {type(appointment_details)} - {appointment_details}")
+                return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
+            
             # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
@@ -661,113 +671,73 @@ class ResendEmailService:
         to_email: str,
         patient_name: str,
         appointment_details: Dict,
-        update_type: str,
-        is_patient: bool = True
+        update_type: str = 'rescheduled',
+        from_email: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
-        Send appointment update email (reschedule/cancellation)
+        Send appointment update email (rescheduled or cancelled) using TemplateManager
         
         Args:
-            to_email: Recipient email address
+            to_email: Patient email address
             patient_name: Patient name
             appointment_details: Dictionary with appointment information
-            update_type: Type of update ('reschedule', 'cancellation')
-            is_patient: Whether recipient is patient (True) or doctor (False)
+            update_type: Type of update ('rescheduled' or 'cancelled')
+            from_email: Optional custom from email address
             
         Returns:
             Tuple of (success, message)
         """
-        # Determine subject and styling based on update type
-        if update_type.lower() == 'reschedule':
-            subject = f"Appointment Rescheduled - {appointment_details.get('appointment_date', 'TBD')}"
-            header_color = '#2196F3'
-            header_text = 'Appointment Rescheduled'
-        elif update_type.lower() == 'cancellation':
-            subject = f"Appointment Cancelled - {appointment_details.get('appointment_date', 'TBD')}"
-            header_color = '#F44336'
-            header_text = 'Appointment Cancelled'
-        else:
-            return False, f"Invalid update type: {update_type}"
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>{header_text}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: {header_color}; color: white; padding: 20px; text-align: center; }}
-                .content {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; }}
-                .appointment-details {{ background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ text-align: center; margin-top: 20px; color: #666; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>{header_text}</h1>
-                </div>
-                <div class="content">
-                    <p>Dear {patient_name},</p>
-                    <p>Your appointment has been {update_type.lower()}d. Here are the updated details:</p>
-                    
-                    <div class="appointment-details">
-                        <h3>Appointment Details</h3>
-                        <p><strong>Date:</strong> {appointment_details.get('appointment_date', 'TBD')}</p>
-                        <p><strong>Time:</strong> {appointment_details.get('start_time', 'TBD')}</p>
-                        <p><strong>Doctor:</strong> {appointment_details.get('provider_name', 'TBD')}</p>
-                        <p><strong>Location:</strong> {appointment_details.get('location', 'TBD')}</p>
-                        {f'<p><strong>Reason:</strong> {appointment_details.get("reason")}</p>' if appointment_details.get('reason') else ''}
-                    </div>
-                    
-                    <p>If you have any questions, please contact us.</p>
-                    
-                    <p>Best regards,<br>
-                    The MediRemind Team</p>
-                </div>
-                <div class="footer">
-                    <p>This is an automated message. Please do not reply to this email.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        text_content = f"""
-        {header_text.upper()}
-        
-        Dear {patient_name},
-        
-        Your appointment has been {update_type.lower()}d:
-        
-        Date: {appointment_details.get('appointment_date', 'TBD')}
-        Time: {appointment_details.get('start_time', 'TBD')}
-        Doctor: {appointment_details.get('provider_name', 'TBD')}
-        Location: {appointment_details.get('location', 'TBD')}
-        {f'Reason: {appointment_details.get("reason")}' if appointment_details.get('reason') else ''}
-        
-        If you have any questions, please contact us.
-        
-        Best regards,
-        The MediRemind Team
-        """
-        
-        tags = {
-            'type': f'appointment_{update_type.lower()}',
-            'patient_id': str(appointment_details.get('patient_id', '')),
-            'appointment_id': str(appointment_details.get('id', '')),
-            'recipient_type': 'patient' if is_patient else 'doctor'
-        }
-        
-        return self.send_email(
-            to_email=to_email,
-            subject=subject,
-            html_content=html_content,
-            text_content=text_content,
-            tags=tags
-        )
+        try:
+            # Validate that appointment_details is a dictionary
+            if not isinstance(appointment_details, dict):
+                logger.error(f"appointment_details is not a dictionary: {type(appointment_details)} - {appointment_details}")
+                return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
+            
+            # Determine template type based on update type
+            template_type = (
+                TemplateType.APPOINTMENT_RESCHEDULE if update_type.lower() == 'rescheduled'
+                else TemplateType.APPOINTMENT_CANCELLATION
+            )
+            
+            # Prepare template data - use API-aligned field names
+            template_data = {
+                'appointment': appointment_details,
+                'patient_name': patient_name,
+                'appointment_date': appointment_details.get('appointment_date'),
+                'start_time': appointment_details.get('start_time'),
+                'provider_name': appointment_details.get('provider_name'),
+                'location': appointment_details.get('location'),
+                'appointment_type': appointment_details.get('appointment_type', 'Consultation'),
+                'update_type': update_type.lower()
+            }
+            
+            # Render template using TemplateManager
+            subject, html_content = self.render_template(
+                template_type=template_type,
+                recipient_name=patient_name,
+                recipient_email=to_email,
+                template_data=template_data,
+                recipient_type=RecipientType.PATIENT
+            )
+            
+            # Send email with Resend
+            return self.send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content,
+                tags={
+                    'type': f'appointment_{update_type.lower()}',
+                    'appointment_id': str(appointment_details.get('id', '')),
+                    'patient_email': to_email,
+                    'update_type': update_type.lower()
+                },
+                from_email=from_email
+            )
+            
+        except Exception as e:
+            error_msg = f"Failed to send appointment update email: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
     
     def send_welcome_email(
         self,
