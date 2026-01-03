@@ -35,19 +35,15 @@ services:
       - key: VAPID_ADMIN_EMAIL
         value: "bouricenos0@gmail.com"
       - key: DEFAULT_FROM_EMAIL
-        value: "noreply@mediremind.com"
+        value: "onboarding@resend.dev"
       - key: EMAIL_SERVICE
-        value: "smtp"
-      - key: EMAIL_HOST
-        value: "smtp.gmail.com"
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_HOST_USER
-        value: "bouricenos0@gmail.com"
-      - key: EMAIL_HOST_PASSWORD
+        value: "resend"
+      - key: RESEND_API_KEY
         generateValue: true  # Set this in Render dashboard
-      - key: DEFAULT_FROM_EMAIL
-        value: "noreply@mediremind.com"
+      - key: RESEND_FROM_EMAIL
+        value: "onboarding@resend.dev"
+      - key: RESEND_FROM_NAME
+        value: "MediRemind"
       - key: FRONTEND_URL
         fromService:
           type: web

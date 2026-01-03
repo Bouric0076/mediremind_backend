@@ -381,7 +381,7 @@ else:
         # The actual email sending is handled by the resend_service.py module
         EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Fallback for Django
         RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-        RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'noreply@mediremind.com')
+        RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
         RESEND_FROM_NAME = os.getenv('RESEND_FROM_NAME', 'MediRemind')
         
     else:
@@ -408,7 +408,7 @@ else:
         print("- smtp (gmail): EMAIL_HOST_USER, EMAIL_HOST_PASSWORD")
         print("- resend: RESEND_API_KEY")
 
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
 
 # Frontend URL setting for email templates
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')

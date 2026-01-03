@@ -289,7 +289,7 @@ class PatientEmailService:
         """Get hospital email address."""
         if hospital and hasattr(hospital, 'email'):
             return hospital.email
-        return getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@mediremind.com')
+        return getattr(settings, 'DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
     
     def _get_hospital_website(self, hospital) -> Optional[str]:
         """Get hospital website URL."""

@@ -26,7 +26,7 @@ class ResendEmailService:
     def __init__(self):
         """Initialize Resend with API key and deduplication cache"""
         self.api_key = os.getenv('RESEND_API_KEY')
-        self.from_email = os.getenv('RESEND_FROM_EMAIL', 'noreply@mediremind.com')
+        self.from_email = os.getenv('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
         self.from_name = os.getenv('RESEND_FROM_NAME', 'MediRemind')
         self.deduplication_ttl = int(os.getenv('EMAIL_DEDUPLICATION_TTL', '86400'))  # 24 hours default
         
