@@ -115,6 +115,8 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         update_type = 'no-show'  # Special case for no-show (sends to both patient and emergency contact)
                     elif old_status == 'scheduled' and new_status == 'confirmed':
                         update_type = 'confirmation'  # Special case for confirmation
+                    elif new_status == 'completed':
+                        update_type = None  # Don't send email for completed appointments
                     elif old_status != new_status:
                         update_type = 'reschedule'  # Any other status change
                 
@@ -134,6 +136,11 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     'update_type': update_type,
                     'changes': appointment_data.get('changes', {})
                 }
+                
+                # Skip sending emails for completed appointments
+                if update_type is None:
+                    logger.info(f"Skipping email notification for completed appointment {appointment_data.get('id')}")
+                    return JsonResponse(response_data)
                 
                 if settings.DEBUG:
                     # Development mode - use Django's console backend
@@ -174,11 +181,22 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 else:
                     # Production mode - use Resend service
                     from notifications.resend_service import resend_service
+                    # Convert update type for Resend service compatibility (same as email client)
+                    email_update_type = update_type
+                    if update_type == 'reschedule':
+                        email_update_type = 'rescheduled'
+                    elif update_type == 'cancellation':
+                        email_update_type = 'cancellation'
+                    elif update_type == 'no-show':
+                        email_update_type = 'no-show'
+                    elif update_type == 'confirmation':
+                        email_update_type = 'created'
+                    
                     success, response_message = resend_service.send_appointment_update_email(
                         to_email=patient_email,
                         patient_name=patient_name,
                         appointment_details=appointment_details,
-                        update_type=update_type
+                        update_type=email_update_type
                     )
                     
                     # For no-show, also send to emergency contact if available
@@ -189,7 +207,7 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                                 to_email=emergency_contact_email,
                                 patient_name=patient_name,
                                 appointment_details=appointment_details,
-                                update_type=update_type
+                                update_type=email_update_type
                             )
                             if emergency_success:
                                 logger.info(f"No-show notification sent to emergency contact {emergency_contact_email}")

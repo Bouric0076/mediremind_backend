@@ -694,6 +694,10 @@ class ResendEmailService:
                 return False, f"Invalid appointment data format: expected dictionary, got {type(appointment_details)}"
             
             # Determine template type based on update type
+            if not update_type:
+                logger.error(f"update_type is empty or None: {update_type}")
+                return False, "Invalid update type: cannot be empty"
+                
             update_type_lower = update_type.lower()
             if update_type_lower == 'rescheduled':
                 template_type = TemplateType.APPOINTMENT_RESCHEDULE
