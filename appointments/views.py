@@ -52,7 +52,7 @@ def check_patient_hospital_relationship(patient, hospital):
 def send_appointment_notification(appointment_data, action, patient_email, doctor_email):
     """Send appointment notifications using synchronous calls for free tier"""
     try:
-        from notifications.email_client import email_client
+        from django.conf import settings
         
         # Only send confirmation emails for new appointments
         if action == "created":
@@ -70,12 +70,22 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 'patient_id': appointment_data.get('patient_id'),
             }
             
-            # Send synchronous email confirmation for free tier
-            success, response_message = email_client.send_appointment_confirmation_email(
-                appointment_data=appointment_details,
-                recipient_email=patient_email,
-                is_patient=True
-            )
+            if settings.DEBUG:
+                # Development mode - use Django's console backend
+                from notifications.email_client import email_client
+                success, response_message = email_client.send_appointment_confirmation_email(
+                    appointment_data=appointment_details,
+                    recipient_email=patient_email,
+                    is_patient=True
+                )
+            else:
+                # Production mode - use Resend service
+                from notifications.resend_service import resend_service
+                success, response_message = resend_service.send_appointment_confirmation_email(
+                    to_email=patient_email,
+                    patient_name=patient_name,
+                    appointment_details=appointment_details
+                )
             
             if success:
                 logger.info(f"Appointment confirmation email sent successfully to {patient_email}")

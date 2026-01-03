@@ -379,7 +379,7 @@ else:
         # Resend configuration - using Resend service via their API
         # Note: Resend doesn't use traditional SMTP, it's API-based
         # The actual email sending is handled by the resend_service.py module
-        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Fallback for Django
+        EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend for production
         RESEND_API_KEY = os.getenv('RESEND_API_KEY')
         RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'onboarding@resend.dev')
         RESEND_FROM_NAME = os.getenv('RESEND_FROM_NAME', 'MediRemind')
