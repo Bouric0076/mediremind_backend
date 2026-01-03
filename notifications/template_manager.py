@@ -118,7 +118,7 @@ class TemplateManager:
             "appointment_confirmation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CONFIRMATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="✅ Appointment Confirmed - {{ appointment.date }} with {{ appointment.doctor_name }}",
+                subject_template="Appointment Confirmation - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -126,7 +126,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -136,7 +136,7 @@ class TemplateManager:
             "appointment_confirmation_doctor": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CONFIRMATION,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="✅ Appointment Confirmed - {{ appointment.date }} with {{ appointment.patient_name }}",
+                subject_template="Appointment Confirmation - {{ appointment.appointment_date }} with {{ appointment.patient }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -144,7 +144,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.patient_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.patient", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -154,7 +154,7 @@ class TemplateManager:
             "appointment_reschedule_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_RESCHEDULE,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🔄 Appointment Rescheduled - New time: {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="Appointment Rescheduled - New time: {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -162,7 +162,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -172,7 +172,7 @@ class TemplateManager:
             "appointment_cancellation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CANCELLATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="❌ Appointment Cancelled - {{ appointment.date }} with {{ appointment.doctor_name }}",
+                subject_template="Appointment Cancellation - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -180,7 +180,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -190,7 +190,7 @@ class TemplateManager:
             "appointment_cancellation_doctor": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CANCELLATION,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="❌ Appointment Cancelled - {{ appointment.date }} with {{ appointment.patient_name }}",
+                subject_template="Appointment Cancellation - {{ appointment.appointment_date }} with {{ appointment.patient }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -198,7 +198,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.patient_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.patient", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -210,7 +210,7 @@ class TemplateManager:
             "welcome_series_patient": TemplateConfig(
                 template_type=TemplateType.WELCOME_SERIES,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🎉 Welcome to {{ clinic_name }} - Your Health Journey Starts Here!",
+                subject_template="Welcome to {{ clinic_name }} - Your Health Journey Starts Here",
                 variants=[
                     TemplateVariant(
                         name="onboarding_v1",
@@ -228,7 +228,7 @@ class TemplateManager:
             "pre_appointment_prep_patient": TemplateConfig(
                 template_type=TemplateType.PRE_APPOINTMENT_PREP,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📋 Prepare for Your Appointment - {{ appointment.date }} with {{ appointment.doctor_name }}",
+                subject_template="Appointment Preparation - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
                 variants=[
                     TemplateVariant(
                         name="preparation_v1",
@@ -236,7 +236,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.type"],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.appointment_type_name"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -246,7 +246,7 @@ class TemplateManager:
             "post_appointment_followup_patient": TemplateConfig(
                 template_type=TemplateType.POST_APPOINTMENT_FOLLOWUP,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="💊 Follow-up Care Instructions from {{ appointment.doctor_name }}",
+                subject_template="Follow-up Care Instructions from {{ appointment.provider_name }}",
                 variants=[
                     TemplateVariant(
                         name="followup_v1",
@@ -254,7 +254,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "care_instructions"],
+                required_fields=["recipient_name", "appointment.provider_name", "care_instructions"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -264,7 +264,7 @@ class TemplateManager:
             "health_education_patient": TemplateConfig(
                 template_type=TemplateType.HEALTH_EDUCATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📚 Health Education: {{ education_topic }}",
+                subject_template="Health Education: {{ education_topic }}",
                 variants=[
                     TemplateVariant(
                         name="education_v1",
@@ -282,7 +282,7 @@ class TemplateManager:
             "medication_reminder_patient": TemplateConfig(
                 template_type=TemplateType.MEDICATION_REMINDER,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="💊 Medication Reminder: {{ medication.name }}",
+                subject_template="Medication Reminder: {{ medication.name }}",
                 variants=[
                     TemplateVariant(
                         name="medication_v1",
@@ -302,7 +302,7 @@ class TemplateManager:
             "daily_schedule_digest_doctor": TemplateConfig(
                 template_type=TemplateType.DAILY_SCHEDULE_DIGEST,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="📅 Daily Schedule - {{ schedule_date }}",
+                subject_template="Daily Schedule - {{ schedule_date }}",
                 variants=[
                     TemplateVariant(
                         name="digest_v1",
@@ -320,7 +320,7 @@ class TemplateManager:
             "patient_no_show_alert_doctor": TemplateConfig(
                 template_type=TemplateType.PATIENT_NO_SHOW_ALERT,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="⚠️ Patient No-Show Alert - {{ patient_name }}",
+                subject_template="Patient No-Show Alert - {{ patient_name }}",
                 variants=[
                     TemplateVariant(
                         name="noshow_v1",
@@ -328,7 +328,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "patient_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "patient_name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -338,7 +338,7 @@ class TemplateManager:
             "urgent_appointment_request_doctor": TemplateConfig(
                 template_type=TemplateType.URGENT_APPOINTMENT_REQUEST,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="🚨 Urgent Appointment Request - {{ patient_name }}",
+                subject_template="Urgent Appointment Request - {{ patient_name }}",
                 variants=[
                     TemplateVariant(
                         name="urgent_v1",
@@ -356,7 +356,7 @@ class TemplateManager:
             "staff_schedule_change_admin": TemplateConfig(
                 template_type=TemplateType.STAFF_SCHEDULE_CHANGE,
                 recipient_type=RecipientType.ADMIN,
-                subject_template="📋 Schedule Change Notification - {{ staff_member }}",
+                subject_template="Schedule Change Notification - {{ staff_member }}",
                 variants=[
                     TemplateVariant(
                         name="schedule_change_v1",
@@ -376,7 +376,7 @@ class TemplateManager:
             "insurance_verification_patient": TemplateConfig(
                 template_type=TemplateType.INSURANCE_VERIFICATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🏥 Insurance Verification - {{ verification_status }}",
+                subject_template="Insurance Verification - {{ verification_status }}",
                 variants=[
                     TemplateVariant(
                         name="insurance_v1",
@@ -394,7 +394,7 @@ class TemplateManager:
             "billing_reminder_patient": TemplateConfig(
                 template_type=TemplateType.BILLING_REMINDER,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="💳 Payment Reminder - {{ amount_due }} Due {{ due_date }}",
+                subject_template="Payment Reminder - {{ amount_due }} Due {{ due_date }}",
                 variants=[
                     TemplateVariant(
                         name="billing_v1",
@@ -412,7 +412,7 @@ class TemplateManager:
             "survey_request_patient": TemplateConfig(
                 template_type=TemplateType.SURVEY_REQUEST,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📝 Your Feedback Matters - Rate Your Recent Visit",
+                subject_template="Your Feedback Matters - Rate Your Recent Visit",
                 variants=[
                     TemplateVariant(
                         name="survey_v1",
@@ -420,7 +420,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "survey_link", "appointment.doctor_name"],
+                required_fields=["recipient_name", "survey_link", "appointment.provider_name"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -430,7 +430,7 @@ class TemplateManager:
             "emergency_notification_all": TemplateConfig(
                 template_type=TemplateType.EMERGENCY_NOTIFICATION,
                 recipient_type=RecipientType.PATIENT,  # Can be overridden for different recipients
-                subject_template="🚨 Important Notice: {{ emergency_type }}",
+                subject_template="Important Notice: {{ emergency_type }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_v1",
@@ -450,7 +450,7 @@ class TemplateManager:
             "welcome_series_patient": TemplateConfig(
                 template_type=TemplateType.WELCOME_SERIES,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🎉 Welcome to {{ clinic_name }} - Your Health Journey Starts Here!",
+                subject_template="Welcome to {{ clinic_name }} - Your Health Journey Starts Here",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -468,7 +468,7 @@ class TemplateManager:
             "pre_appointment_prep_patient": TemplateConfig(
                 template_type=TemplateType.PRE_APPOINTMENT_PREP,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📋 Prepare for Your Appointment - {{ appointment.date }} with {{ appointment.doctor_name }}",
+                subject_template="Appointment Preparation - {{ appointment.date }} with {{ appointment.doctor_name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -486,7 +486,7 @@ class TemplateManager:
             "post_appointment_followup_patient": TemplateConfig(
                 template_type=TemplateType.POST_APPOINTMENT_FOLLOWUP,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📝 Follow-up from Your Visit - {{ appointment.date }}",
+                subject_template="Follow-up from Your Visit - {{ appointment.date }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -504,7 +504,7 @@ class TemplateManager:
             "health_education_patient": TemplateConfig(
                 template_type=TemplateType.HEALTH_EDUCATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📚 Health Education: {{ education_topic }}",
+                subject_template="Health Education: {{ education_topic }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -522,7 +522,7 @@ class TemplateManager:
             "medication_reminder_patient": TemplateConfig(
                 template_type=TemplateType.MEDICATION_REMINDER,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="💊 Medication Reminder: {{ medication.name }}",
+                subject_template="Medication Reminder: {{ medication.name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -542,7 +542,7 @@ class TemplateManager:
             "daily_schedule_digest_doctor": TemplateConfig(
                 template_type=TemplateType.DAILY_SCHEDULE_DIGEST,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="📅 Daily Schedule - {{ schedule_date }}",
+                subject_template="Daily Schedule - {{ schedule_date }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -560,7 +560,7 @@ class TemplateManager:
             "patient_no_show_alert_doctor": TemplateConfig(
                 template_type=TemplateType.PATIENT_NO_SHOW_ALERT,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="⚠️ Patient No-Show Alert - {{ patient_name }}",
+                subject_template="Patient No-Show Alert - {{ patient_name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -578,7 +578,7 @@ class TemplateManager:
             "urgent_appointment_request_doctor": TemplateConfig(
                 template_type=TemplateType.URGENT_APPOINTMENT_REQUEST,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="🚨 Urgent Appointment Request - {{ patient_name }}",
+                subject_template="Urgent Appointment Request - {{ patient_name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -596,7 +596,7 @@ class TemplateManager:
             "staff_schedule_change_doctor": TemplateConfig(
                 template_type=TemplateType.STAFF_SCHEDULE_CHANGE,
                 recipient_type=RecipientType.DOCTOR,
-                subject_template="📋 Staff Schedule Update - {{ change_date }}",
+                subject_template="Staff Schedule Update - {{ change_date }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -616,7 +616,7 @@ class TemplateManager:
             "insurance_verification_patient": TemplateConfig(
                 template_type=TemplateType.INSURANCE_VERIFICATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🏥 Insurance Verification Required - {{ appointment.date }}",
+                subject_template="Insurance Verification Required - {{ appointment.date }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -634,7 +634,7 @@ class TemplateManager:
             "billing_reminder_patient": TemplateConfig(
                 template_type=TemplateType.BILLING_REMINDER,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="💳 Payment Reminder - Account Balance: ${{ balance }}",
+                subject_template="Payment Reminder - Account Balance: ${{ balance }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -652,7 +652,7 @@ class TemplateManager:
             "survey_request_patient": TemplateConfig(
                 template_type=TemplateType.SURVEY_REQUEST,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📊 Your Feedback Matters - Rate Your Recent Visit",
+                subject_template="Your Feedback Matters - Rate Your Recent Visit",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -672,7 +672,7 @@ class TemplateManager:
             "emergency_contact_appointment_confirmation": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CONFIRMATION,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="📅 Appointment Confirmed for {{ patient_name }} - {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="Appointment Confirmation for {{ patient_name }} - {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -680,7 +680,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -690,7 +690,7 @@ class TemplateManager:
             "emergency_contact_appointment_reminder": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_REMINDER,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="⏰ Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -698,7 +698,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -708,7 +708,7 @@ class TemplateManager:
             "emergency_contact_appointment_reminder_24h": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_REMINDER,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="⏰ 24hr Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="24-Hour Reminder: {{ patient_name }}'s Appointment Tomorrow - {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -716,7 +716,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -726,7 +726,7 @@ class TemplateManager:
             "emergency_contact_appointment_reminder_2h": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_REMINDER,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="⏰ 2hr Reminder: {{ patient_name }}'s Appointment Today - {{ appointment.time }}",
+                subject_template="2-Hour Reminder: {{ patient_name }}'s Appointment Today - {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -734,7 +734,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -744,7 +744,7 @@ class TemplateManager:
             "emergency_contact_appointment_reminder_30m": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_REMINDER,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="⏰ 30min Reminder: {{ patient_name }}'s Appointment Starting Soon - {{ appointment.time }}",
+                subject_template="30-Minute Reminder: {{ patient_name }}'s Appointment Starting Soon - {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -752,7 +752,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -762,7 +762,7 @@ class TemplateManager:
             "emergency_contact_appointment_reschedule": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_RESCHEDULE,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="🔄 {{ patient_name }}'s Appointment Rescheduled - New time: {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="{{ patient_name }}'s Appointment Rescheduled - New time: {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -770,7 +770,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -780,7 +780,7 @@ class TemplateManager:
             "emergency_contact_appointment_cancellation": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CANCELLATION,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="❌ {{ patient_name }}'s Appointment Cancelled - {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="{{ patient_name }}'s Appointment Cancelled - {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -788,7 +788,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -798,7 +798,7 @@ class TemplateManager:
             "emergency_contact_no_show_alert": TemplateConfig(
                 template_type=TemplateType.PATIENT_NO_SHOW_ALERT,
                 recipient_type=RecipientType.PATIENT,  # Emergency contact as recipient
-                subject_template="⚠️ Alert: {{ patient_name }} Missed Appointment - {{ appointment.date }} at {{ appointment.time }}",
+                subject_template="Alert: {{ patient_name }} Missed Appointment - {{ appointment.appointment_date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_contact_v1",
@@ -806,7 +806,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["emergency_contact_name", "patient_name", "appointment.date", "appointment.time", "appointment.doctor_name", "emergency_contact_relationship"],
+                required_fields=["emergency_contact_name", "patient_name", "appointment.appointment_date", "appointment.start_time", "appointment.provider_name", "emergency_contact_relationship"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -818,7 +818,7 @@ class TemplateManager:
             "appointment_reminder_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_REMINDER,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="📅 Appointment Reminder - {{ appointment.date }} at {{ appointment.time }} with {{ appointment.doctor_name }}",
+                subject_template="Appointment Reminder - {{ appointment.appointment_date }} at {{ appointment.start_time }} with {{ appointment.provider_name }}",
                 variants=[
                     TemplateVariant(
                         name="reminder_v1",
@@ -826,7 +826,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.doctor_name", "appointment.date", "appointment.time"],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -836,7 +836,7 @@ class TemplateManager:
             "emergency_notification_admin": TemplateConfig(
                 template_type=TemplateType.EMERGENCY_NOTIFICATION,
                 recipient_type=RecipientType.ADMIN,
-                subject_template="🚨 Emergency Alert - {{ emergency_type }} - {{ patient_name }}",
+                subject_template="Emergency Alert - {{ emergency_type }} - {{ patient_name }}",
                 variants=[
                     TemplateVariant(
                         name="emergency_admin_v1",
@@ -854,7 +854,7 @@ class TemplateManager:
             "welcome_patient": TemplateConfig(
                 template_type=TemplateType.WELCOME,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="🎉 Welcome to {{ clinic_name }} - Your Health Journey Starts Here!",
+                subject_template="Welcome to {{ clinic_name }} - Your Health Journey Starts Here",
                 variants=[
                     TemplateVariant(
                         name="welcome_v1",

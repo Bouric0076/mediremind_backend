@@ -38,12 +38,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Basic email sent successfully: {message}")
+            print(f"   Basic email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send basic email: {message}")
+            print(f"   Failed to send basic email: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing basic email: {e}")
+        print(f"   Error testing basic email: {e}")
     
     # Test appointment confirmation
     print("\n1. Testing Appointment Confirmation Email")
@@ -66,12 +66,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Appointment confirmation email sent successfully: {message}")
+            print(f"   Appointment confirmation email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send appointment confirmation: {message}")
+            print(f"   Failed to send appointment confirmation: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing appointment confirmation: {e}")
+        print(f"   Error testing appointment confirmation: {e}")
     
     # Test appointment reminder
     print("\n2. Testing Appointment Reminder Email")
@@ -94,12 +94,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Appointment reminder email sent successfully: {message}")
+            print(f"   Appointment reminder email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send appointment reminder: {message}")
+            print(f"   Failed to send appointment reminder: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing appointment reminder: {e}")
+        print(f"   Error testing appointment reminder: {e}")
     
     # Test medication reminder
     print("\n3. Testing Medication Reminder Email")
@@ -115,12 +115,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Medication reminder email sent successfully: {message}")
+            print(f"   Medication reminder email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send medication reminder: {message}")
+            print(f"   Failed to send medication reminder: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing medication reminder: {e}")
+        print(f"   Error testing medication reminder: {e}")
     
     # Test emergency alert
     print("\n4. Testing Emergency Alert Email")
@@ -134,12 +134,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Emergency alert email sent successfully: {message}")
+            print(f"   Emergency alert email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send emergency alert: {message}")
+            print(f"   Failed to send emergency alert: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing emergency alert: {e}")
+        print(f"   Error testing emergency alert: {e}")
     
     # Test welcome email
     print("\n5. Testing Welcome Email")
@@ -152,12 +152,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Welcome email sent successfully: {message}")
+            print(f"   Welcome email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send welcome email: {message}")
+            print(f"   Failed to send welcome email: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing welcome email: {e}")
+        print(f"   Error testing welcome email: {e}")
     
     # Test appointment update (rescheduled)
     print("\n6. Testing Appointment Update Email (Rescheduled)")
@@ -182,12 +182,12 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Appointment rescheduled email sent successfully: {message}")
+            print(f"   Appointment rescheduled email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send appointment rescheduled email: {message}")
+            print(f"   Failed to send appointment rescheduled email: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing appointment rescheduled email: {e}")
+        print(f"   Error testing appointment rescheduled email: {e}")
     
     # Test appointment update (cancelled)
     print("\n7. Testing Appointment Update Email (Cancelled)")
@@ -212,15 +212,15 @@ def test_resend_service():
         )
         
         if success:
-            print(f"   ✅ Appointment cancelled email sent successfully: {message}")
+            print(f"   Appointment cancelled email sent successfully: {message}")
         else:
-            print(f"   ❌ Failed to send appointment cancelled email: {message}")
+            print(f"   Failed to send appointment cancelled email: {message}")
             
     except Exception as e:
-        print(f"   ❌ Error testing appointment cancelled email: {e}")
+        print(f"   Error testing appointment cancelled email: {e}")
     
     print("\n" + "=" * 60)
-    print("🎉 Resend Service Testing Complete!")
+    print("Resend Service Testing Complete!")
     print("Note: Check your Resend dashboard for actual email delivery status")
 
 if __name__ == "__main__":

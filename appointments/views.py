@@ -62,12 +62,16 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
             # Prepare appointment details for email
             appointment_details = {
                 'id': appointment_data['id'],
-                'date': appointment_data['date'],
-                'time': appointment_data['time'],
-                'doctor_name': appointment_data.get('provider', 'Doctor'),
-                'appointment_type': appointment_data.get('type', 'Consultation'),
-                'location': 'MediRemind Clinic',  # You can customize this
+                'date': appointment_data.get('appointment_date'),  # Correct field name
+                'time': appointment_data.get('start_time'),        # Correct field name
+                'doctor_name': appointment_data.get('provider_name') or 
+                              (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
+                'appointment_type': appointment_data.get('appointment_type_name') or 
+                                   (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',  # Use actual hospital name
                 'patient_id': appointment_data.get('patient_id'),
+                'patient_name': appointment_data.get('patient_name', patient_name),
+                'patient_email': appointment_data.get('patient_email', patient_email),
             }
             
             if settings.DEBUG:
@@ -161,7 +165,11 @@ def create_appointment(request):
                     'time': appointment.start_time,
                     'type': appointment.appointment_type.name,
                     'patient': appointment.patient.user.get_full_name(),
-                    'provider': appointment.provider.user.get_full_name()
+                    'provider': appointment.provider.user.get_full_name(),
+                    'hospital_name': appointment.provider.hospital.name if appointment.provider.hospital else 'MediRemind Partner Clinic',
+                    'hospital_type': appointment.provider.hospital.hospital_type if appointment.provider.hospital else 'clinic',
+                    'hospital_address': f"{appointment.provider.hospital.address_line_1}, {appointment.provider.hospital.city}" if appointment.provider.hospital else 'Main Location',
+                    'hospital_phone': appointment.provider.hospital.phone if appointment.provider.hospital else 'Contact for details',
                 }
                 
                 # Schedule reminder (this is database-only, safe inside transaction)

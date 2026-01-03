@@ -97,7 +97,7 @@ def send_medication_reminder_task(
         if channels is None:
             channels = ['fcm', 'email']
         
-        title = f"💊 Medication Reminder: {medication_name}"
+        title = f"Medication Reminder: {medication_name}"
         message = f"Time to take your {medication_name} ({dosage}) at {time}"
         
         # Create initial log entry
@@ -157,7 +157,7 @@ def send_medication_reminder_task(
                 
                 elif channel == 'sms':
                     if hasattr(user, 'profile') and user.profile.phone_number:
-                        sms_message = f"💊 MediRemind: Time to take your {medication_name} ({dosage}) at {time}. Reply TAKEN when completed."
+                        sms_message = f"MediRemind: Time to take your {medication_name} ({dosage}) at {time}. Reply TAKEN when completed."
                         success = sms_service.send_sms(
                             phone_number=user.profile.phone_number,
                             message=sms_message
@@ -225,7 +225,7 @@ def send_appointment_reminder_task(
         if channels is None:
             channels = ['fcm', 'email']
         
-        title = f"📅 Appointment Reminder"
+        title = f"Appointment Reminder"
         message = f"You have an appointment with {appointment_details.get('doctor_name', 'your doctor')} at {reminder_time}"
         
         # Create initial log entry
@@ -276,7 +276,7 @@ def send_appointment_reminder_task(
                 
                 elif channel == 'sms':
                     if hasattr(user, 'profile') and user.profile.phone_number:
-                        sms_message = f"📅 Appointment reminder: {appointment_details.get('doctor_name')} at {reminder_time}. Location: {appointment_details.get('location', 'TBD')}"
+                        sms_message = f"Appointment reminder: {appointment_details.get('doctor_name')} at {reminder_time}. Location: {appointment_details.get('location', 'TBD')}"
                         success = sms_service.send_sms(
                             phone_number=user.profile.phone_number,
                             message=sms_message
@@ -313,7 +313,7 @@ def send_emergency_alert_task(
         if channels is None:
             channels = ['fcm', 'sms', 'email']
         
-        title = f"🚨 Emergency Alert"
+        title = f"Emergency Alert"
         
         # Create initial log entry
         log = create_notification_log(
@@ -362,7 +362,7 @@ def send_emergency_alert_task(
                 
                 elif channel == 'sms':
                     if hasattr(user, 'profile') and user.profile.phone_number:
-                        sms_message = f"🚨 EMERGENCY: {alert_message}"
+                        sms_message = f"EMERGENCY: {alert_message}"
                         success = sms_service.send_sms(
                             phone_number=user.profile.phone_number,
                             message=sms_message

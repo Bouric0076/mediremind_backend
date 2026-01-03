@@ -188,7 +188,7 @@ class PatientEmailService:
             # Send password reset email using Resend service
             success, message = self.resend_service.send_email(
                 to_email=patient.user.email,
-                subject=f"Reset Your MediRemind Password 🔑",
+                subject=f"Reset Your MediRemind Password",
                 html_content=html_content,
                 text_content=f"Hello {patient_name}, You requested a password reset. Visit: {reset_url} (expires in 24 hours)",
                 tags={'type': 'password_reset', 'patient_id': str(patient.id)}

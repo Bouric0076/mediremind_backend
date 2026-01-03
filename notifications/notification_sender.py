@@ -54,7 +54,7 @@ class NotificationSender:
         if channels is None:
             channels = ['fcm', 'web_push']
         
-        title = "💊 Medication Reminder"
+        title = "Medication Reminder"
         message = f"Time to take your {medication_name} ({dosage}) at {time}"
         
         results = {}
@@ -141,7 +141,7 @@ class NotificationSender:
         appointment_time = appointment_details.get('time', 'scheduled time')
         location = appointment_details.get('location', 'clinic')
         
-        title = "📅 Appointment Reminder"
+        title = "Appointment Reminder"
         message = f"You have an appointment with {doctor_name} at {appointment_time}"
         
         results = {}
@@ -184,7 +184,7 @@ class NotificationSender:
         if channels is None:
             channels = ['fcm', 'web_push', 'email', 'sms']
         
-        title = "🚨 Emergency Alert"
+        title = "Emergency Alert"
         
         results = {}
         
@@ -318,7 +318,7 @@ class NotificationSender:
     ) -> bool:
         """Send email notification for medication reminder."""
         try:
-            subject = f"💊 Medication Reminder: {medication_name}"
+            subject = f"Medication Reminder: {medication_name}"
             template_data = {
                 'user_name': user.first_name or user.username,
                 'medication_name': medication_name,
@@ -348,7 +348,7 @@ class NotificationSender:
             if not hasattr(user, 'profile') or not user.profile.phone_number:
                 return False
             
-            message = f"💊 MediRemind: Time to take your {medication_name} ({dosage}) at {time}. Reply TAKEN when completed."
+            message = f"MediRemind: Time to take your {medication_name} ({dosage}) at {time}. Reply TAKEN when completed."
             
             return await self.sms_service.send_sms(
                 phone_number=user.profile.phone_number,

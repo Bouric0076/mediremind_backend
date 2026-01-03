@@ -118,7 +118,7 @@ class EmailTemplateManager:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1><span class="success-icon">✓</span> Appointment Confirmed</h1>
+                    <h1>Appointment Confirmed</h1>
                     <p>Your appointment has been successfully scheduled</p>
                 </div>
                 

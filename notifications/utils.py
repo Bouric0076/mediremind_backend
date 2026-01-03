@@ -271,12 +271,14 @@ def send_appointment_confirmation(appointment_id, patient_email, doctor_email):
             # Prepare appointment details for Resend service
             appointment_details = {
                 'id': appointment_data.get('id'),
-                'date': appointment_data.get('date'),
-                'time': appointment_data.get('time'),
+                'date': appointment_data.get('appointment_time', '').split(' ')[0] if appointment_data.get('appointment_time') else appointment_data.get('date'),
+                'time': appointment_data.get('appointment_time', '').split(' ')[1] if appointment_data.get('appointment_time') else appointment_data.get('time'),
                 'doctor_name': appointment_data.get('doctor_name'),
-                'appointment_type': appointment_data.get('appointment_type', 'Consultation'),
-                'location': appointment_data.get('location', 'MediRemind Clinic'),
+                'appointment_type': appointment_data.get('type', 'Consultation'),
+                'location': appointment_data.get('location') or appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
                 'patient_id': appointment_data.get('patient_id'),
+                'patient_name': appointment_data.get('patient_name', 'Patient'),
+                'patient_phone': appointment_data.get('patient_phone'),
             }
             
             # Get patient and doctor names
@@ -362,11 +364,24 @@ def send_appointment_update(appointment_data, update_type, patient_email, doctor
             patient_name = appointment_data.get('patient_name', 'Patient')
             doctor_name = appointment_data.get('doctor_name', 'Doctor')
             
+            # Prepare appointment details for Resend service
+            appointment_details = {
+                'id': appointment_data.get('id'),
+                'date': appointment_data.get('appointment_time', '').split(' ')[0] if appointment_data.get('appointment_time') else appointment_data.get('date'),
+                'time': appointment_data.get('appointment_time', '').split(' ')[1] if appointment_data.get('appointment_time') else appointment_data.get('time'),
+                'doctor_name': appointment_data.get('doctor_name'),
+                'appointment_type': appointment_data.get('type', 'Consultation'),
+                'location': appointment_data.get('location') or appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
+                'patient_id': appointment_data.get('patient_id'),
+                'patient_name': appointment_data.get('patient_name', 'Patient'),
+                'patient_phone': appointment_data.get('patient_phone'),
+            }
+            
             # Send email to patient
             success, message = resend_service.send_appointment_update_email(
                 to_email=patient_email,
                 patient_name=patient_name,
-                appointment_details=appointment_data,
+                appointment_details=appointment_details,
                 update_type=update_type
             )
             if not success:
@@ -376,7 +391,7 @@ def send_appointment_update(appointment_data, update_type, patient_email, doctor
             success, message = resend_service.send_appointment_update_email(
                 to_email=doctor_email,
                 patient_name=doctor_name,
-                appointment_details=appointment_data,
+                appointment_details=appointment_details,
                 update_type=update_type
             )
             if not success:

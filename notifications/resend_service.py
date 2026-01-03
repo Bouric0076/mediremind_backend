@@ -679,11 +679,11 @@ class ResendEmailService:
         """
         # Determine subject and styling based on update type
         if update_type.lower() == 'reschedule':
-            subject = f"🔄 Appointment Rescheduled - {appointment_details.get('date', 'TBD')}"
+            subject = f"Appointment Rescheduled - {appointment_details.get('date', 'TBD')}"
             header_color = '#2196F3'
             header_text = 'Appointment Rescheduled'
         elif update_type.lower() == 'cancellation':
-            subject = f"❌ Appointment Cancelled - {appointment_details.get('date', 'TBD')}"
+            subject = f"Appointment Cancelled - {appointment_details.get('date', 'TBD')}"
             header_color = '#F44336'
             header_text = 'Appointment Cancelled'
         else:

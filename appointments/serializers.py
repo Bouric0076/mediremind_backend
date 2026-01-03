@@ -7,6 +7,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from accounts.models import EnhancedPatient, EnhancedStaffProfile
 from .models import AppointmentType, Appointment, AppointmentWaitlist, Room, Equipment
+from accounts.models import Hospital
 
 User = get_user_model()
 
@@ -45,13 +46,23 @@ class PatientBasicSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class HospitalBasicSerializer(serializers.ModelSerializer):
+    """Basic hospital information serializer"""
+    
+    class Meta:
+        model = Hospital
+        fields = ['id', 'name', 'hospital_type', 'address_line_1', 'city', 'state', 'phone']
+        read_only_fields = ['id']
+
+
 class ProviderBasicSerializer(serializers.ModelSerializer):
     """Basic provider information serializer"""
     user = UserBasicSerializer(read_only=True)
+    hospital = HospitalBasicSerializer(read_only=True)
     
     class Meta:
         model = EnhancedStaffProfile
-        fields = ['id', 'user', 'specialization', 'license_number', 'department']
+        fields = ['id', 'user', 'specialization', 'license_number', 'department', 'hospital']
         read_only_fields = ['id']
 
 
@@ -157,6 +168,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     patient_email = serializers.SerializerMethodField()
     provider_name = serializers.SerializerMethodField()
     appointment_type_name = serializers.SerializerMethodField()
+    hospital_name = serializers.SerializerMethodField()
+    hospital_info = serializers.SerializerMethodField()
     
     class Meta:
         model = Appointment
@@ -173,7 +186,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'is_today', 'is_upcoming', 'can_cancel', 'can_reschedule',
             'formatted_datetime',
             'patient_name', 'patient_phone', 'patient_email',
-            'provider_name', 'appointment_type_name'
+            'provider_name', 'appointment_type_name', 'hospital_name', 'hospital_info'
         ]
         read_only_fields = [
             'id', 'end_time', 'duration', 'estimated_cost',
@@ -222,6 +235,23 @@ class AppointmentSerializer(serializers.ModelSerializer):
     def get_appointment_type_name(self, obj):
         """Get appointment type name"""
         return obj.appointment_type.name if obj.appointment_type else ""
+    
+    def get_hospital_name(self, obj):
+        """Get hospital name"""
+        return obj.provider.hospital.name if obj.provider and obj.provider.hospital else ""
+    
+    def get_hospital_info(self, obj):
+        """Get hospital information"""
+        if obj.provider and obj.provider.hospital:
+            hospital = obj.provider.hospital
+            return {
+                'name': hospital.name,
+                'type': hospital.hospital_type,
+                'address': f"{hospital.address_line_1}, {hospital.city}",
+                'phone': hospital.phone,
+                'email': hospital.email
+            }
+        return None
     
     def validate(self, data):
         """Comprehensive validation for appointment data"""

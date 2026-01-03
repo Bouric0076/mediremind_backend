@@ -74,7 +74,7 @@ class MedicationReminderService:
                     delivery_method=','.join(channels),
                     priority='high',
                     status='scheduled',
-                    title=f"💊 {medication_name} Reminder",
+                    title=f"{medication_name} Reminder",
                     message=f"Time to take your {medication_name} ({dosage})",
                     scheduled_time=timezone.make_aware(
                         datetime.combine(start_date, reminder_time)
@@ -139,13 +139,13 @@ class MedicationReminderService:
         
         # Add urgency indicators based on reminder type
         if reminder_type == 'missed':
-            title_prefix = "⚠️ Missed Medication"
+            title_prefix = "Missed Medication"
             message_prefix = "You missed your"
         elif reminder_type == 'overdue':
-            title_prefix = "🔴 Overdue Medication"
+            title_prefix = "Overdue Medication"
             message_prefix = "Your medication is overdue:"
         else:
-            title_prefix = "💊 Medication Reminder"
+            title_prefix = "Medication Reminder"
             message_prefix = "Time to take your"
         
         return await self.notification_sender.send_medication_reminder(
@@ -204,7 +204,7 @@ class MedicationReminderService:
             # Send confirmation notification
             confirmation_result = await self.notification_sender.send_system_notification(
                 user=user,
-                title="✅ Medication Confirmed",
+                title="Medication Confirmed",
                 message=f"Great! You've taken your medication at {taken_time.strftime('%H:%M')}",
                 notification_type='medication_confirmation',
                 data={
@@ -256,7 +256,7 @@ class MedicationReminderService:
                 delivery_method='fcm,web_push',
                 priority='high',
                 status='scheduled',
-                title=f"💊 Snoozed Reminder",
+                title=f"Snoozed Reminder",
                 message=f"Snoozed medication reminder",
                 scheduled_time=snooze_time,
                 metadata={
