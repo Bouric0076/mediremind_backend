@@ -699,6 +699,8 @@ class ResendEmailService:
                 template_type = TemplateType.APPOINTMENT_RESCHEDULE
             elif update_type_lower == 'no-show':
                 template_type = TemplateType.PATIENT_NO_SHOW_ALERT
+            elif update_type_lower == 'created':
+                template_type = TemplateType.APPOINTMENT_CONFIRMATION
             else:
                 template_type = TemplateType.APPOINTMENT_CANCELLATION
             
@@ -839,14 +841,25 @@ class ResendEmailService:
             
             # Prepare template data - use API-aligned field names
             template_data = {
-                'appointment': appointment_details,
+                'appointment': {
+                    'id': appointment_details.get('id'),
+                    'date': appointment_details.get('appointment_date'),
+                    'time': appointment_details.get('start_time'),
+                    'doctor_name': appointment_details.get('provider_name'),
+                    'location': appointment_details.get('hospital_name') or appointment_details.get('location'),
+                    'duration': appointment_details.get('duration'),
+                    'notes': appointment_details.get('notes'),
+                    'appointment_type': appointment_details.get('appointment_type_name') or appointment_details.get('appointment_type', 'Consultation'),
+                    'specialty': appointment_details.get('provider', {}).get('specialization') if appointment_details.get('provider') else None,
+                    'preparation_instructions': appointment_details.get('appointment_type', {}).get('preparation_instructions') if appointment_details.get('appointment_type') else None
+                },
                 'patient_name': patient_name,
                 'update_type': update_type_lower,
                 'appointment_date': appointment_details.get('appointment_date'),
                 'start_time': appointment_details.get('start_time'),
                 'provider_name': appointment_details.get('provider_name'),
-                'location': appointment_details.get('location'),
-                'appointment_type': appointment_details.get('appointment_type', 'Consultation')
+                'location': appointment_details.get('hospital_name') or appointment_details.get('location'),
+                'appointment_type': appointment_details.get('appointment_type_name') or appointment_details.get('appointment_type', 'Consultation')
             }
             
             # Render template using TemplateManager
