@@ -42,11 +42,14 @@ app.conf.update(
         'calendar_integrations.tasks.*': {'queue': 'calendar'},
         'notifications.tasks.*': {'queue': 'notifications'},
     },
-    # Redis Cloud specific settings
+    # Redis Cloud specific settings - Enhanced for Render environment
     broker_connection_retry_on_startup=True,
     broker_connection_retry=True,
-    broker_connection_max_retries=10,
-    broker_connection_retry_delay=5.0,
+    broker_connection_max_retries=20,  # Increased from 10 to 20
+    broker_connection_retry_delay=10.0,  # Increased from 5.0 to 10.0 seconds
+    broker_pool_limit=10,  # Connection pool limit
+    broker_heartbeat=30,  # Heartbeat to keep connection alive
+    broker_heartbeat_checkrate=10,  # Check heartbeat every 10 seconds
     # Enhanced error handling and monitoring
     task_send_sent_event=True,
     task_store_errors_even_if_ignored=True,
@@ -54,6 +57,10 @@ app.conf.update(
     task_reject_on_worker_lost=True,
     # Task result expiration (1 hour)
     result_expires=3600,
+    # Enhanced task retry settings for Render environment
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
     # Rate limiting for email tasks
     task_annotations={
         'notifications.tasks.send_appointment_confirmation_async': {

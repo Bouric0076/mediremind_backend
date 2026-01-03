@@ -243,11 +243,7 @@ class AppointmentReminderService:
     def _send_email_notification(self, appointment_data: Dict, reminder_type: ReminderType, appointment: Appointment):
         """Send email notification"""
         try:
-            # Skip email notifications in Render environment if network is unreliable
-            if os.getenv('RENDER', 'false').lower() == 'true':
-                logger.info("Skipping email notification in Render environment due to network restrictions")
-                return
-                
+            # Allow email notifications in Render environment now that Resend is configured
             template_name = self._get_email_template_name(reminder_type)
             subject = self._get_email_subject(reminder_type, appointment_data)
             
