@@ -22,6 +22,14 @@ class Hospital(models.Model):
         ('specialty_clinic', 'Specialty Clinic'),
         ('dental_clinic', 'Dental Clinic'),
         ('veterinary_clinic', 'Veterinary Clinic'),
+        ('general_hospital', 'General Hospital'),
+        ('emergency_center', 'Emergency Center'),
+        ('rehabilitation_center', 'Rehabilitation Center'),
+        ('mental_health_facility', 'Mental Health Facility'),
+        ('maternity_hospital', 'Maternity Hospital'),
+        ('pediatric_hospital', 'Pediatric Hospital'),
+        ('surgical_center', 'Surgical Center'),
+        ('diagnostic_center', 'Diagnostic Center'),
     ]
     
     STATUS_CHOICES = [

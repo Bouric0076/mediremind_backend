@@ -20,7 +20,10 @@ class HospitalIntegrationSetupSerializer(serializers.ModelSerializer):
     
     hospital_name = serializers.CharField(write_only=True)
     hospital_type = serializers.ChoiceField(
-        choices=['hospital', 'clinic', 'medical_center', 'urgent_care', 'specialty_clinic'],
+        choices=['hospital', 'clinic', 'medical_center', 'urgent_care', 'specialty_clinic', 
+                'dental_clinic', 'veterinary_clinic', 'general_hospital', 'emergency_center',
+                'rehabilitation_center', 'mental_health_facility', 'maternity_hospital',
+                'pediatric_hospital', 'surgical_center', 'diagnostic_center'],
         write_only=True
     )
     contact_email = serializers.EmailField(write_only=True)
