@@ -840,6 +840,9 @@ class ResendEmailService:
                 template_type = TemplateType.APPOINTMENT_CANCELLATION
             
             # Prepare template data - use API-aligned field names
+            provider_data = appointment_details.get('provider')
+            appointment_type_data = appointment_details.get('appointment_type')
+            
             template_data = {
                 'appointment': {
                     'id': appointment_details.get('id'),
@@ -850,8 +853,8 @@ class ResendEmailService:
                     'duration': appointment_details.get('duration'),
                     'notes': appointment_details.get('notes'),
                     'appointment_type': appointment_details.get('appointment_type_name') or appointment_details.get('appointment_type', 'Consultation'),
-                    'specialty': appointment_details.get('provider', {}).get('specialization') if appointment_details.get('provider') else None,
-                    'preparation_instructions': appointment_details.get('appointment_type', {}).get('preparation_instructions') if appointment_details.get('appointment_type') else None
+                    'specialty': provider_data.get('specialization') if isinstance(provider_data, dict) and provider_data else None,
+                    'preparation_instructions': appointment_type_data.get('preparation_instructions') if isinstance(appointment_type_data, dict) and appointment_type_data else None
                 },
                 'patient_name': patient_name,
                 'update_type': update_type_lower,
