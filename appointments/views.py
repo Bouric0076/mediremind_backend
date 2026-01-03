@@ -59,15 +59,34 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
             # Extract patient name from appointment data
             patient_name = appointment_data.get('patient', 'Patient')
             
-            # Prepare appointment details for email
+            # Prepare appointment details for email with robust type checking
+            def safe_get_provider_name():
+                """Safely extract provider name with type checking"""
+                provider_data = appointment_data.get('provider')
+                if isinstance(provider_data, dict):
+                    user_data = provider_data.get('user')
+                    if isinstance(user_data, dict):
+                        return user_data.get('full_name')
+                    return provider_data.get('user_name') or provider_data.get('name')
+                elif isinstance(provider_data, str):
+                    return provider_data
+                return None
+            
+            def safe_get_appointment_type():
+                """Safely extract appointment type name with type checking"""
+                appointment_type_data = appointment_data.get('appointment_type')
+                if isinstance(appointment_type_data, dict):
+                    return appointment_type_data.get('name')
+                elif isinstance(appointment_type_data, str):
+                    return appointment_type_data
+                return None
+            
             appointment_details = {
                 'id': appointment_data['id'],
                 'date': appointment_data.get('appointment_date'),  # Correct field name
                 'time': appointment_data.get('start_time'),        # Correct field name
-                'doctor_name': appointment_data.get('provider_name') or 
-                              (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
-                'appointment_type': appointment_data.get('appointment_type_name') or 
-                                   (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                'doctor_name': appointment_data.get('provider_name') or safe_get_provider_name() or 'Doctor',
+                'appointment_type': appointment_data.get('appointment_type_name') or safe_get_appointment_type() or 'Consultation',
                 'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',  # Use actual hospital name
                 'patient_id': appointment_data.get('patient_id'),
                 'patient_name': appointment_data.get('patient_name', patient_name),
@@ -120,15 +139,34 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     elif old_status != new_status:
                         update_type = 'reschedule'  # Any other status change
                 
-                # Prepare appointment details for email
+                # Prepare appointment details for email with robust type checking
+                def safe_get_provider_name():
+                    """Safely extract provider name with type checking"""
+                    provider_data = appointment_data.get('provider')
+                    if isinstance(provider_data, dict):
+                        user_data = provider_data.get('user')
+                        if isinstance(user_data, dict):
+                            return user_data.get('full_name')
+                        return provider_data.get('user_name') or provider_data.get('name')
+                    elif isinstance(provider_data, str):
+                        return provider_data
+                    return None
+                
+                def safe_get_appointment_type():
+                    """Safely extract appointment type name with type checking"""
+                    appointment_type_data = appointment_data.get('appointment_type')
+                    if isinstance(appointment_type_data, dict):
+                        return appointment_type_data.get('name')
+                    elif isinstance(appointment_type_data, str):
+                        return appointment_type_data
+                    return None
+                
                 appointment_details = {
                     'id': appointment_data['id'],
                     'appointment_date': appointment_data.get('appointment_date') or appointment_data.get('date'),
                     'start_time': appointment_data.get('start_time') or appointment_data.get('time'),
-                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or
-                                  (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
-                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or
-                                       (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or safe_get_provider_name() or 'Doctor',
+                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or safe_get_appointment_type() or 'Consultation',
                     'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
                     'patient_id': appointment_data.get('patient_id'),
                     'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
@@ -234,15 +272,34 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 # Extract patient name from appointment data
                 patient_name = appointment_data.get('patient', 'Patient')
                 
-                # Prepare appointment details for email
+                # Prepare appointment details for email with robust type checking
+                def safe_get_provider_name():
+                    """Safely extract provider name with type checking"""
+                    provider_data = appointment_data.get('provider')
+                    if isinstance(provider_data, dict):
+                        user_data = provider_data.get('user')
+                        if isinstance(user_data, dict):
+                            return user_data.get('full_name')
+                        return provider_data.get('user_name') or provider_data.get('name')
+                    elif isinstance(provider_data, str):
+                        return provider_data
+                    return None
+                
+                def safe_get_appointment_type():
+                    """Safely extract appointment type name with type checking"""
+                    appointment_type_data = appointment_data.get('appointment_type')
+                    if isinstance(appointment_type_data, dict):
+                        return appointment_type_data.get('name')
+                    elif isinstance(appointment_type_data, str):
+                        return appointment_type_data
+                    return None
+                
                 appointment_details = {
                     'id': appointment_data['id'],
                     'appointment_date': appointment_data.get('appointment_date') or appointment_data.get('date'),
                     'start_time': appointment_data.get('start_time') or appointment_data.get('time'),
-                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or
-                                  (appointment_data.get('provider', {}).get('user', {}).get('full_name') if appointment_data.get('provider') else 'Doctor'),
-                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or
-                                       (appointment_data.get('appointment_type', {}).get('name') if appointment_data.get('appointment_type') else 'Consultation'),
+                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or safe_get_provider_name() or 'Doctor',
+                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or safe_get_appointment_type() or 'Consultation',
                     'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
                     'patient_id': appointment_data.get('patient_id'),
                     'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
