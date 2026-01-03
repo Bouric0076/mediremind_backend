@@ -530,23 +530,25 @@ LOGGING = {
 }
 
 
-# Celery Beat schedule for periodic tasks
+# Celery Beat schedule for periodic tasks (disabled for free tier)
+# Note: Worker services are not available in Render free tier
+# For free tier, notifications are processed synchronously during appointment creation
 CELERY_BEAT_SCHEDULE = {
-    'process-pending-reminders': {
-        'task': 'notifications.tasks.process_pending_reminders',
-        'schedule': crontab(minute='*/1'),  # every 1 minute
-        'options': {'queue': 'notifications', 'expires': 55},
-    },
-    'cleanup-old-notification-logs': {
-        'task': 'notifications.tasks.cleanup_old_notification_logs',
-        'schedule': crontab(hour=3, minute=0),  # daily at 03:00 UTC
-        'options': {'queue': 'notifications'},
-    },
-    'monitor-notification-health': {
-        'task': 'notifications.tasks.monitor_notification_health',
-        'schedule': crontab(minute='*/5'),  # every 5 minutes
-        'options': {'queue': 'notifications', 'expires': 240},
-    },
+    # 'process-pending-reminders': {
+    #     'task': 'notifications.tasks.process_pending_reminders',
+    #     'schedule': crontab(minute='*/1'),  # every 1 minute
+    #     'options': {'queue': 'notifications', 'expires': 55},
+    # },
+    # 'cleanup-old-notification-logs': {
+    #     'task': 'notifications.tasks.cleanup_old_notification_logs',
+    #     'schedule': crontab(hour=3, minute=0),  # daily at 03:00 UTC
+    #     'options': {'queue': 'notifications'},
+    # },
+    # 'monitor-notification-health': {
+    #     'task': 'notifications.tasks.monitor_notification_health',
+    #     'schedule': crontab(minute='*/5'),  # every 5 minutes
+    #     'options': {'queue': 'notifications', 'expires': 240},
+    # },
     'collect-queue-stats': {
         'task': 'notifications.tasks.collect_queue_stats',
         'schedule': crontab(minute='*/2'),  # every 2 minutes

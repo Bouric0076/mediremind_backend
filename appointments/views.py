@@ -28,6 +28,7 @@ from .utils import (
     check_patient_availability,
     validate_appointment_type,
     validate_appointment_status,
+    process_immediate_reminders,  # Add this for free tier reminders
     get_filtered_appointments
 )
 from notifications.utils import send_appointment_confirmation, send_appointment_update
@@ -49,9 +50,9 @@ def check_patient_hospital_relationship(patient, hospital):
 
 
 def send_appointment_notification(appointment_data, action, patient_email, doctor_email):
-    """Send appointment notifications using async tasks"""
+    """Send appointment notifications using synchronous calls for free tier"""
     try:
-        from notifications.tasks import send_appointment_confirmation_async
+        from notifications.email_client import email_client
         
         # Only send confirmation emails for new appointments
         if action == "created":
@@ -69,24 +70,26 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 'patient_id': appointment_data.get('patient_id'),
             }
             
-            # Send async email confirmation
-            send_appointment_confirmation_async.delay(
-                appointment_id=appointment_data['id'],
-                patient_email=patient_email,
-                patient_name=patient_name,
-                appointment_details=appointment_details
+            # Send synchronous email confirmation for free tier
+            success, response_message = email_client.send_appointment_confirmation_email(
+                appointment_data=appointment_details,
+                recipient_email=patient_email,
+                is_patient=True
             )
             
-            logger.info(f"Async appointment confirmation scheduled for {patient_email}")
+            if success:
+                logger.info(f"Appointment confirmation email sent successfully to {patient_email}")
+            else:
+                logger.warning(f"Appointment confirmation email failed to {patient_email}: {response_message}")
         
-        # For other actions (updated, cancelled), you can add similar async tasks
+        # For other actions (updated, cancelled), you can add similar sync tasks
         elif action == "updated":
             logger.info(f"Appointment updated notification would be sent to {patient_email}")
         elif action == "cancelled":
             logger.info(f"Appointment cancelled notification would be sent to {patient_email}")
             
     except Exception as e:
-        logger.error(f"Failed to schedule appointment notification: {str(e)}")
+        logger.error(f"Failed to send appointment notification: {str(e)}")
 
 
 @api_view(['POST'])
@@ -162,12 +165,17 @@ def create_appointment(request):
                 }
                 
                 # Send notifications AFTER transaction commits successfully
-                transaction.on_commit(lambda: send_appointment_notification(
-                    appointment_data, 
-                    'created',
-                    appointment.patient.user.email,
-                    appointment.provider.user.email
-                ))
+                def send_notifications_and_reminders():
+                    send_appointment_notification(
+                        appointment_data, 
+                        'created',
+                        appointment.patient.user.email,
+                        appointment.provider.user.email
+                    )
+                    # Process immediate reminders for free tier
+                    process_immediate_reminders(appointment.id)
+                
+                transaction.on_commit(send_notifications_and_reminders)
                 
                 return Response(response_data, status=status.HTTP_201_CREATED)
         

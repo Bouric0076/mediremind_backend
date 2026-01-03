@@ -20,7 +20,7 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
 
-# Celery configuration
+# Celery configuration - Optimized for free tier (no workers)
 app.conf.update(
     broker_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
     result_backend=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
@@ -32,16 +32,15 @@ app.conf.update(
     task_track_started=True,
     task_time_limit=30 * 60,  # 30 minutes
     task_soft_time_limit=25 * 60,  # 25 minutes
-    worker_prefetch_multiplier=1,
     task_acks_late=True,
     worker_disable_rate_limits=False,
     task_compression='gzip',
     result_compression='gzip',
-    # Task routing for calendar integration
-    task_routes={
-        'calendar_integrations.tasks.*': {'queue': 'calendar'},
-        'notifications.tasks.*': {'queue': 'notifications'},
-    },
+    # Task routing for calendar integration (disabled for free tier)
+    # task_routes={
+    #     'calendar_integrations.tasks.*': {'queue': 'calendar'},
+    #     'notifications.tasks.*': {'queue': 'notifications'},
+    # },
     # Redis Cloud specific settings - Enhanced for Render environment
     broker_connection_retry_on_startup=True,
     broker_connection_retry=True,
@@ -57,19 +56,15 @@ app.conf.update(
     task_reject_on_worker_lost=True,
     # Task result expiration (1 hour)
     result_expires=3600,
-    # Enhanced task retry settings for Render environment
-    task_acks_late=True,
-    task_reject_on_worker_lost=True,
-    worker_prefetch_multiplier=1,
-    # Rate limiting for email tasks
-    task_annotations={
-        'notifications.tasks.send_appointment_confirmation_async': {
-            'rate_limit': '10/m'  # Max 10 emails per minute
-        },
-        'notifications.tasks.send_appointment_reminder_async': {
-            'rate_limit': '20/m'  # Max 20 reminders per minute
-        },
-    },
+    # Rate limiting for email tasks (disabled for free tier)
+    # task_annotations={
+    #     'notifications.tasks.send_appointment_confirmation_async': {
+    #         'rate_limit': '10/m'  # Max 10 emails per minute
+    #     },
+    #     'notifications.tasks.send_appointment_reminder_async': {
+    #         'rate_limit': '20/m'  # Max 20 reminders per minute
+    #     },
+    # },
 )
 
 @app.task(bind=True)

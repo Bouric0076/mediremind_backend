@@ -143,3 +143,26 @@ def get_filtered_appointments(user_id, is_doctor=False, **filters):
         return True, appointments
     except Exception as e:
         return False, f"Error fetching appointments: {str(e)}"
+
+
+def process_immediate_reminders(appointment_id):
+    """Process immediate reminders for free tier (synchronous)"""
+    try:
+        from notifications.appointment_reminders import AppointmentReminderScheduler
+        from .models import Appointment
+        
+        # Get the appointment
+        appointment = Appointment.objects.get(id=appointment_id)
+        
+        # Create reminder scheduler instance
+        scheduler = AppointmentReminderScheduler()
+        
+        # Schedule immediate reminders (24h, 1h before appointment)
+        scheduler.schedule_reminders(appointment)
+        
+        # Also process any due reminders immediately for free tier
+        scheduler.process_pending_reminders()
+        
+        return True, "Immediate reminders processed successfully"
+    except Exception as e:
+        return False, f"Error processing immediate reminders: {str(e)}"
