@@ -256,13 +256,13 @@ class ResendEmailService:
             Tuple of (success, message)
         """
         try:
-            # Prepare template data
+            # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
                 'patient_name': patient_name,
-                'date': appointment_details.get('date'),
-                'time': appointment_details.get('time'),
-                'doctor_name': appointment_details.get('doctor_name'),
+                'appointment_date': appointment_details.get('appointment_date'),
+                'start_time': appointment_details.get('start_time'),
+                'provider_name': appointment_details.get('provider_name'),
                 'location': appointment_details.get('location'),
                 'appointment_type': appointment_details.get('appointment_type', 'Consultation'),
                 'notes': appointment_details.get('notes')
@@ -302,9 +302,9 @@ class ResendEmailService:
         
         Your appointment has been confirmed:
         
-        Date: {appointment_details.get('date', 'TBD')}
-        Time: {appointment_details.get('time', 'TBD')}
-        Doctor: {appointment_details.get('doctor_name', 'TBD')}
+        Date: {appointment_details.get('appointment_date', 'TBD')}
+        Time: {appointment_details.get('start_time', 'TBD')}
+        Doctor: {appointment_details.get('provider_name', 'TBD')}
         Location: {appointment_details.get('location', 'TBD')}
         Type: {appointment_details.get('appointment_type', 'Consultation')}
         {f'Notes: {appointment_details.get("notes")}' if appointment_details.get('notes') else ''}
@@ -349,13 +349,13 @@ class ResendEmailService:
             Tuple of (success, message)
         """
         try:
-            # Prepare template data
+            # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
                 'patient_name': patient_name,
-                'date': appointment_details.get('date'),
-                'time': appointment_details.get('time'),
-                'doctor_name': appointment_details.get('doctor_name'),
+                'appointment_date': appointment_details.get('appointment_date'),
+                'start_time': appointment_details.get('start_time'),
+                'provider_name': appointment_details.get('provider_name'),
                 'location': appointment_details.get('location'),
                 'appointment_type': appointment_details.get('appointment_type', 'Consultation'),
                 'reminder_time': 'tomorrow'  # This is a reminder for tomorrow
@@ -415,9 +415,9 @@ class ResendEmailService:
                     
                     <div class="appointment-details">
                         <h3>Appointment Details</h3>
-                        <p><strong>Date:</strong> {appointment_details.get('date', 'TBD')}</p>
-                        <p><strong>Time:</strong> {appointment_details.get('time', 'TBD')}</p>
-                        <p><strong>Doctor:</strong> {appointment_details.get('doctor_name', 'TBD')}</p>
+                        <p><strong>Date:</strong> {appointment_details.get('appointment_date', 'TBD')}</p>
+                        <p><strong>Time:</strong> {appointment_details.get('start_time', 'TBD')}</p>
+                        <p><strong>Doctor:</strong> {appointment_details.get('provider_name', 'TBD')}</p>
                         <p><strong>Location:</strong> {appointment_details.get('location', 'TBD')}</p>
                         <p><strong>Type:</strong> {appointment_details.get('appointment_type', 'Consultation')}</p>
                     </div>
@@ -444,9 +444,9 @@ class ResendEmailService:
         
         This is a reminder about your upcoming appointment:
         
-        Date: {appointment_details.get('date', 'TBD')}
-        Time: {appointment_details.get('time', 'TBD')}
-        Doctor: {appointment_details.get('doctor_name', 'TBD')}
+        Date: {appointment_details.get('appointment_date', 'TBD')}
+        Time: {appointment_details.get('start_time', 'TBD')}
+        Doctor: {appointment_details.get('provider_name', 'TBD')}
         Location: {appointment_details.get('location', 'TBD')}
         Type: {appointment_details.get('appointment_type', 'Consultation')}
         
@@ -679,11 +679,11 @@ class ResendEmailService:
         """
         # Determine subject and styling based on update type
         if update_type.lower() == 'reschedule':
-            subject = f"Appointment Rescheduled - {appointment_details.get('date', 'TBD')}"
+            subject = f"Appointment Rescheduled - {appointment_details.get('appointment_date', 'TBD')}"
             header_color = '#2196F3'
             header_text = 'Appointment Rescheduled'
         elif update_type.lower() == 'cancellation':
-            subject = f"Appointment Cancelled - {appointment_details.get('date', 'TBD')}"
+            subject = f"Appointment Cancelled - {appointment_details.get('appointment_date', 'TBD')}"
             header_color = '#F44336'
             header_text = 'Appointment Cancelled'
         else:
@@ -715,9 +715,9 @@ class ResendEmailService:
                     
                     <div class="appointment-details">
                         <h3>Appointment Details</h3>
-                        <p><strong>Date:</strong> {appointment_details.get('date', 'TBD')}</p>
-                        <p><strong>Time:</strong> {appointment_details.get('time', 'TBD')}</p>
-                        <p><strong>Doctor:</strong> {appointment_details.get('doctor_name', 'TBD')}</p>
+                        <p><strong>Date:</strong> {appointment_details.get('appointment_date', 'TBD')}</p>
+                        <p><strong>Time:</strong> {appointment_details.get('start_time', 'TBD')}</p>
+                        <p><strong>Doctor:</strong> {appointment_details.get('provider_name', 'TBD')}</p>
                         <p><strong>Location:</strong> {appointment_details.get('location', 'TBD')}</p>
                         {f'<p><strong>Reason:</strong> {appointment_details.get("reason")}</p>' if appointment_details.get('reason') else ''}
                     </div>
@@ -742,9 +742,9 @@ class ResendEmailService:
         
         Your appointment has been {update_type.lower()}d:
         
-        Date: {appointment_details.get('date', 'TBD')}
-        Time: {appointment_details.get('time', 'TBD')}
-        Doctor: {appointment_details.get('doctor_name', 'TBD')}
+        Date: {appointment_details.get('appointment_date', 'TBD')}
+        Time: {appointment_details.get('start_time', 'TBD')}
+        Doctor: {appointment_details.get('provider_name', 'TBD')}
         Location: {appointment_details.get('location', 'TBD')}
         {f'Reason: {appointment_details.get("reason")}' if appointment_details.get('reason') else ''}
         
@@ -856,14 +856,14 @@ class ResendEmailService:
                 else TemplateType.APPOINTMENT_CANCELLATION
             )
             
-            # Prepare template data
+            # Prepare template data - use API-aligned field names
             template_data = {
                 'appointment': appointment_details,
                 'patient_name': patient_name,
                 'update_type': update_type.lower(),
-                'date': appointment_details.get('date'),
-                'time': appointment_details.get('time'),
-                'doctor_name': appointment_details.get('doctor_name'),
+                'appointment_date': appointment_details.get('appointment_date'),
+                'start_time': appointment_details.get('start_time'),
+                'provider_name': appointment_details.get('provider_name'),
                 'location': appointment_details.get('location'),
                 'appointment_type': appointment_details.get('appointment_type', 'Consultation')
             }
