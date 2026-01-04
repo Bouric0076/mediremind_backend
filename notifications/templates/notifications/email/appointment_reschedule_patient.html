@@ -267,28 +267,36 @@
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Doctor:</span>
-                    <span class="detail-value">{{ appointment.doctor_name|default:"Dr. Smith" }}</span>
+                    <span class="detail-value">{{ appointment.provider.name|default:"Dr. Smith" }}</span>
                 </div>
                 
-                {% if appointment.specialty %}
+                {% if appointment.provider.specialization %}
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Specialty:</span>
-                    <span class="detail-value">{{ appointment.specialty }}</span>
+                    <span class="detail-value">{{ appointment.provider.specialization }}</span>
                 </div>
                 {% endif %}
                 
                 <div class="detail-row">
                     <span class="detail-icon">📅</span>
                     <span class="detail-label">New Date:</span>
-                    <span class="detail-value"><span class="highlight-change">{{ appointment.date|default:"TBD" }}</span></span>
+                    <span class="detail-value"><span class="highlight-change">{{ appointment.appointment_date|default:"TBD" }}</span></span>
                 </div>
                 
                 <div class="detail-row">
                     <span class="detail-icon">⏰</span>
                     <span class="detail-label">New Time:</span>
-                    <span class="detail-value"><span class="highlight-change">{{ appointment.time|default:"TBD" }}</span></span>
+                    <span class="detail-value"><span class="highlight-change">{{ appointment.start_time|default:"TBD" }}</span></span>
                 </div>
+                
+                {% if appointment.appointment_type.name %}
+                <div class="detail-row">
+                    <span class="detail-icon">📋</span>
+                    <span class="detail-label">Type:</span>
+                    <span class="detail-value">{{ appointment.appointment_type.name|default:"Consultation" }}</span>
+                </div>
+                {% endif %}
                 
                 <div class="detail-row">
                     <span class="detail-icon">📍</span>
@@ -308,7 +316,7 @@
                 <div class="detail-row">
                     <span class="detail-icon">💬</span>
                     <span class="detail-label">Reason:</span>
-                    <span class="detail-value">{{ appointment.reschedule_reason }}</span>
+                    <span class="detail-value">{{ appointment.reschedule_reason|default:"Schedule adjustment" }}</span>
                 </div>
                 {% endif %}
                 
@@ -316,7 +324,7 @@
                 <div class="detail-row">
                     <span class="detail-icon">📝</span>
                     <span class="detail-label">Notes:</span>
-                    <span class="detail-value">{{ appointment.notes }}</span>
+                    <span class="detail-value">{{ appointment.notes|default:"No additional notes" }}</span>
                 </div>
                 {% endif %}
             </div>

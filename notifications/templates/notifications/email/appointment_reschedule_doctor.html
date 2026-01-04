@@ -49,8 +49,8 @@
         
         <div class="appointment-details">
             <p><strong>Patient:</strong> {{ appointment.patient_name }}</p>
-            <p><strong>New Date:</strong> {{ appointment.date }}</p>
-            <p><strong>New Time:</strong> {{ appointment.time }}</p>
+            <p><strong>New Date:</strong> {{ appointment.appointment_date|default:"TBD" }}</p>
+            <p><strong>New Time:</strong> {{ appointment.start_time|default:"TBD" }}</p>
             <p><strong>Location:</strong> {{ appointment.location }}</p>
             {% if appointment.notes %}
             <p><strong>Notes:</strong> {{ appointment.notes }}</p>

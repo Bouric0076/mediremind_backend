@@ -1,8 +1,15 @@
 from django.conf import settings
-from pywebpush import webpush, WebPushException  # Re-enabled - pywebpush is compatible with Python 3.13
+try:
+    from pywebpush import webpush, WebPushException  # Re-enabled - pywebpush is compatible with Python 3.13
+except ImportError:
+    webpush = None
+    WebPushException = Exception
 import json
 from pathlib import Path
-from supabase_client import admin_client
+try:
+    from supabase_client import admin_client
+except ImportError:
+    admin_client = None
 from .logging_config import NotificationLogger, LogCategory
 import base64
 from io import BytesIO

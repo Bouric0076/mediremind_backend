@@ -27,9 +27,9 @@
             
             <div class="appointment-details">
                 <h3>Appointment Details</h3>
-                <p><strong>Date:</strong> {{ appointment.date }}</p>
-                <p><strong>Time:</strong> {{ appointment.time }}</p>
-                <p><strong>Doctor:</strong> {{ appointment.doctor_name }}</p>
+                <p><strong>Date:</strong> {{ appointment.appointment_date|default:"TBD" }}</p>
+                <p><strong>Time:</strong> {{ appointment.start_time|default:"TBD" }}</p>
+                <p><strong>Doctor:</strong> {{ appointment.provider.name|default:"Doctor" }}</p>
                 {% if appointment.location %}
                 <p><strong>Location:</strong> {{ appointment.location }}</p>
                 {% endif %}

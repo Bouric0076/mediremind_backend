@@ -54,7 +54,7 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
     try:
         from django.conf import settings
         
-        # Only send confirmation emails for new appointments
+        # Send appointment creation emails for new appointments
         if action == "created":
             # Extract patient name from appointment data
             patient_name = appointment_data.get('patient', 'Patient')
@@ -81,39 +81,70 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     return appointment_type_data
                 return None
             
+            # Prepare appointment details using nested API structure for template compatibility
             appointment_details = {
                 'id': appointment_data['id'],
-                'date': appointment_data.get('appointment_date'),  # Correct field name
-                'time': appointment_data.get('start_time'),        # Correct field name
-                'doctor_name': appointment_data.get('provider_name') or safe_get_provider_name() or 'Doctor',
-                'appointment_type': appointment_data.get('appointment_type_name') or safe_get_appointment_type() or 'Consultation',
-                'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',  # Use actual hospital name
+                'appointment_date': appointment_data.get('appointment_date'),
+                'start_time': appointment_data.get('start_time'),
+                'duration': appointment_data.get('duration') or 30,
+                'status': 'created',
+                'patient': {
+                    'id': appointment_data.get('patient_id'),
+                    'name': appointment_data.get('patient_name', patient_name),
+                    'email': appointment_data.get('patient_email', patient_email),
+                },
+                'provider': {
+                    'id': appointment_data.get('provider_id'),
+                    'name': appointment_data.get('provider_name') or safe_get_provider_name() or 'Dr. Smith',
+                    'email': doctor_email
+                },
+                'appointment_type': {
+                    'name': appointment_data.get('appointment_type_name') or safe_get_appointment_type() or 'Consultation'
+                },
+                'hospital': {
+                    'name': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic'
+                },
+                'room': {
+                    'name': appointment_data.get('room_name') or 'Room 1'
+                }
+            }
+            
+            # Add legacy aliases for backward compatibility
+            appointment_details.update({
+                'date': appointment_data.get('appointment_date'),
+                'time': appointment_data.get('start_time'),
+                'doctor_name': appointment_data.get('provider_name') or safe_get_provider_name() or 'Dr. Smith',
+                'appointment_type_name': appointment_data.get('appointment_type_name') or safe_get_appointment_type() or 'Consultation',
                 'patient_id': appointment_data.get('patient_id'),
                 'patient_name': appointment_data.get('patient_name', patient_name),
                 'patient_email': appointment_data.get('patient_email', patient_email),
-            }
+            })
             
-            if settings.DEBUG:
-                # Development mode - use Django's console backend
-                from notifications.email_client import email_client
-                success, response_message = email_client.send_appointment_confirmation_email(
-                    appointment_data=appointment_details,
-                    recipient_email=patient_email,
-                    is_patient=True
-                )
-            else:
-                # Use unified email client
-                from notifications.email_client import email_client
-                success, response_message = email_client.send_appointment_confirmation_email(
-                    appointment_data=appointment_details,
-                    recipient_email=patient_email,
-                    is_patient=True
-                )
+            # Use async Celery tasks for appointment creation emails
+            from notifications.tasks import send_appointment_creation_email_async
+            
+            # Send appointment creation email to patient (async)
+            send_appointment_creation_email_async.delay(
+                appointment_data=appointment_details,
+                recipient_email=patient_email,
+                is_patient=True
+            )
+            
+            # Send appointment creation email to doctor (async)
+            send_appointment_creation_email_async.delay(
+                appointment_data=appointment_details,
+                recipient_email=doctor_email,
+                is_patient=False
+            )
+            
+            # Return immediate success - emails will be sent asynchronously
+            success = True
+            response_message = "Appointment creation emails queued for delivery"
             
             if success:
-                logger.info(f"Appointment confirmation email sent successfully to {patient_email}")
+                logger.info(f"Appointment creation emails sent successfully to patient {patient_email} and doctor {doctor_email}")
             else:
-                logger.warning(f"Appointment confirmation email failed to {patient_email}: {response_message}")
+                logger.warning(f"Appointment creation emails failed: {response_message}")
         
         # Handle appointment updates - send update notifications
         elif action == "updated":
@@ -236,8 +267,11 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     elif update_type == 'completion':
                         email_update_type = 'created'  # Use confirmation template for completion
                     
-                    # Send to patient
-                    success, response_message = email_client.send_appointment_update_email(
+                    # Use async Celery tasks for appointment update emails
+                    from notifications.tasks import send_appointment_update_async
+                    
+                    # Send to patient (async)
+                    send_appointment_update_async.delay(
                         appointment_data=appointment_details,
                         update_type=email_update_type,
                         recipient_email=patient_email,
@@ -248,16 +282,17 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     if update_type in ['cancellation', 'no-show']:
                         emergency_contact_email = appointment_data.get('emergency_contact_email')
                         if emergency_contact_email:
-                            emergency_success, emergency_response = email_client.send_appointment_update_email(
+                            send_appointment_update_async.delay(
                                 appointment_data=appointment_details,
                                 update_type=email_update_type,
                                 recipient_email=emergency_contact_email,
                                 is_patient=False  # Send as provider notification to emergency contact
                             )
-                            if emergency_success:
-                                logger.info(f"{update_type} notification sent to emergency contact {emergency_contact_email}")
-                            else:
-                                logger.warning(f"Failed to send {update_type} notification to emergency contact: {emergency_response}")
+                            logger.info(f"{update_type} notification queued for emergency contact {emergency_contact_email}")
+                    
+                    # Return immediate success - emails will be sent asynchronously
+                    success = True
+                    response_message = f"Appointment {update_type} emails queued for delivery"
                 else:
                     # Use unified email client
                     from notifications.email_client import email_client
@@ -347,24 +382,20 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     'cancellation_reason': appointment_data.get('cancellation_reason') or appointment_data.get('reason', 'Not specified')
                 }
                 
-                if settings.DEBUG:
-                    # Development mode - use Django's console backend
-                    from notifications.email_client import email_client
-                    success, response_message = email_client.send_appointment_update_email(
-                        appointment_data=appointment_details,
-                        update_type='cancellation',
-                        recipient_email=patient_email,
-                        is_patient=True
-                    )
-                else:
-                    # Use unified email client
-                    from notifications.email_client import email_client
-                    success, response_message = email_client.send_appointment_update_email(
-                        appointment_data=appointment_details,
-                        update_type='cancellation',
-                        recipient_email=patient_email,
-                        is_patient=True
-                    )
+                # Use async Celery tasks for appointment cancellation emails
+                from notifications.tasks import send_appointment_update_async
+                
+                # Send cancellation notification to patient (async)
+                send_appointment_update_async.delay(
+                    appointment_data=appointment_details,
+                    update_type='cancellation',
+                    recipient_email=patient_email,
+                    is_patient=True
+                )
+                
+                # Return immediate success - email will be sent asynchronously
+                success = True
+                response_message = "Appointment cancellation email queued for delivery"
                 
                 if success:
                     logger.info(f"Appointment cancellation notification sent successfully to {patient_email}")
@@ -433,15 +464,23 @@ def create_appointment(request):
                 # Store appointment data for notifications (to be sent after commit)
                 appointment_data = {
                     'id': appointment.id,
-                    'date': appointment.appointment_date,
-                    'time': appointment.start_time,
-                    'type': appointment.appointment_type.name,
-                    'patient': appointment.patient.user.get_full_name(),
-                    'provider': appointment.provider.user.get_full_name(),
+                    'appointment_date': appointment.appointment_date,
+                    'start_time': appointment.start_time,
+                    'date': appointment.appointment_date,  # Legacy alias for template compatibility
+                    'time': appointment.start_time,  # Legacy alias for template compatibility
+                    'appointment_type': appointment.appointment_type.name,
+                    'appointment_type_name': appointment.appointment_type.name,  # Alias for template compatibility
+                    'type': appointment.appointment_type.name,  # Legacy alias for template compatibility
+                    'patient_name': appointment.patient.user.get_full_name(),
+                    'patient': appointment.patient.user.get_full_name(),  # Legacy alias for template compatibility
+                    'provider_name': appointment.provider.user.get_full_name(),
+                    'provider': appointment.provider.user.get_full_name(),  # Legacy alias for template compatibility
+                    'doctor_name': appointment.provider.user.get_full_name(),  # Legacy alias for template compatibility
                     'hospital_name': appointment.provider.hospital.name if appointment.provider.hospital else 'MediRemind Partner Clinic',
                     'hospital_type': appointment.provider.hospital.hospital_type if appointment.provider.hospital else 'clinic',
                     'hospital_address': f"{appointment.provider.hospital.address_line_1}, {appointment.provider.hospital.city}" if appointment.provider.hospital else 'Main Location',
                     'hospital_phone': appointment.provider.hospital.phone if appointment.provider.hospital else 'Contact for details',
+                    'location': appointment.provider.hospital.name if appointment.provider.hospital else 'MediRemind Partner Clinic',  # Alias for template compatibility
                 }
                 
                 # Schedule reminder (this is database-only, safe inside transaction)

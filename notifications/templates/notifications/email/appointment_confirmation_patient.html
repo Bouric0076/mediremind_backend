@@ -254,28 +254,36 @@
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Doctor:</span>
-                    <span class="detail-value">{{ appointment.doctor_name|default:"Dr. Smith" }}</span>
+                    <span class="detail-value">{{ appointment.provider.name|default:"Dr. Smith" }}</span>
                 </div>
                 
-                {% if appointment.specialty %}
+                {% if appointment.provider.specialization %}
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Specialty:</span>
-                    <span class="detail-value">{{ appointment.specialty }}</span>
+                    <span class="detail-value">{{ appointment.provider.specialization }}</span>
                 </div>
                 {% endif %}
                 
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Date:</span>
-                    <span class="detail-value">{{ appointment.date|default:"TBD" }}</span>
+                    <span class="detail-value">{{ appointment.appointment_date|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">
                     <span class="detail-icon"></span>
                     <span class="detail-label">Time:</span>
-                    <span class="detail-value">{{ appointment.time|default:"TBD" }}</span>
+                    <span class="detail-value">{{ appointment.start_time|default:"TBD" }}</span>
                 </div>
+                
+                {% if appointment.appointment_type.name %}
+                <div class="detail-row">
+                    <span class="detail-icon"></span>
+                    <span class="detail-label">Type:</span>
+                    <span class="detail-value">{{ appointment.appointment_type.name|default:"Consultation" }}</span>
+                </div>
+                {% endif %}
                 
                 <div class="detail-row">
                     <span class="detail-icon"></span>
@@ -312,7 +320,7 @@
                     <li><strong>Arrive early:</strong> Please arrive 10-15 minutes before your scheduled time</li>
                     <li><strong>Bring documents:</strong> Valid ID and insurance card</li>
                     {% if appointment.preparation_instructions %}
-                    <li><strong>Preparation:</strong> {{ appointment.preparation_instructions }}</li>
+                    <li><strong>Preparation:</strong> {{ appointment.preparation_instructions|default:"Follow any instructions provided by your doctor" }}</li>
                     {% endif %}
                     <li><strong>Changes:</strong> To reschedule or cancel, please contact us at least 24 hours in advance</li>
                 </ul>

@@ -536,6 +536,65 @@ def send_appointment_confirmation_async(
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_appointment_update_async(
+    self,
+    appointment_data: Dict[str, Any],
+    update_type: str,
+    recipient_email: str,
+    is_patient: bool = True,
+    user_preferences: Dict[str, Any] = None,
+    additional_links: Dict[str, str] = None
+):
+    """
+    Async task to send appointment update emails (reschedule/cancellation).
+    This task runs outside the HTTP request to prevent timeouts and handle failures gracefully.
+    """
+    try:
+        from .email_client import email_client
+        
+        logger.info(f"Sending appointment update email to {recipient_email} (type: {update_type}, patient: {is_patient})")
+        
+        # Send email via unified email client
+        success, message = email_client.send_appointment_update_email(
+            appointment_data=appointment_data,
+            update_type=update_type,
+            recipient_email=recipient_email,
+            is_patient=is_patient,
+            user_preferences=user_preferences,
+            additional_links=additional_links
+        )
+        
+        if success:
+            logger.info(f"Appointment {update_type} email sent successfully to {recipient_email}")
+            return {
+                "status": "success",
+                "message": message,
+                "recipient": recipient_email,
+                "update_type": update_type,
+                "is_patient": is_patient,
+                "appointment_id": appointment_data.get('id')
+            }
+        else:
+            logger.warning(f"Failed to send appointment {update_type} email to {recipient_email}: {message}")
+            # Don't retry on permanent failures (invalid email, template errors, etc.)
+            if "invalid" in message.lower() or "template" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "recipient": recipient_email,
+                    "update_type": update_type,
+                    "is_patient": is_patient
+                }
+            # Retry on temporary failures (network issues, service outages, etc.)
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Appointment update email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=300)
 def send_appointment_reminder_async(
     self,
@@ -642,6 +701,61 @@ def send_medication_reminder_async(
         logger.error(f"Medication reminder email task failed: {exc}")
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=300 * (self.request.retries + 1))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_appointment_creation_email_async(
+    self,
+    appointment_data: Dict[str, Any],
+    recipient_email: str,
+    is_patient: bool = True,
+    user_preferences: Dict[str, Any] = None,
+    additional_links: Dict[str, str] = None
+):
+    """
+    Async task to send appointment creation email to patients and doctors.
+    This task runs outside the HTTP request to prevent timeouts and handle failures gracefully.
+    """
+    try:
+        from .email_client import email_client
+        
+        logger.info(f"Sending appointment creation email to {recipient_email} (patient: {is_patient})")
+        
+        # Send email via unified email client
+        success, message = email_client.send_appointment_creation_email(
+            appointment_data=appointment_data,
+            recipient_email=recipient_email,
+            is_patient=is_patient,
+            user_preferences=user_preferences,
+            additional_links=additional_links
+        )
+        
+        if success:
+            logger.info(f"Appointment creation email sent successfully to {recipient_email}")
+            return {
+                "status": "success",
+                "message": message,
+                "recipient": recipient_email,
+                "is_patient": is_patient,
+                "appointment_id": appointment_data.get('id')
+            }
+        else:
+            logger.warning(f"Failed to send appointment creation email to {recipient_email}: {message}")
+            # Don't retry on permanent failures (invalid email, template errors, etc.)
+            if "invalid" in message.lower() or "template" in message.lower() or "not found" in message.lower():
+                return {
+                    "status": "failed_permanent",
+                    "error": message,
+                    "recipient": recipient_email,
+                    "is_patient": is_patient
+                }
+            # Retry on temporary failures (network issues, service outages, etc.)
+            raise Exception(f"Email sending failed: {message}")
+            
+    except Exception as exc:
+        logger.error(f"Appointment creation email task failed: {exc}")
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)

@@ -324,17 +324,17 @@
                 
                 <div class="detail-row">
                     <span class="detail-label">Doctor</span>
-                    <span class="detail-value">{{ appointment.doctor_name }}</span>
+                    <span class="detail-value">{{ appointment.provider.name|default:"Doctor" }}</span>
                 </div>
                 
                 <div class="detail-row">
                     <span class="detail-label">Date</span>
-                    <span class="detail-value">{{ appointment.date }}</span>
+                    <span class="detail-value">{{ appointment.appointment_date|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">
                     <span class="detail-label">Time</span>
-                    <span class="detail-value">{{ appointment.time }}</span>
+                    <span class="detail-value">{{ appointment.start_time|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">

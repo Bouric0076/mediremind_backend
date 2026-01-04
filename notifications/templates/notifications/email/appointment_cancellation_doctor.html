@@ -48,9 +48,9 @@
         <p>An appointment has been cancelled. Here are the details of the cancelled appointment:</p>
         
         <div class="appointment-details">
-            <p><strong>Patient:</strong> {{ appointment.patient_name }}</p>
-            <p><strong>Date:</strong> {{ appointment.date }}</p>
-            <p><strong>Time:</strong> {{ appointment.time }}</p>
+            <p><strong>Patient:</strong> {{ appointment.patient.name|default:"Patient" }}</p>
+            <p><strong>Date:</strong> {{ appointment.appointment_date|default:"TBD" }}</p>
+            <p><strong>Time:</strong> {{ appointment.start_time|default:"TBD" }}</p>
             <p><strong>Location:</strong> {{ appointment.location }}</p>
             {% if appointment.notes %}
             <p><strong>Notes:</strong> {{ appointment.notes }}</p>

@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta
-from supabase_client import admin_client
+try:
+    from supabase_client import admin_client
+except ImportError:
+    admin_client = None
 from .push_notifications import push_notifications
 from .models import PushSubscription
 import pytz

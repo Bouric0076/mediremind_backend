@@ -18,9 +18,10 @@ from django.template.loader import render_to_string
 from .template_manager import (
     template_manager, 
     TemplateContext, 
-    RecipientType, 
+    RecipientType,
     TemplateType
 )
+from .error_handler import notification_error_handler, ErrorContext, ErrorSeverity, ErrorCategory
 
 logger = logging.getLogger(__name__)
 
@@ -250,12 +251,40 @@ class EmailClient:
             # Use enhanced template management system
             template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
             
-            # Create enhanced template context
+            # Create enhanced template context with properly structured appointment data
+            # Build nested appointment structure that matches template expectations
+            structured_appointment = {
+                'id': appointment_data.get('id'),
+                'appointment_date': appointment_data.get('appointment_date'),
+                'start_time': appointment_data.get('start_time'),
+                'duration': appointment_data.get('duration', 30),
+                'status': appointment_data.get('status', 'created'),
+                'patient': {
+                    'name': appointment_data.get('patient', {}).get('name') or appointment_data.get('patient_name', 'Patient'),
+                    'email': appointment_data.get('patient', {}).get('email') or appointment_data.get('patient_email'),
+                    'id': appointment_data.get('patient', {}).get('id') or appointment_data.get('patient_id')
+                },
+                'provider': {
+                    'name': appointment_data.get('provider', {}).get('name') or appointment_data.get('provider_name', 'Dr. Smith'),
+                    'email': appointment_data.get('provider', {}).get('email') or appointment_data.get('provider_email'),
+                    'id': appointment_data.get('provider', {}).get('id') or appointment_data.get('provider_id')
+                },
+                'appointment_type': {
+                    'name': appointment_data.get('appointment_type', {}).get('name') or appointment_data.get('appointment_type_name', 'Consultation')
+                },
+                'hospital': {
+                    'name': appointment_data.get('hospital', {}).get('name') or appointment_data.get('hospital_name', 'MediRemind Partner Clinic')
+                },
+                'room': {
+                    'name': appointment_data.get('room', {}).get('name') or appointment_data.get('room_name', 'Room 1')
+                }
+            }
+            
             context = TemplateContext(
-                recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
+                recipient_name=structured_appointment['patient']['name'] if is_patient else structured_appointment['provider']['name'],
                 recipient_email=recipient_email,
                 recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
-                appointment=appointment_data,
+                appointment=structured_appointment,
                 preferences=user_preferences or {},
                 links=additional_links or {}
             )
@@ -263,10 +292,21 @@ class EmailClient:
             # Render template with enhanced features
             logger.info(f"Rendering template with key: {template_key}")
             try:
-                subject, html_message = template_manager.render_template(template_key, context)
+                success, subject, html_message = template_manager.render_template_with_fallback(template_key, context)
+                if not success:
+                    error_context = notification_error_handler.handle_template_error(
+                        template_key=template_key,
+                        error=Exception(html_message),
+                        context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                    )
+                    return False, f"Template rendering failed: {html_message}"
                 logger.info(f"Template rendered, subject: {subject}")
             except Exception as e:
-                logger.error(f"Error rendering template: {str(e)}")
+                error_context = notification_error_handler.handle_template_error(
+                    template_key=template_key,
+                    error=e,
+                    context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                )
                 return False, f"Template rendering error: {str(e)}"
             
             logger.info(f"About to call send_email from send_appointment_update_email")
@@ -280,6 +320,11 @@ class EmailClient:
             return result
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             error_msg = f"Error in send_appointment_confirmation_email: {str(e)}"
             logger.error(error_msg)
             return False, error_msg
@@ -300,17 +345,38 @@ class EmailClient:
                 logger.error(f"appointment_data is not a dict after parsing: {appointment_data}")
                 return False, "Invalid appointment data format"
 
-            if is_patient:
-                subject = "Appointment Confirmation - MediRemind"
-                template = "notifications/email/appointment_confirmation_patient.html"
-            else:
-                subject = "New Appointment Request - MediRemind"
-                template = "notifications/email/appointment_confirmation_doctor.html"
-
-            html_message = render_to_string(template, {
-                'appointment': appointment_data,
-                'recipient_name': appointment_data.get('patient_name' if is_patient else 'doctor_name'),
-            })
+            # Use enhanced template management system
+            template_key = "appointment_creation_patient" if is_patient else "appointment_creation_doctor"
+            
+            # Create enhanced template context
+            context = TemplateContext(
+                recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
+                recipient_email=recipient_email,
+                recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
+                appointment=appointment_data,
+                preferences=user_preferences or {},
+                links=additional_links or {}
+            )
+            
+            # Render template with enhanced features
+            logger.info(f"Rendering appointment creation template with key: {template_key}")
+            try:
+                success, subject, html_message = template_manager.render_template_with_fallback(template_key, context)
+                if not success:
+                    error_context = notification_error_handler.handle_template_error(
+                        template_key=template_key,
+                        error=Exception(html_message),
+                        context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                    )
+                    return False, f"Template rendering failed: {html_message}"
+                logger.info(f"Appointment creation template rendered, subject: {subject}")
+            except Exception as e:
+                error_context = notification_error_handler.handle_template_error(
+                    template_key=template_key,
+                    error=e,
+                    context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                )
+                return False, f"Template rendering failed: {str(e)}"
 
             return EmailClient.send_email(
                 subject=subject,
@@ -320,8 +386,82 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending appointment confirmation email: {str(e)}")
             return False, str(e)
+
+    def send_appointment_creation_email(appointment_data, recipient_email, is_patient=True, 
+                                      user_preferences=None, additional_links=None):
+        """Send enhanced appointment creation email with personalization"""
+        try:
+            # Ensure appointment_data is a dict
+            if isinstance(appointment_data, str):
+                try:
+                    appointment_data = json.loads(appointment_data)
+                except Exception as e:
+                    logger.error(f"appointment_data is a string but not valid JSON: {appointment_data} | Error: {e}")
+                    return False, "Invalid appointment data format"
+
+            if not isinstance(appointment_data, dict):
+                logger.error(f"appointment_data is not a dict after parsing: {appointment_data}")
+                return False, "Invalid appointment data format"
+
+            # Use enhanced template management system
+            template_key = "appointment_creation_patient" if is_patient else "appointment_creation_doctor"
+            
+            # Create enhanced template context
+            context = TemplateContext(
+                recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
+                recipient_email=recipient_email,
+                recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
+                appointment=appointment_data,
+                preferences=user_preferences or {},
+                links=additional_links or {}
+            )
+            
+            # Render template with enhanced features
+            logger.info(f"Rendering template with key: {template_key}")
+            try:
+                success, subject, html_message = template_manager.render_template_with_fallback(template_key, context)
+                if not success:
+                    error_context = notification_error_handler.handle_template_error(
+                        template_key=template_key,
+                        error=Exception(html_message),
+                        context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                    )
+                    return False, f"Template rendering failed: {html_message}"
+                logger.info(f"Template rendered, subject: {subject}")
+            except Exception as e:
+                error_context = notification_error_handler.handle_template_error(
+                    template_key=template_key,
+                    error=e,
+                    context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email}
+                )
+                return False, f"Template rendering error: {str(e)}"
+            
+            logger.info(f"About to call send_email from send_appointment_creation_email")
+            result = EmailClient.send_email(
+                subject=subject,
+                message=strip_tags(html_message),
+                recipient_list=[recipient_email],
+                html_message=html_message
+            )
+            logger.info(f"send_email returned: {result}, type: {type(result)}")
+            return result
+
+        except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
+            error_msg = f"Error in send_appointment_creation_email: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
 
     @staticmethod
     def send_appointment_update_email(appointment_data, update_type, recipient_email, is_patient=True,
@@ -355,13 +495,54 @@ class EmailClient:
                 return False, "Invalid update type"
             logger.info(f"Selected template key: {template_key}")
 
-            # Create enhanced template context
+            # Create enhanced template context with properly structured appointment data
             logger.info(f"Creating template context with appointment_data: {appointment_data}")
+            
+            # Build properly structured appointment object that matches API format
+            structured_appointment = {
+                'id': appointment_data.get('id'),
+                'appointment_date': appointment_data.get('appointment_date'),
+                'start_time': appointment_data.get('start_time'),
+                'duration': appointment_data.get('duration', 30),
+                'notes': appointment_data.get('notes', ''),
+                'location': appointment_data.get('location', ''),
+                'patient_name': appointment_data.get('patient_name'),
+                'provider_name': appointment_data.get('provider_name'),
+                'appointment_type': {
+                    'name': appointment_data.get('appointment_type_name', appointment_data.get('appointment_type', ''))
+                },
+                'provider': {
+                    'user': {
+                        'full_name': appointment_data.get('provider_name', ''),
+                        'first_name': appointment_data.get('provider_name', '').split()[0] if appointment_data.get('provider_name') else '',
+                        'last_name': ' '.join(appointment_data.get('provider_name', '').split()[1:]) if appointment_data.get('provider_name') and len(appointment_data.get('provider_name', '').split()) > 1 else '',
+                        'email': appointment_data.get('provider_email', '')
+                    },
+                    'specialization': appointment_data.get('specialty', ''),
+                    'department': appointment_data.get('department', ''),
+                    'hospital': {
+                        'name': appointment_data.get('hospital_name', ''),
+                        'hospital_type': appointment_data.get('hospital_type', ''),
+                        'address_line_1': appointment_data.get('hospital_address', '').split(',')[0] if appointment_data.get('hospital_address') else '',
+                        'city': appointment_data.get('hospital_address', '').split(',')[1].strip() if appointment_data.get('hospital_address') and ',' in appointment_data.get('hospital_address') else '',
+                        'phone': appointment_data.get('hospital_phone', '')
+                    }
+                },
+                'patient': {
+                    'user': {
+                        'full_name': appointment_data.get('patient_name', ''),
+                        'first_name': appointment_data.get('patient_name', '').split()[0] if appointment_data.get('patient_name') else '',
+                        'last_name': ' '.join(appointment_data.get('patient_name', '').split()[1:]) if appointment_data.get('patient_name') and len(appointment_data.get('patient_name', '').split()) > 1 else '',
+                        'email': appointment_data.get('patient_email', '')
+                    }
+                }
+            }
+            
             context = TemplateContext(
                 recipient_name=appointment_data.get('patient_name' if is_patient else 'doctor_name', 'there'),
                 recipient_email=recipient_email,
                 recipient_type=RecipientType.PATIENT if is_patient else RecipientType.DOCTOR,
-                appointment=appointment_data,
+                appointment=structured_appointment,
                 preferences=user_preferences or {},
                 links=additional_links or {}
             )
@@ -377,9 +558,21 @@ class EmailClient:
             # Render template with enhanced features
             logger.info(f"About to render template with key: {template_key}")
             try:
-                subject, html_message = template_manager.render_template(template_key, context)
+                success, subject, html_message = template_manager.render_template_with_fallback(template_key, context)
+                if not success:
+                    error_context = notification_error_handler.handle_template_error(
+                        template_key=template_key,
+                        error=Exception(html_message),
+                        context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email, 'update_type': update_type}
+                    )
+                    return False, f"Template rendering failed: {html_message}"
                 logger.info(f"Template rendered successfully, subject: {subject}")
             except Exception as e:
+                error_context = notification_error_handler.handle_template_error(
+                    template_key=template_key,
+                    error=e,
+                    context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email, 'update_type': update_type}
+                )
                 logger.error(f"Error rendering template: {str(e)}")
                 import traceback
                 logger.error(f"Traceback: {traceback.format_exc()}")
@@ -397,6 +590,11 @@ class EmailClient:
             return result
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email, 'update_type': update_type},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending appointment update email: {str(e)}")
             return False, str(e)
     
@@ -442,6 +640,11 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email, 'update_type': update_type},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending appointment update email: {str(e)}")
             return False, str(e)
 
@@ -473,6 +676,11 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'appointment_id': appointment_data.get('id'), 'recipient_email': recipient_email},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending appointment reminder email: {str(e)}")
             return False, str(e)
 
@@ -498,6 +706,11 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'recipient_email': recipient_email, 'medication_name': medication_name},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending medication reminder email: {str(e)}")
             return False, str(e)
 
@@ -525,6 +738,11 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'recipient_email': recipient_email, 'alert_type': alert_type, 'severity': severity},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending emergency alert email: {str(e)}")
             return False, str(e)
 
@@ -548,6 +766,11 @@ class EmailClient:
             )
 
         except Exception as e:
+            error_context = notification_error_handler.handle_email_error(
+                error=e,
+                context_data={'recipient_email': recipient_email, 'patient_name': patient_name},
+                email_data={'subject': subject, 'html_message': html_message}
+            )
             logger.error(f"Error sending welcome email: {str(e)}")
             return False, str(e)
 

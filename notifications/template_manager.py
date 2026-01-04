@@ -35,6 +35,7 @@ class TemplateType(Enum):
     APPOINTMENT_RESCHEDULE = "appointment_reschedule"
     APPOINTMENT_CANCELLATION = "appointment_cancellation"
     APPOINTMENT_REMINDER = "appointment_reminder"
+    APPOINTMENT_CREATION = "appointment_creation"
     WELCOME = "welcome"
     PASSWORD_RESET = "password_reset"
     
@@ -145,6 +146,42 @@ class TemplateManager:
                     )
                 ],
                 required_fields=["recipient_name", "appointment.patient", "appointment.appointment_date", "appointment.start_time"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "appointment_creation_patient": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CREATION,
+                recipient_type=RecipientType.PATIENT,
+                subject_template="Appointment Created - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                variants=[
+                    TemplateVariant(
+                        name="enhanced_v1",
+                        template_path="notifications/email/appointment_creation_patient.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "appointment_creation_doctor": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CREATION,
+                recipient_type=RecipientType.DOCTOR,
+                subject_template="New Appointment Created - {{ appointment.patient.name }} on {{ appointment.appointment_date }}",
+                variants=[
+                    TemplateVariant(
+                        name="enhanced_v1",
+                        template_path="notifications/email/appointment_creation_doctor.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "appointment.patient.name", "appointment.appointment_date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -851,6 +888,42 @@ class TemplateManager:
                     "alt_text_images": True
                 }
             ),
+            "appointment_creation_patient": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CREATION,
+                recipient_type=RecipientType.PATIENT,
+                subject_template="Appointment Created - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                variants=[
+                    TemplateVariant(
+                        name="creation_v1",
+                        template_path="notifications/email/appointment_creation_patient.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
+            "appointment_creation_doctor": TemplateConfig(
+                template_type=TemplateType.APPOINTMENT_CREATION,
+                recipient_type=RecipientType.DOCTOR,
+                subject_template="New Appointment Created - {{ appointment.appointment_date }} with {{ appointment.patient_name }}",
+                variants=[
+                    TemplateVariant(
+                        name="creation_v1",
+                        template_path="notifications/email/appointment_creation_doctor.html",
+                        weight=1.0
+                    )
+                ],
+                required_fields=["recipient_name", "appointment.patient_name", "appointment.appointment_date", "appointment.start_time"],
+                accessibility_features={
+                    "high_contrast": True,
+                    "screen_reader_optimized": True,
+                    "alt_text_images": True
+                }
+            ),
             "welcome_patient": TemplateConfig(
                 template_type=TemplateType.WELCOME,
                 recipient_type=RecipientType.PATIENT,
@@ -883,11 +956,12 @@ class TemplateManager:
             'privacy_url': base_context.links.get('privacy', '#'),
         }
         
-        # Map field names for backward compatibility
+        # Map field names for backward compatibility and ensure API response field names are available
         if base_context.appointment:
             appointment = dict(base_context.appointment)  # Create a copy to avoid modifying original
             
-            # Map legacy field names to template manager expected field names
+            # Ensure API response field names are available for templates
+            # Map legacy field names to API response field names (preferred)
             if 'date' in appointment and 'appointment_date' not in appointment:
                 appointment['appointment_date'] = appointment['date']
             if 'time' in appointment and 'start_time' not in appointment:
@@ -896,6 +970,16 @@ class TemplateManager:
                 appointment['provider_name'] = appointment['doctor_name']
             if 'appointment_type' in appointment and 'appointment_type_name' not in appointment:
                 appointment['appointment_type_name'] = appointment['appointment_type']
+            
+            # Also ensure legacy fields are available for backward compatibility
+            if 'appointment_date' in appointment and 'date' not in appointment:
+                appointment['date'] = appointment['appointment_date']
+            if 'start_time' in appointment and 'time' not in appointment:
+                appointment['time'] = appointment['start_time']
+            if 'provider_name' in appointment and 'doctor_name' not in appointment:
+                appointment['doctor_name'] = appointment['provider_name']
+            if 'appointment_type_name' in appointment and 'appointment_type' not in appointment:
+                appointment['appointment_type'] = appointment['appointment_type_name']
             
             # Update the context with mapped appointment data
             context['appointment'] = appointment
@@ -1176,6 +1260,7 @@ class TemplateManager:
             TemplateType.APPOINTMENT_RESCHEDULE: "appointment_reschedule_patient", 
             TemplateType.APPOINTMENT_CANCELLATION: "appointment_cancellation_patient",
             TemplateType.APPOINTMENT_REMINDER: "appointment_reminder_patient",
+            TemplateType.APPOINTMENT_CREATION: "appointment_creation_patient",
             TemplateType.MEDICATION_REMINDER: "medication_reminder_patient",
             TemplateType.BILLING_REMINDER: "billing_reminder_patient",
             TemplateType.WELCOME_SERIES: "welcome_series_patient",
@@ -1540,6 +1625,110 @@ class TemplateManager:
             metrics['cache_performance'] = {'error': 'Cache stats unavailable'}
         
         return metrics
+    
+    def validate_template_context(self, template_key: str, context: TemplateContext) -> Tuple[bool, List[str]]:
+        """Validate that required fields are present in context"""
+        if template_key not in self.template_configs:
+            return False, [f"Unknown template key: {template_key}"]
+        
+        config = self.template_configs[template_key]
+        missing_fields = []
+        
+        for field in config.required_fields:
+            if not self._check_field_path(context, field):
+                missing_fields.append(field)
+        
+        if missing_fields:
+            return False, missing_fields
+        
+        return True, []
+    
+    def _check_field_path(self, obj, field_path: str) -> bool:
+        """Check if a nested field path exists in an object"""
+        try:
+            current = obj
+            for part in field_path.split('.'):
+                if isinstance(current, dict):
+                    current = current.get(part)
+                else:
+                    current = getattr(current, part, None)
+                if current is None:
+                    return False
+            return True
+        except (AttributeError, TypeError):
+            return False
+    
+    def render_template_with_fallback(self, template_key: str, context: TemplateContext) -> Tuple[bool, str, str]:
+        """Render template with fallback options"""
+        # First, validate required fields
+        is_valid, missing_fields = self.validate_template_context(template_key, context)
+        
+        if not is_valid:
+            logger.warning(f"Template validation failed for {template_key}: {missing_fields}")
+            
+            # Try to fix common issues
+            context = self._auto_fix_template_context(context, missing_fields)
+            
+            # Re-validate
+            is_valid, missing_fields = self.validate_template_context(template_key, context)
+            
+            if not is_valid:
+                # Use fallback template
+                fallback_key = f"{template_key}_fallback"
+                if fallback_key in self.template_configs:
+                    logger.info(f"Using fallback template: {fallback_key}")
+                    return self.render_template(fallback_key, context)
+                else:
+                    return False, f"Template validation failed: {missing_fields}", ""
+        
+        # Proceed with normal rendering
+        return self.render_template(template_key, context)
+    
+    def _auto_fix_template_context(self, context: TemplateContext, missing_fields: List[str]) -> TemplateContext:
+        """Auto-fix common template context issues"""
+        # Create a copy of the context to avoid modifying the original
+        import copy
+        fixed_context = copy.deepcopy(context)
+        
+        # Convert flat structure to nested if needed
+        if hasattr(fixed_context, 'appointment') and isinstance(fixed_context.appointment, dict):
+            appointment = fixed_context.appointment
+            
+            # Fix patient structure
+            if 'patient_name' in appointment and 'patient' not in appointment:
+                appointment['patient'] = {
+                    'name': appointment.get('patient_name', 'Patient'),
+                    'email': appointment.get('patient_email'),
+                    'id': appointment.get('patient_id')
+                }
+            
+            # Fix provider structure
+            if 'provider_name' in appointment and 'provider' not in appointment:
+                appointment['provider'] = {
+                    'name': appointment.get('provider_name', 'Dr. Smith'),
+                    'email': appointment.get('provider_email'),
+                    'id': appointment.get('provider_id')
+                }
+            
+            # Fix hospital structure
+            if 'hospital_name' in appointment and 'hospital' not in appointment:
+                appointment['hospital'] = {
+                    'name': appointment.get('hospital_name', 'MediRemind Partner Clinic')
+                }
+            
+            # Fix appointment type structure
+            if 'appointment_type_name' in appointment and 'appointment_type' not in appointment:
+                appointment['appointment_type'] = {
+                    'name': appointment.get('appointment_type_name', 'Consultation')
+                }
+            
+            # Fix recipient name if missing
+            if not fixed_context.recipient_name and 'patient' in appointment:
+                fixed_context.recipient_name = appointment['patient'].get('name', 'Patient')
+            elif not fixed_context.recipient_name and 'provider' in appointment:
+                fixed_context.recipient_name = appointment['provider'].get('name', 'Doctor')
+        
+        return fixed_context
 
 # Create singleton instance
 template_manager = TemplateManager()
