@@ -498,12 +498,12 @@ def send_appointment_confirmation_async(
     This task runs outside the HTTP request to prevent timeouts.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
         logger.info(f"Sending appointment confirmation email for appointment {appointment_id}")
         
-        # Send email via Resend
-        success, message = resend_service.send_appointment_confirmation_email(
+        # Send email via unified email client
+        success, message = email_client.send_appointment_confirmation_email(
             to_email=patient_email,
             patient_name=patient_name,
             appointment_details=appointment_details
@@ -549,12 +549,12 @@ def send_appointment_reminder_async(
     This task runs outside the HTTP request to prevent timeouts.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
         logger.info(f"Sending appointment reminder email for appointment {appointment_id}")
         
-        # Send email via Resend
-        success, message = resend_service.send_appointment_reminder_email(
+        # Send email via unified email client
+        success, message = email_client.send_appointment_reminder_email(
             to_email=patient_email,
             patient_name=patient_name,
             appointment_details=appointment_details
@@ -602,12 +602,12 @@ def send_medication_reminder_async(
     This task runs outside the HTTP request to prevent timeouts.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
-        logger.info(f"Sending medication reminder email for {medication_name} to {patient_email}")
+        logger.info(f"Sending medication reminder email for patient {patient_id}")
         
-        # Send email via Resend
-        success, message = resend_service.send_medication_reminder_email(
+        # Send email via unified email client
+        success, message = email_client.send_medication_reminder_email(
             to_email=patient_email,
             patient_name=patient_name,
             medication_name=medication_name,
@@ -658,12 +658,12 @@ def send_emergency_alert_async(
     High priority task with faster retry for critical notifications.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
         logger.info(f"Sending emergency alert email to {patient_email}, severity: {severity}")
         
-        # Send email via Resend
-        success, message = resend_service.send_emergency_alert_email(
+        # Send email via unified email client
+        success, message = email_client.send_emergency_alert_email(
             to_email=patient_email,
             patient_name=patient_name,
             alert_message=alert_message,
@@ -712,12 +712,12 @@ def send_appointment_update_async(
     This task runs outside the HTTP request to prevent timeouts.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
-        logger.info(f"Sending appointment {update_type} email for appointment {appointment_id}")
+        logger.info(f"Sending appointment update email for appointment {appointment_id}")
         
-        # Send email via Resend
-        success, message = resend_service.send_appointment_update_email(
+        # Send email via unified email client
+        success, message = email_client.send_appointment_update_email(
             to_email=patient_email,
             patient_name=patient_name,
             appointment_details=appointment_details,
@@ -765,12 +765,12 @@ def send_welcome_email_async(
     This task runs outside the HTTP request to prevent timeouts.
     """
     try:
-        from .resend_service import resend_service
+        from .email_client import email_client
         
         logger.info(f"Sending welcome email to {patient_email}")
         
-        # Send email via Resend
-        success, message = resend_service.send_welcome_email(
+        # Send email via unified email client
+        success, message = email_client.send_welcome_email(
             to_email=patient_email,
             patient_name=patient_name,
             clinic_name=clinic_name

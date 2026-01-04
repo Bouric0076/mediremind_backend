@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional
 from django.utils.html import strip_tags
 
-from .resend_service import resend_service
+from .email_client import email_client
 from .template_manager import template_manager, TemplateType
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class EmailService:
     """Service for sending email notifications using Resend backend."""
 
     def __init__(self):
-        self.resend_service = resend_service
+        self.email_client = email_client
 
     async def send_medication_reminder(
         self,
@@ -49,18 +49,16 @@ class EmailService:
                 'medication_id': template_data.get('medication_id')
             }
 
-            # Use Resend service for reliable delivery with idempotency
-            success, message = self.resend_service.send_medication_reminder_email(
-                to_email=to_email,
-                patient_name=resend_template_data['patient_name'],
-                medication_name=resend_template_data['medication_name'],
-                dosage=resend_template_data['dosage'],
-                time=resend_template_data['time'],
-                medication_id=resend_template_data.get('medication_id')
+            # Use unified email client for reliable delivery
+            success, message = self.email_client.send_email(
+                subject=f"Medication Reminder: {resend_template_data['medication_name']}",
+                message=f"Reminder to take {resend_template_data['medication_name']} ({resend_template_data['dosage']}) at {resend_template_data['time']}",
+                recipient_list=[to_email],
+                html_message=html_content
             )
             
             if success:
-                logger.info(f"Medication reminder email sent successfully via Resend to {to_email}")
+                logger.info(f"Medication reminder email sent successfully via unified email client to {to_email}")
             else:
                 logger.error(f"Failed to send medication reminder email to {to_email}: {message}")
             
@@ -89,15 +87,15 @@ class EmailService:
                 logger.error("No recipient email provided for appointment confirmation")
                 return False
 
-            # Use Resend service for reliable delivery with idempotency
-            success, message = self.resend_service.send_appointment_confirmation_email(
-                to_email=to_email,
-                patient_name=appointment_details.get('patient_name', 'Patient'),
-                appointment_details=appointment_details
+            # Use unified email client for reliable delivery
+            success, message = self.email_client.send_appointment_confirmation_email(
+                appointment_data=appointment_details,
+                recipient_email=to_email,
+                is_patient=True
             )
             
             if success:
-                logger.info(f"Appointment confirmation email sent successfully via Resend to {to_email}")
+                logger.info(f"Appointment confirmation email sent successfully via unified email client to {to_email}")
             else:
                 logger.error(f"Failed to send appointment confirmation email to {to_email}: {message}")
             
@@ -126,15 +124,15 @@ class EmailService:
                 logger.error("No recipient email provided for appointment reminder")
                 return False
 
-            # Use Resend service for reliable delivery with idempotency
-            success, message = self.resend_service.send_appointment_reminder_email(
-                to_email=to_email,
-                patient_name=appointment_details.get('patient_name', 'Patient'),
-                appointment_details=appointment_details
+            # Use unified email client for reliable delivery
+            success, message = self.email_client.send_appointment_reminder_email(
+                appointment_data=appointment_details,
+                recipient_email=to_email,
+                is_patient=True
             )
             
             if success:
-                logger.info(f"Appointment reminder email sent successfully via Resend to {to_email}")
+                logger.info(f"Appointment reminder email sent successfully via unified email client to {to_email}")
             else:
                 logger.error(f"Failed to send appointment reminder email to {to_email}: {message}")
             
@@ -165,16 +163,16 @@ class EmailService:
                 logger.error("No recipient email provided for emergency alert")
                 return False
 
-            # Use Resend service for reliable delivery with idempotency
-            success, message = self.resend_service.send_emergency_alert_email(
-                to_email=to_email,
-                patient_name='Patient',  # Will be handled by template
-                alert_message=alert_message,
-                severity=severity
+            # Use unified email client for reliable delivery
+            success, message = self.email_client.send_email(
+                subject=f"Emergency Alert: {severity.upper()}",
+                message=alert_message,
+                recipient_list=[to_email],
+                html_message=html_content
             )
             
             if success:
-                logger.info(f"Emergency alert email sent successfully via Resend to {to_email}")
+                logger.info(f"Emergency alert email sent successfully via unified email client to {to_email}")
             else:
                 logger.error(f"Failed to send emergency alert email to {to_email}: {message}")
             
@@ -205,15 +203,15 @@ class EmailService:
                 logger.error("No recipient email provided for welcome email")
                 return False
 
-            # Use Resend service for reliable delivery with idempotency
-            success, message = self.resend_service.send_welcome_email(
+            # Use unified email client for reliable delivery
+            success, message = self.email_client.send_welcome_email(
                 to_email=to_email,
                 patient_name=patient_name,
                 clinic_name=clinic_name
             )
             
             if success:
-                logger.info(f"Welcome email sent successfully via Resend to {to_email}")
+                logger.info(f"Welcome email sent successfully via unified email client to {to_email}")
             else:
                 logger.error(f"Failed to send welcome email to {to_email}: {message}")
             

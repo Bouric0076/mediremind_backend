@@ -1129,6 +1129,9 @@ class TemplateManager:
             if not config:
                 raise ValueError(f"Template configuration not found: {template_key}")
             
+            # Validate required fields before rendering
+            self._validate_template_context(template_context, config.required_fields)
+            
             # Select template variant
             variant = self.select_template_variant(template_key)
             
@@ -1202,6 +1205,26 @@ class TemplateManager:
             else:
                 if not hasattr(context, field) or getattr(context, field) is None:
                     raise ValueError(f"Required field missing: {field}")
+    
+    def _validate_template_context(self, template_context: Dict[str, Any], required_fields: List[str]):
+        """Validate that required fields are present in template context dictionary"""
+        for field in required_fields:
+            if '.' in field:
+                # Handle nested fields like 'appointment.doctor_name'
+                parts = field.split('.')
+                value = template_context.get(parts[0], {})
+                for part in parts[1:]:
+                    if isinstance(value, dict):
+                        value = value.get(part)
+                    else:
+                        value = getattr(value, part, None) if hasattr(value, part) else None
+                if value is None or value == '':
+                    logger.warning(f"Required field missing or empty in template context: {field}")
+                    # Don't raise error, just log warning for now to maintain backward compatibility
+            else:
+                if field not in template_context or template_context.get(field) is None or template_context.get(field) == '':
+                    logger.warning(f"Required field missing or empty in template context: {field}")
+                    # Don't raise error, just log warning for now to maintain backward compatibility
     
     def _render_subject(self, subject_template: str, context: Dict[str, Any]) -> str:
         """Render email subject line"""

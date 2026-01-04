@@ -378,7 +378,7 @@ else:
     elif EMAIL_SERVICE == 'resend':
         # Resend configuration - using Resend service via their API
         # Note: Resend doesn't use traditional SMTP, it's API-based
-        # The actual email sending is handled by the resend_service.py module
+        # The actual email sending is handled by the email_client.py module (unified service)
         EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # Use SMTP backend for production
         RESEND_API_KEY = os.getenv('RESEND_API_KEY')
         RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'onboarding@resend.dev')

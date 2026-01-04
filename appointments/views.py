@@ -102,9 +102,9 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     is_patient=True
                 )
             else:
-                # Production mode - use Resend service
-                from notifications.resend_service import resend_service
-                success, response_message = resend_service.send_appointment_confirmation_email(
+                # Use unified email client
+                from notifications.email_client import email_client
+                success, response_message = email_client.send_appointment_confirmation_email(
                     to_email=patient_email,
                     patient_name=patient_name,
                     appointment_details=appointment_details
@@ -125,19 +125,28 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 old_status = appointment_data.get('changes', {}).get('status', {}).get('old', '')
                 new_status = appointment_data.get('changes', {}).get('status', {}).get('new', '')
                 
+                logger.info(f"Status change detected: '{old_status}' -> '{new_status}'")
+                
                 # Default to 'reschedule' for general updates, use 'cancellation' for cancellations and no-shows
                 update_type = 'reschedule'  # Default for most updates
                 if old_status and new_status:
                     if new_status == 'cancelled':
                         update_type = 'cancellation'
+                        logger.info(f"Setting update_type to 'cancellation' for status change to cancelled")
                     elif new_status == 'no-show':
                         update_type = 'no-show'  # Special case for no-show (sends to both patient and emergency contact)
+                        logger.info(f"Setting update_type to 'no-show' for status change to no-show")
                     elif old_status == 'scheduled' and new_status == 'confirmed':
                         update_type = 'confirmation'  # Special case for confirmation
+                        logger.info(f"Setting update_type to 'confirmation' for scheduled->confirmed change")
                     elif new_status == 'completed':
                         update_type = None  # Don't send email for completed appointments
+                        logger.info(f"Setting update_type to None for completed status")
                     elif old_status != new_status:
                         update_type = 'reschedule'  # Any other status change
+                        logger.info(f"Setting update_type to 'reschedule' for general status change")
+                else:
+                    logger.warning(f"No status change detected, using default update_type: '{update_type}'")
                 
                 # Prepare appointment details for email with robust type checking
                 def safe_get_provider_name():
@@ -161,19 +170,48 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         return appointment_type_data
                     return None
                 
+                # Extract appointment data with proper field mapping
+                appointment_date = appointment_data.get('appointment_date') or appointment_data.get('date')
+                start_time = appointment_data.get('start_time') or appointment_data.get('time')
+                provider_name = appointment_data.get('provider_name') or safe_get_provider_name() or 'Doctor'
+                appointment_type = appointment_data.get('appointment_type_name') or safe_get_appointment_type() or 'Consultation'
+                location = appointment_data.get('hospital_name') or 'MediRemind Partner Clinic'
+                
+                # Create appointment details with both old and new field names for template compatibility
                 appointment_details = {
                     'id': appointment_data['id'],
-                    'appointment_date': appointment_data.get('appointment_date') or appointment_data.get('date'),
-                    'start_time': appointment_data.get('start_time') or appointment_data.get('time'),
-                    'provider_name': appointment_data.get('provider_name') or appointment_data.get('provider') or safe_get_provider_name() or 'Doctor',
-                    'appointment_type': appointment_data.get('appointment_type_name') or appointment_data.get('type') or safe_get_appointment_type() or 'Consultation',
-                    'location': appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
+                    'appointment_date': appointment_date,
+                    'start_time': start_time,
+                    'provider_name': provider_name,
+                    'appointment_type': appointment_type,
+                    'location': location,
                     'patient_id': appointment_data.get('patient_id'),
                     'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
                     'patient_email': appointment_data.get('patient_email') or appointment_data.get('patient_email', patient_email),
                     'update_type': update_type,
-                    'changes': appointment_data.get('changes', {})
+                    'changes': appointment_data.get('changes', {}),
+                    # Add nested appointment object for template compatibility
+                    'appointment': {
+                        'id': appointment_data['id'],
+                        'appointment_date': appointment_date,
+                        'date': appointment_date,  # Alias for template compatibility
+                        'start_time': start_time,
+                        'time': start_time,  # Alias for template compatibility
+                        'provider_name': provider_name,
+                        'doctor_name': provider_name,  # Alias for template compatibility
+                        'appointment_type': appointment_type,
+                        'type': appointment_type,  # Alias for template compatibility
+                        'location': location,
+                        'patient_id': appointment_data.get('patient_id'),
+                        'patient_name': appointment_data.get('patient_name') or appointment_data.get('patient', patient_name),
+                    }
                 }
+                
+                logger.info(f"Appointment details prepared: provider_name='{appointment_details.get('provider_name')}', "
+                           f"appointment_type='{appointment_details.get('appointment_type')}', "
+                           f"appointment_date='{appointment_details.get('appointment_date')}', "
+                           f"start_time='{appointment_details.get('start_time')}', "
+                           f"location='{appointment_details.get('location')}'")
                 
                 # Handle completed appointments - send completion confirmation
                 if update_type is None:
@@ -192,7 +230,7 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     elif update_type == 'cancellation':
                         email_update_type = 'cancellation'
                     elif update_type == 'no-show':
-                        email_update_type = 'cancellation'  # Use cancellation template for no-show
+                        email_update_type = 'no-show'  # Use no-show template for no-show (consistent with production)
                     elif update_type == 'confirmation':
                         email_update_type = 'created'
                     elif update_type == 'completion':
@@ -206,8 +244,8 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         is_patient=True
                     )
                     
-                    # For no-show, also send to emergency contact if available
-                    if update_type == 'no-show':
+                    # For cancellation and no-show, also send to emergency contact if available
+                    if update_type in ['cancellation', 'no-show']:
                         emergency_contact_email = appointment_data.get('emergency_contact_email')
                         if emergency_contact_email:
                             emergency_success, emergency_response = email_client.send_appointment_update_email(
@@ -217,12 +255,12 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                                 is_patient=False  # Send as provider notification to emergency contact
                             )
                             if emergency_success:
-                                logger.info(f"No-show notification sent to emergency contact {emergency_contact_email}")
+                                logger.info(f"{update_type} notification sent to emergency contact {emergency_contact_email}")
                             else:
-                                logger.warning(f"Failed to send no-show notification to emergency contact: {emergency_response}")
+                                logger.warning(f"Failed to send {update_type} notification to emergency contact: {emergency_response}")
                 else:
-                    # Production mode - use Resend service
-                    from notifications.resend_service import resend_service
+                    # Use unified email client
+                    from notifications.email_client import email_client
                     # Convert update type for Resend service compatibility (same as email client)
                     email_update_type = update_type
                     if update_type == 'reschedule':
@@ -236,18 +274,20 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     elif update_type == 'completion':
                         email_update_type = 'created'  # Use confirmation template for completion
                     
-                    success, response_message = resend_service.send_appointment_update_email(
+                    logger.info(f"Converting update_type '{update_type}' to email_update_type '{email_update_type}' for unified email client")
+                    
+                    success, response_message = email_client.send_appointment_update_email(
                         to_email=patient_email,
                         patient_name=patient_name,
                         appointment_details=appointment_details,
                         update_type=email_update_type
                     )
                     
-                    # For no-show, also send to emergency contact if available
-                    if update_type == 'no-show' and success:
+                    # For cancellation and no-show, also send to emergency contact if available
+                    if update_type in ['cancellation', 'no-show'] and success:
                         emergency_contact_email = appointment_data.get('emergency_contact_email')
                         if emergency_contact_email:
-                            emergency_success, emergency_response = resend_service.send_appointment_update_email(
+                            emergency_success, emergency_response = email_client.send_appointment_update_email(
                                 to_email=emergency_contact_email,
                                 patient_name=patient_name,
                                 appointment_details=appointment_details,
@@ -317,9 +357,9 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         is_patient=True
                     )
                 else:
-                    # Production mode - use Resend service
-                    from notifications.resend_service import resend_service
-                    success, response_message = resend_service.send_appointment_update_email(
+                    # Use unified email client
+                    from notifications.email_client import email_client
+                    success, response_message = email_client.send_appointment_update_email(
                         to_email=patient_email,
                         patient_name=patient_name,
                         appointment_details=appointment_details,

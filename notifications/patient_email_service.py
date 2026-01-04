@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
-from .resend_service import resend_service
+from .email_client import email_client
 from accounts.models import EnhancedPatient
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class PatientEmailService:
     """Service for handling patient account-related email communications."""
     
     def __init__(self):
-        self.resend_service = resend_service
+        self.email_client = email_client
         
     def send_welcome_email_with_credentials(
         self, 
@@ -40,20 +40,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no user account or email address")
                 return False
                 
-            # Use Resend service for welcome email with credentials
+            # Use unified email client for welcome email with credentials
             patient_name = f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.email
             
-            # Send welcome email with credentials using Resend service
-            success, message = self.resend_service.send_welcome_email(
+            # Send welcome email with credentials using unified email client
+            success, message = self.email_client.send_welcome_email(
                 to_email=patient.user.email,
                 patient_name=patient_name,
                 clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Welcome email with credentials sent to {patient.user.email} via Resend")
+                logger.info(f"Welcome email with credentials sent to {patient.user.email} via unified email client")
             else:
-                logger.error(f"Failed to send welcome email with credentials to {patient.user.email} via Resend: {message}")
+                logger.error(f"Failed to send welcome email with credentials to {patient.user.email} via unified email client: {message}")
                 
             return success
             
@@ -76,20 +76,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no email address")
                 return False
                 
-            # Use Resend service for welcome email without credentials
+            # Use unified email client for welcome email without credentials
             patient_name = f"{patient.first_name} {patient.last_name}".strip() or patient.email
             
-            # Send welcome email without credentials using Resend service
-            success, message = self.resend_service.send_welcome_email(
+            # Send welcome email without credentials using unified email client
+            success, message = self.email_client.send_welcome_email(
                 to_email=patient.email,
                 patient_name=patient_name,
                 clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Welcome email (no credentials) sent to {patient.email} via Resend")
+                logger.info(f"Welcome email (no credentials) sent to {patient.email} via unified email client")
             else:
-                logger.error(f"Failed to send welcome email (no credentials) to {patient.email} via Resend: {message}")
+                logger.error(f"Failed to send welcome email (no credentials) to {patient.email} via unified email client: {message}")
                 
             return success
             
@@ -117,20 +117,20 @@ class PatientEmailService:
                 logger.error(f"Patient {patient.id} has no user account or email address")
                 return False
                 
-            # Use Resend service for account activation email
+            # Use unified email client for account activation email
             patient_name = f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.email
             
-            # Send account activation email using Resend service (similar to welcome email)
-            success, message = self.resend_service.send_welcome_email(
+            # Send account activation email using unified email client (similar to welcome email)
+            success, message = self.email_client.send_welcome_email(
                 to_email=patient.user.email,
                 patient_name=patient_name,
                 clinic_name=getattr(patient.hospital, 'name', 'MediRemind') if hasattr(patient, 'hospital') else 'MediRemind'
             )
             
             if success:
-                logger.info(f"Account activation email sent to {patient.user.email} via Resend")
+                logger.info(f"Account activation email sent to {patient.user.email} via unified email client")
             else:
-                logger.error(f"Failed to send account activation email to {patient.user.email} via Resend: {message}")
+                logger.error(f"Failed to send account activation email to {patient.user.email} via unified email client: {message}")
                 
             return success
             
@@ -185,19 +185,18 @@ class PatientEmailService:
             </div>
             """
             
-            # Send password reset email using Resend service
-            success, message = self.resend_service.send_email(
-                to_email=patient.user.email,
+            # Send password reset email using unified email client
+            success, message = self.email_client.send_email(
                 subject=f"Reset Your MediRemind Password",
-                html_content=html_content,
-                text_content=f"Hello {patient_name}, You requested a password reset. Visit: {reset_url} (expires in 24 hours)",
-                tags={'type': 'password_reset', 'patient_id': str(patient.id)}
+                message=f"Hello {patient_name}, You requested a password reset. Visit: {reset_url} (expires in 24 hours)",
+                recipient_list=[patient.user.email],
+                html_message=html_content
             )
             
             if success:
-                logger.info(f"Password reset email sent to {patient.user.email} via Resend")
+                logger.info(f"Password reset email sent to {patient.user.email} via unified email client")
             else:
-                logger.error(f"Failed to send password reset email to {patient.user.email} via Resend: {message}")
+                logger.error(f"Failed to send password reset email to {patient.user.email} via unified email client: {message}")
                 
             return success
             
@@ -390,19 +389,18 @@ class PatientEmailService:
                 # Send emergency contact notification using Resend service
                 subject = f"You've been added as an emergency contact for {context['patient_name']}"
                 
-                success, error_msg = self.resend_service.send_email(
-                    to_email=contact['email'],
+                success, error_msg = self.email_client.send_email(
                     subject=subject,
-                    html_content=html_content,
-                    text_content=f"You've been added as an emergency contact for {context['patient_name']}. Please contact the healthcare provider for more information.",
-                    tags={'type': 'emergency_contact', 'patient_id': str(patient.id), 'contact_name': contact['name']}
+                    message=f"You've been added as an emergency contact for {context['patient_name']}. Please contact the healthcare provider for more information.",
+                    recipient_list=[contact['email']],
+                    html_message=html_content
                 )
                 
                 if success:
-                    logger.info(f"Emergency contact notification sent to {contact['email']} for patient {patient.id} via Resend")
+                    logger.info(f"Emergency contact notification sent to {contact['email']} for patient {patient.id} via unified email client")
                     success_count += 1
                 else:
-                    logger.error(f"Failed to send emergency contact notification to {contact['email']} for patient {patient.id} via Resend: {error_msg}")
+                    logger.error(f"Failed to send emergency contact notification to {contact['email']} for patient {patient.id} via unified email client: {error_msg}")
             
             return success_count > 0
                 

@@ -245,63 +245,24 @@ def send_appointment_confirmation(appointment_id, patient_email, doctor_email):
 
         from django.conf import settings
         
-        if settings.DEBUG:
-            # Development mode - use Django EmailClient
-            # Send email to patient
-            success, message = email_client.send_appointment_confirmation_email(
-                appointment_data=appointment_data,
-                recipient_email=patient_email,
-                is_patient=True
-            )
-            if not success:
-                logger.error(f"Failed to send confirmation email to patient: {message}")
+        # Use unified email client for both development and production modes
+        # Send email to patient
+        success, message = email_client.send_appointment_confirmation_email(
+            appointment_data=appointment_data,
+            recipient_email=patient_email,
+            is_patient=True
+        )
+        if not success:
+            logger.error(f"Failed to send confirmation email to patient: {message}")
 
-            # Send email to doctor
-            success, message = email_client.send_appointment_confirmation_email(
-                appointment_data=appointment_data,
-                recipient_email=doctor_email,
-                is_patient=False
-            )
-            if not success:
-                logger.error(f"Failed to send confirmation email to doctor: {message}")
-        else:
-            # Production mode - use Resend service
-            from notifications.resend_service import resend_service
-            
-            # Prepare appointment details for Resend service
-            appointment_details = {
-                'id': appointment_data.get('id'),
-                'date': appointment_data.get('appointment_time', '').split(' ')[0] if appointment_data.get('appointment_time') else appointment_data.get('date'),
-                'time': appointment_data.get('appointment_time', '').split(' ')[1] if appointment_data.get('appointment_time') else appointment_data.get('time'),
-                'doctor_name': appointment_data.get('doctor_name'),
-                'appointment_type': appointment_data.get('type', 'Consultation'),
-                'location': appointment_data.get('location') or appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
-                'patient_id': appointment_data.get('patient_id'),
-                'patient_name': appointment_data.get('patient_name', 'Patient'),
-                'patient_phone': appointment_data.get('patient_phone'),
-            }
-            
-            # Get patient and doctor names
-            patient_name = appointment_data.get('patient_name', 'Patient')
-            doctor_name = appointment_data.get('doctor_name', 'Doctor')
-            
-            # Send email to patient
-            success, message = resend_service.send_appointment_confirmation_email(
-                to_email=patient_email,
-                patient_name=patient_name,
-                appointment_details=appointment_details
-            )
-            if not success:
-                logger.error(f"Failed to send confirmation email to patient: {message}")
-
-            # Send email to doctor
-            success, message = resend_service.send_appointment_confirmation_email(
-                to_email=doctor_email,
-                patient_name=doctor_name,
-                appointment_details=appointment_details
-            )
-            if not success:
-                logger.error(f"Failed to send confirmation email to doctor: {message}")
+        # Send email to doctor
+        success, message = email_client.send_appointment_confirmation_email(
+            appointment_data=appointment_data,
+            recipient_email=doctor_email,
+            is_patient=False
+        )
+        if not success:
+            logger.error(f"Failed to send confirmation email to doctor: {message}")
 
         # Send SMS to patient if phone number is available
         if appointment_data.get('patient_phone'):
@@ -335,67 +296,32 @@ def send_appointment_update(appointment_data, update_type, patient_email, doctor
     try:
         from django.conf import settings
         
-        if settings.DEBUG:
-            # Development mode - use Django EmailClient
-            # Send email to patient
-            success, message = email_client.send_appointment_update_email(
-                appointment_data=appointment_data,
-                update_type=update_type,
-                recipient_email=patient_email,
-                is_patient=True
-            )
-            if not success:
-                logger.error(f"Failed to send update email to patient: {message}")
+        # Use unified email client for both development and production modes
+        logger.info(f"Calling send_appointment_update_email with data: {appointment_data}")
+        
+        # Send email to patient
+        result = email_client.send_appointment_update_email(
+            appointment_data=appointment_data,
+            update_type=update_type,
+            recipient_email=patient_email,
+            is_patient=True
+        )
+        logger.info(f"Patient email result type: {type(result)}, value: {result}")
+        success, message = result
+        if not success:
+            logger.error(f"Failed to send update email to patient: {message}")
 
-            # Send email to doctor
-            success, message = email_client.send_appointment_update_email(
-                appointment_data=appointment_data,
-                update_type=update_type,
-                recipient_email=doctor_email,
-                is_patient=False
-            )
-            if not success:
-                logger.error(f"Failed to send update email to doctor: {message}")
-        else:
-            # Production mode - use Resend service
-            from notifications.resend_service import resend_service
-            
-            # Get patient and doctor names
-            patient_name = appointment_data.get('patient_name', 'Patient')
-            doctor_name = appointment_data.get('doctor_name', 'Doctor')
-            
-            # Prepare appointment details for Resend service
-            appointment_details = {
-                'id': appointment_data.get('id'),
-                'date': appointment_data.get('appointment_time', '').split(' ')[0] if appointment_data.get('appointment_time') else appointment_data.get('date'),
-                'time': appointment_data.get('appointment_time', '').split(' ')[1] if appointment_data.get('appointment_time') else appointment_data.get('time'),
-                'doctor_name': appointment_data.get('doctor_name'),
-                'appointment_type': appointment_data.get('type', 'Consultation'),
-                'location': appointment_data.get('location') or appointment_data.get('hospital_name') or 'MediRemind Partner Clinic',
-                'patient_id': appointment_data.get('patient_id'),
-                'patient_name': appointment_data.get('patient_name', 'Patient'),
-                'patient_phone': appointment_data.get('patient_phone'),
-            }
-            
-            # Send email to patient
-            success, message = resend_service.send_appointment_update_email(
-                to_email=patient_email,
-                patient_name=patient_name,
-                appointment_details=appointment_details,
-                update_type=update_type
-            )
-            if not success:
-                logger.error(f"Failed to send update email to patient: {message}")
-
-            # Send email to doctor
-            success, message = resend_service.send_appointment_update_email(
-                to_email=doctor_email,
-                patient_name=doctor_name,
-                appointment_details=appointment_details,
-                update_type=update_type
-            )
-            if not success:
-                logger.error(f"Failed to send update email to doctor: {message}")
+        # Send email to doctor
+        result = email_client.send_appointment_update_email(
+            appointment_data=appointment_data,
+            update_type=update_type,
+            recipient_email=doctor_email,
+            is_patient=False
+        )
+        logger.info(f"Doctor email result type: {type(result)}, value: {result}")
+        success, message = result
+        if not success:
+            logger.error(f"Failed to send update email to doctor: {message}")
 
         # Send SMS to patient if phone number is available
         if appointment_data.get('patient_phone'):
