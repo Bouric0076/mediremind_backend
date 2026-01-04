@@ -883,22 +883,39 @@ class TemplateManager:
             'privacy_url': base_context.links.get('privacy', '#'),
         }
         
+        # Map field names for backward compatibility
+        if base_context.appointment:
+            appointment = dict(base_context.appointment)  # Create a copy to avoid modifying original
+            
+            # Map legacy field names to template manager expected field names
+            if 'date' in appointment and 'appointment_date' not in appointment:
+                appointment['appointment_date'] = appointment['date']
+            if 'time' in appointment and 'start_time' not in appointment:
+                appointment['start_time'] = appointment['time']
+            if 'doctor_name' in appointment and 'provider_name' not in appointment:
+                appointment['provider_name'] = appointment['doctor_name']
+            if 'appointment_type' in appointment and 'appointment_type_name' not in appointment:
+                appointment['appointment_type_name'] = appointment['appointment_type']
+            
+            # Update the context with mapped appointment data
+            context['appointment'] = appointment
+        
         # Add personalization based on recipient preferences
         if base_context.preferences.get('include_weather', False):
-            context['weather_info'] = self._get_weather_info(base_context.appointment.get('location'))
+            context['weather_info'] = self._get_weather_info(context['appointment'].get('location'))
         
         if base_context.preferences.get('include_preparation_tips', True):
             context['preparation_tips'] = self._get_preparation_tips(
-                base_context.appointment.get('type', 'general')
+                context['appointment'].get('type', 'general')
             )
         
         # Add calendar integration links
-        if base_context.appointment:
+        if context['appointment']:
             context['appointment']['calendar_link'] = self._generate_calendar_link(
-                base_context.appointment
+                context['appointment']
             )
             context['appointment']['reschedule_link'] = self._generate_reschedule_link(
-                base_context.appointment.get('id')
+                context['appointment'].get('id')
             )
             
             # Add comprehensive interactive email features
@@ -906,7 +923,7 @@ class TemplateManager:
                 service=self.interactive_service,
                 template_type='appointment',
                 user_id=base_context.recipient_email,
-                resource_id=base_context.appointment.get('id', ''),
+                resource_id=context['appointment'].get('id', ''),
                 **context
             )
             context.update(interactive_context)
@@ -914,13 +931,13 @@ class TemplateManager:
             # Add legacy interactive features for backward compatibility
             if 'interactive_actions' not in context:
                 context['interactive_actions'] = self._generate_interactive_actions(
-                    base_context.appointment, base_context.recipient_type
+                    context['appointment'], base_context.recipient_type
                 )
             
             # Add real-time status updates
             if 'status_update_link' not in context:
                 context['appointment']['status_update_link'] = self._generate_status_update_link(
-                    base_context.appointment.get('id')
+                    context['appointment'].get('id')
                 )
         
         # Add accessibility features if needed

@@ -105,9 +105,9 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                 # Use unified email client
                 from notifications.email_client import email_client
                 success, response_message = email_client.send_appointment_confirmation_email(
-                    to_email=patient_email,
-                    patient_name=patient_name,
-                    appointment_details=appointment_details
+                    appointment_data=appointment_details,
+                    recipient_email=patient_email,
+                    is_patient=True
                 )
             
             if success:
@@ -360,10 +360,10 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     # Use unified email client
                     from notifications.email_client import email_client
                     success, response_message = email_client.send_appointment_update_email(
-                        to_email=patient_email,
-                        patient_name=patient_name,
-                        appointment_details=appointment_details,
-                        update_type='cancellation'
+                        appointment_data=appointment_details,
+                        update_type='cancellation',
+                        recipient_email=patient_email,
+                        is_patient=True
                     )
                 
                 if success:
