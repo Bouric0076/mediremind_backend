@@ -277,10 +277,10 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                     logger.info(f"Converting update_type '{update_type}' to email_update_type '{email_update_type}' for unified email client")
                     
                     success, response_message = email_client.send_appointment_update_email(
-                        to_email=patient_email,
-                        patient_name=patient_name,
-                        appointment_details=appointment_details,
-                        update_type=email_update_type
+                        appointment_data=appointment_details,
+                        update_type=email_update_type,
+                        recipient_email=patient_email,
+                        is_patient=True
                     )
                     
                     # For cancellation and no-show, also send to emergency contact if available
@@ -288,10 +288,10 @@ def send_appointment_notification(appointment_data, action, patient_email, docto
                         emergency_contact_email = appointment_data.get('emergency_contact_email')
                         if emergency_contact_email:
                             emergency_success, emergency_response = email_client.send_appointment_update_email(
-                                to_email=emergency_contact_email,
-                                patient_name=patient_name,
-                                appointment_details=appointment_details,
-                                update_type=email_update_type
+                                appointment_data=appointment_details,
+                                update_type=email_update_type,
+                                recipient_email=emergency_contact_email,
+                                is_patient=False  # Send as provider notification to emergency contact
                             )
                             if emergency_success:
                                 logger.info(f"No-show notification sent to emergency contact {emergency_contact_email}")

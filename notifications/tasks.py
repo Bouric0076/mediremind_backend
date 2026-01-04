@@ -718,10 +718,10 @@ def send_appointment_update_async(
         
         # Send email via unified email client
         success, message = email_client.send_appointment_update_email(
-            to_email=patient_email,
-            patient_name=patient_name,
-            appointment_details=appointment_details,
-            update_type=update_type
+            appointment_data=appointment_details,
+            update_type=update_type,
+            recipient_email=patient_email,
+            is_patient=True
         )
         
         if success:
