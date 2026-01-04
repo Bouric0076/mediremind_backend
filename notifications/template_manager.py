@@ -1677,12 +1677,22 @@ class TemplateManager:
                 fallback_key = f"{template_key}_fallback"
                 if fallback_key in self.template_configs:
                     logger.info(f"Using fallback template: {fallback_key}")
-                    return self.render_template(fallback_key, context)
+                    try:
+                        subject, html_content = self.render_template(fallback_key, context)
+                        return True, subject, html_content
+                    except Exception as e:
+                        logger.error(f"Fallback template rendering failed: {str(e)}")
+                        return False, f"Fallback template rendering failed: {str(e)}", ""
                 else:
                     return False, f"Template validation failed: {missing_fields}", ""
         
         # Proceed with normal rendering
-        return self.render_template(template_key, context)
+        try:
+            subject, html_content = self.render_template(template_key, context)
+            return True, subject, html_content
+        except Exception as e:
+            logger.error(f"Template rendering failed: {str(e)}")
+            return False, f"Template rendering failed: {str(e)}", ""
     
     def _auto_fix_template_context(self, context: TemplateContext, missing_fields: List[str]) -> TemplateContext:
         """Auto-fix common template context issues"""
