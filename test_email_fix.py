@@ -35,6 +35,8 @@ def test_email_sending():
             admin_user = User.objects.create_user(
                 email='admin@mediremind.test',
                 full_name='Admin Test',
+                first_name='Admin',
+                last_name='Test',
                 role='admin',
                 username='admin_test'
             )
@@ -48,6 +50,8 @@ def test_email_sending():
             patient_user = User.objects.create_user(
                 email='bouricenos0@gmail.com',
                 full_name='Test Patient',
+                first_name='Test',
+                last_name='Patient',
                 role='patient',
                 username='bouricenos_test'
             )
@@ -138,6 +142,14 @@ def test_email_sending():
         
         # Test sending confirmation email directly
         appointment_data = reminder_service._prepare_appointment_data(appointment)
+        
+        # Debug: Print the appointment data structure
+        print(f"DEBUG: Appointment data structure:")
+        print(f"  patient_name: {appointment_data.get('patient_name', 'MISSING')}")
+        print(f"  provider_name: {appointment_data.get('provider_name', 'MISSING')}")
+        print(f"  appointment_date: {appointment_data.get('appointment_date', 'MISSING')}")
+        print(f"  location: {appointment_data.get('location', 'MISSING')}")
+        print(f"  hospital_name: {appointment_data.get('hospital_name', 'MISSING')}")
         
         # Import the email client
         from notifications.email_client import EmailClient

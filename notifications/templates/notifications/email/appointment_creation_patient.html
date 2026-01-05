@@ -297,7 +297,7 @@
                 
                 <div class="detail-row">
                     <span class="detail-label">Patient:</span>
-                    <span class="detail-value patient-highlight">{{ appointment.patient.name|default:"Patient Name" }}</span>
+                    <span class="detail-value patient-highlight">{{ recipient_name|default:"Patient Name" }}</span>
                 </div>
                 
                 <div class="detail-row">
@@ -312,7 +312,7 @@
                 
                 <div class="detail-row">
                     <span class="detail-label">Date:</span>
-                    <span class="detail-value">{{ appointment.appointment_date|default:"TBD" }}</span>
+                    <span class="detail-value">{{ appointment.date|default:"TBD" }}</span>
                 </div>
                 
                 <div class="detail-row">

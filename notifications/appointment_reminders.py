@@ -557,9 +557,9 @@ class AppointmentReminderService:
         
         return {
             'appointment_id': str(appointment.id),
-            'patient_name': f"{appointment.patient.user.first_name} {appointment.patient.user.last_name}",
-            'doctor_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",
-            'provider_name': f"{appointment.provider.user.first_name} {appointment.provider.user.last_name}",  # Keep for backward compatibility
+            'patient_name': appointment.patient.user.full_name,
+            'doctor_name': appointment.provider.user.full_name,
+            'provider_name': appointment.provider.user.full_name,  # Keep for backward compatibility
             'appointment_date': appointment.appointment_date.strftime('%Y-%m-%d'),
             'appointment_time': appointment.start_time.strftime('%H:%M'),
             'start_time': appointment_datetime,
@@ -567,6 +567,8 @@ class AppointmentReminderService:
             'appointment_type': appointment.appointment_type.name,
             'duration': appointment.duration,
             'location': location,
+            'hospital_name': appointment.hospital.name if appointment.hospital else 'MediRemind Partner Clinic',
+            'hospital_name': appointment.hospital.name if appointment.hospital else 'MediRemind Partner Clinic',
             'notes': appointment.notes or '',
             'status': appointment.status,
             'formatted_datetime': f"{appointment.appointment_date.strftime('%A, %B %d, %Y')} at {appointment.start_time.strftime('%I:%M %p')}"
