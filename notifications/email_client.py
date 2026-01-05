@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
 from email.mime.text import MIMEText
@@ -202,8 +203,7 @@ class EmailClient:
         except Exception as e:
             logger.error(f"Failed to log email notification: {str(e)}")
     
-    @staticmethod
-    def send_appointment_confirmation_email(appointment_data: Dict[str, Any], recipient_email: str, 
+    def send_appointment_confirmation_email(self, appointment_data: Dict[str, Any], recipient_email: str, 
                                           is_patient: bool = True, user_preferences: Dict[str, Any] = None,
                                           additional_links: Dict[str, str] = None) -> Tuple[bool, str]:
         """
@@ -305,7 +305,7 @@ class EmailClient:
                 return False, f"Template rendering error: {str(e)}"
             
             logger.info(f"About to call send_email from send_appointment_update_email")
-            result = email_client.send_email(
+            result = self.send_email(
                 subject=subject,
                 message=strip_tags(html_message),
                 recipient_list=[recipient_email],
@@ -328,8 +328,7 @@ class EmailClient:
             logger.error(error_msg)
             return False, error_msg
     
-    @staticmethod
-    def send_appointment_confirmation_email_legacy(appointment_data, recipient_email, is_patient=True):
+    def send_appointment_confirmation_email_legacy(self, appointment_data, recipient_email, is_patient=True):
         """Legacy method for backward compatibility"""
         try:
             # Ensure appointment_data is a dict
@@ -350,6 +349,141 @@ class EmailClient:
         except Exception as e:
             logger.error(f"Error in send_appointment_confirmation_email_legacy: {str(e)}")
             return False, f"Error processing appointment data: {str(e)}"
+
+    def send_appointment_update_email(self, appointment_data: Dict[str, Any], update_type: str, 
+                                     recipient_email: str, is_patient: bool = True, 
+                                     user_preferences: Dict[str, Any] = None,
+                                     additional_links: Dict[str, str] = None) -> Tuple[bool, str]:
+        """
+        Send appointment update email based on update type
+        
+        Args:
+            appointment_data: Dictionary containing appointment information
+            update_type: Type of update ('created', 'rescheduled', 'cancellation', 'no-show')
+            recipient_email: Email address of the recipient
+            is_patient: Whether the recipient is a patient (True) or provider (False)
+            
+        Returns:
+            Tuple[bool, str]: Success status and message
+        """
+        try:
+            logger.info(f"Sending appointment {update_type} email to {recipient_email}")
+            
+            # Initialize template manager and error handler
+            template_manager = TemplateManager()
+            notification_error_handler = NotificationErrorHandler()
+            
+            # Map update types to appropriate templates
+            if update_type == 'created':
+                template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
+            elif update_type == 'rescheduled':
+                template_key = "appointment_reschedule_patient" if is_patient else "appointment_reschedule_doctor"
+            elif update_type == 'cancellation':
+                template_key = "appointment_cancellation_patient" if is_patient else "appointment_cancellation_doctor"
+            elif update_type == 'no-show':
+                # Use no-show alert template for doctors, confirmation for patients
+                template_key = "appointment_confirmation_patient" if is_patient else "patient_noshow_alert_doctor"
+            else:
+                logger.warning(f"Unknown update type: {update_type}. Using default confirmation template.")
+                template_key = "appointment_confirmation_patient" if is_patient else "appointment_confirmation_doctor"
+            
+            # Ensure appointment_data is a dict
+            if isinstance(appointment_data, str):
+                try:
+                    appointment_data = json.loads(appointment_data)
+                except Exception as e:
+                    logger.error(f"Failed to parse appointment_data string: {str(e)}")
+                    return False, f"Invalid appointment data format: {str(e)}"
+            
+            # Create structured appointment data for template rendering
+            structured_appointment = {
+                'id': appointment_data.get('appointment_id'),
+                'date': appointment_data.get('appointment_date'),
+                'appointment_date': appointment_data.get('appointment_date'),
+                'time': appointment_data.get('appointment_time'),
+                'start_time': appointment_data.get('start_time'),
+                'end_time': appointment_data.get('end_time'),
+                'duration': appointment_data.get('duration'),
+                'location': appointment_data.get('location'),
+                'notes': appointment_data.get('notes'),
+                'status': appointment_data.get('status'),
+                'formatted_datetime': appointment_data.get('formatted_datetime'),
+                'calendar_link': appointment_data.get('calendar_link'),
+                'patient': {
+                    'name': appointment_data.get('patient_name') or appointment_data.get('patient', {}).get('name', 'Patient'),
+                    'email': appointment_data.get('patient_email') or appointment_data.get('patient', {}).get('email', recipient_email if is_patient else 'patient@example.com'),
+                    'id': appointment_data.get('patient_id') or appointment_data.get('patient', {}).get('id')
+                },
+                'provider': {
+                    'name': appointment_data.get('provider_name') or appointment_data.get('provider', {}).get('name', 'Dr. Smith'),
+                    'email': appointment_data.get('provider_email') or appointment_data.get('provider', {}).get('email', recipient_email if not is_patient else 'doctor@example.com'),
+                    'id': appointment_data.get('provider_id') or appointment_data.get('provider', {}).get('id'),
+                    'specialization': appointment_data.get('provider_specialization') or appointment_data.get('provider', {}).get('specialization', 'General Practice')
+                },
+                'appointment_type': {
+                    'name': appointment_data.get('appointment_type_name') or appointment_data.get('appointment_type', 'Consultation')
+                },
+                'hospital': {
+                    'name': appointment_data.get('hospital_name') or appointment_data.get('hospital', {}).get('name') or appointment_data.get('hospital_info', {}).get('name') or 'MediRemind Partner Clinic'
+                },
+                'room': {
+                    'name': appointment_data.get('room_name') or appointment_data.get('room', 'Room 1')
+                },
+                'preparation_instructions': appointment_data.get('preparation_instructions', 'Follow any instructions provided by your doctor')
+            }
+            
+            # Prepare template context with proper structure
+            context = TemplateContext(
+                recipient_name=structured_appointment['patient']['name'] if is_patient else structured_appointment['provider']['name'],
+                recipient_email=recipient_email,
+                recipient_type=RecipientType.PATIENT if is_patient else RecipientType.PROVIDER,
+                appointment=structured_appointment,
+                preferences=user_preferences or {},
+                links=additional_links or {}
+            )
+            
+            # Render the template
+            rendered_content = template_manager.render_template(template_key, context)
+            
+            if not rendered_content:
+                error_msg = f"Failed to render template: {template_key}"
+                logger.error(error_msg)
+                return False, error_msg
+            
+            # Extract subject from rendered content
+            subject_match = re.search(r'<title>(.*?)</title>', rendered_content, re.IGNORECASE | re.DOTALL)
+            subject = subject_match.group(1).strip() if subject_match else f"Appointment {update_type.title()} - MediRemind"
+            
+            # Send the email
+            success, message = self.send_email(
+                subject=subject,
+                message=rendered_content,
+                recipient_list=[recipient_email],
+                html_message=rendered_content
+            )
+            
+            if success:
+                logger.info(f"Appointment {update_type} email sent successfully to {recipient_email}")
+                self._log_email_notification(
+                    recipient_email=recipient_email,
+                    subject=subject,
+                    status=NotificationStatus.SENT,
+                    response_id=message
+                )
+                return True, f"Appointment {update_type} email sent successfully"
+            else:
+                logger.error(f"Failed to send appointment {update_type} email: {message}")
+                self._log_email_notification(
+                    recipient_email=recipient_email,
+                    subject=subject,
+                    status=NotificationStatus.FAILED,
+                    error_message=message
+                )
+                return False, f"Failed to send appointment {update_type} email: {message}"
+                
+        except Exception as e:
+            logger.error(f"Error in send_appointment_update_email: {str(e)}")
+            return False, f"Error sending appointment update email: {str(e)}"
 
 # Create a global email client instance
 email_client = EmailClient()
