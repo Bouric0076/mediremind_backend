@@ -119,7 +119,7 @@ class TemplateManager:
             "appointment_confirmation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CONFIRMATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="Appointment Confirmation - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                subject_template="Appointment Confirmation - {{ appointment.date }} with {{ appointment.provider.name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -155,7 +155,7 @@ class TemplateManager:
             "appointment_creation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CREATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="Appointment Created - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                subject_template="Appointment Created - {{ appointment.date }} with {{ appointment.provider.name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -163,7 +163,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                required_fields=["recipient_name", "appointment.provider.name", "appointment.date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -191,7 +191,7 @@ class TemplateManager:
             "appointment_reschedule_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_RESCHEDULE,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="Appointment Rescheduled - New time: {{ appointment.appointment_date }} at {{ appointment.start_time }}",
+                subject_template="Appointment Rescheduled - New time: {{ appointment.date }} at {{ appointment.start_time }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -199,7 +199,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                required_fields=["recipient_name", "appointment.provider.name", "appointment.date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -209,7 +209,7 @@ class TemplateManager:
             "appointment_cancellation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CANCELLATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="Appointment Cancellation - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                subject_template="Appointment Cancellation - {{ appointment.date }} with {{ appointment.provider.name }}",
                 variants=[
                     TemplateVariant(
                         name="enhanced_v1",
@@ -217,7 +217,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                required_fields=["recipient_name", "appointment.provider.name", "appointment.date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -891,7 +891,7 @@ class TemplateManager:
             "appointment_creation_patient": TemplateConfig(
                 template_type=TemplateType.APPOINTMENT_CREATION,
                 recipient_type=RecipientType.PATIENT,
-                subject_template="Appointment Created - {{ appointment.appointment_date }} with {{ appointment.provider_name }}",
+                subject_template="Appointment Created - {{ appointment.date }} with {{ appointment.provider.name }}",
                 variants=[
                     TemplateVariant(
                         name="creation_v1",
@@ -899,7 +899,7 @@ class TemplateManager:
                         weight=1.0
                     )
                 ],
-                required_fields=["recipient_name", "appointment.provider_name", "appointment.appointment_date", "appointment.start_time"],
+                required_fields=["recipient_name", "appointment.provider.name", "appointment.date", "appointment.start_time"],
                 accessibility_features={
                     "high_contrast": True,
                     "screen_reader_optimized": True,
@@ -1246,7 +1246,7 @@ class TemplateManager:
             if config.performance_tracking:
                 self._track_template_usage(template_key, variant.name)
             
-            return subject, html_content
+            return True, subject, html_content
             
         except Exception as e:
             logger.error(f"Error rendering template {template_type_or_key}: {str(e)}")
@@ -1677,22 +1677,12 @@ class TemplateManager:
                 fallback_key = f"{template_key}_fallback"
                 if fallback_key in self.template_configs:
                     logger.info(f"Using fallback template: {fallback_key}")
-                    try:
-                        subject, html_content = self.render_template(fallback_key, context)
-                        return True, subject, html_content
-                    except Exception as e:
-                        logger.error(f"Fallback template rendering failed: {str(e)}")
-                        return False, f"Fallback template rendering failed: {str(e)}", ""
+                    return self.render_template(fallback_key, context)
                 else:
                     return False, f"Template validation failed: {missing_fields}", ""
         
         # Proceed with normal rendering
-        try:
-            subject, html_content = self.render_template(template_key, context)
-            return True, subject, html_content
-        except Exception as e:
-            logger.error(f"Template rendering failed: {str(e)}")
-            return False, f"Template rendering failed: {str(e)}", ""
+        return self.render_template(template_key, context)
     
     def _auto_fix_template_context(self, context: TemplateContext, missing_fields: List[str]) -> TemplateContext:
         """Auto-fix common template context issues"""

@@ -2,7 +2,17 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 import uuid
+from enum import Enum
 from notifications.dead_letter_queue import EnhancedRetryMixin
+
+class NotificationStatus(Enum):
+    """Enum for notification status values"""
+    SENT = 'sent'
+    FAILED = 'failed'
+    BOUNCED = 'bounced'
+    DELIVERED = 'delivered'
+    OPENED = 'opened'
+    CLICKED = 'clicked'
 
 class PushSubscription(models.Model):
     """Model to store web push subscriptions"""

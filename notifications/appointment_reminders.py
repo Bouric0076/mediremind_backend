@@ -245,7 +245,6 @@ class AppointmentReminderService:
         try:
             # Allow email notifications in Render environment now that Resend is configured
             template_name = self._get_email_template_name(reminder_type)
-            subject = self._get_email_subject(reminder_type, appointment_data)
             
             success, response_message = email_client.send_appointment_confirmation_email(
                 appointment_data=appointment_data,
@@ -380,7 +379,6 @@ class AppointmentReminderService:
         """Send email notification to emergency contact"""
         try:
             template_name = f"emergency_contact_{self._get_email_template_name(reminder_type)}"
-            subject = f"[Emergency Contact] {self._get_email_subject(reminder_type, appointment_data)}"
             
             email_client.send_appointment_confirmation_email(
                 appointment_data=appointment_data,
@@ -587,18 +585,7 @@ class AppointmentReminderService:
         }
         return template_map.get(reminder_type, 'appointment_reminder')
     
-    def _get_email_subject(self, reminder_type: ReminderType, appointment_data: Dict) -> str:
-        """Get email subject for reminder type"""
-        subject_map = {
-            ReminderType.CONFIRMATION: f"Appointment Confirmed - {appointment_data['formatted_datetime']}",
-            ReminderType.REMINDER_24H: f"Appointment Reminder - Tomorrow at {appointment_data['appointment_time']}",
-            ReminderType.REMINDER_2H: f"Appointment Reminder - In 2 Hours",
-            ReminderType.REMINDER_30M: f"Appointment Reminder - In 30 Minutes",
-            ReminderType.FOLLOW_UP: f"Follow-up: Your Recent Appointment",
-            ReminderType.CANCELLATION: f"Appointment Cancelled - {appointment_data['formatted_datetime']}",
-            ReminderType.RESCHEDULING: f"Appointment Rescheduled - New Time: {appointment_data['formatted_datetime']}"
-        }
-        return subject_map.get(reminder_type, "Appointment Notification")
+
     
     def _get_sms_message(self, reminder_type: ReminderType, appointment_data: Dict) -> str:
         """Get SMS message for reminder type"""
